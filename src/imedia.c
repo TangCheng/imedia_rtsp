@@ -39,8 +39,14 @@ static void ipcam_imedia_in_loop(IpcamIMedia *imedia);
 static void message_handler(GObject *obj, IpcamMessage* msg, gboolean timeout);
 static void ipcam_imedia_query_osd_parameter(IpcamIMedia *imedia);
 static void ipcam_imedia_query_baseinfo_parameter(IpcamIMedia *imedia);
-static void ipcam_imedia_got_osd_parameter(IpcamIMedia *imedia, IpcamResponseMessage *res_msg);
-static void ipcam_imedia_got_baseinfo_parameter(IpcamIMedia *imedia, IpcamResponseMessage *res_msg);
+static void ipcam_imedia_request_users(IpcamIMedia *imedia);
+static void ipcam_imedia_request_rtsp_port(IpcamIMedia *imedia);
+static void ipcam_imedia_query_rtsp_auth(IpcamIMedia *imedia);
+static void ipcam_imedia_got_osd_parameter(IpcamIMedia *imedia, JsonNode *body);
+static void ipcam_imedia_got_baseinfo_parameter(IpcamIMedia *imedia, JsonNode *body);
+static void ipcam_imedia_set_users(IpcamIMedia *imedia, JsonNode *body);
+static void ipcam_imedia_set_rtsp_port(IpcamIMedia *imedia, JsonNode *body);
+static void ipcam_imedia_set_rtsp_auth(IpcamIMedia *imedia, JsonNode *body);
 static void ipcam_imedia_osd_display_video_data(GObject *obj);
 
 static void ipcam_imedia_finalize(GObject *object)
@@ -84,6 +90,9 @@ static void ipcam_imedia_before(IpcamIMedia *imedia)
     priv->osd = g_object_new(IPCAM_MEDIA_OSD_TYPE, NULL);
     ipcam_imedia_query_osd_parameter(imedia);
     ipcam_imedia_query_baseinfo_parameter(imedia);
+    ipcam_imedia_request_users(imedia);
+    ipcam_imedia_request_rtsp_port(imedia);
+    ipcam_imedia_query_rtsp_auth(imedia);
     ipcam_base_app_add_timer(IPCAM_BASE_APP(imedia), "osd_display_video_data", "1", ipcam_imedia_osd_display_video_data);
     priv->rtsp = g_object_new(IPCAM_TYPE_RTSP, NULL);
 }
@@ -117,14 +126,29 @@ static void message_handler(GObject *obj, IpcamMessage* msg, gboolean timeout)
         gchar *action = NULL;
         g_object_get(res_msg, "action", &action, NULL);
         g_return_if_fail((NULL != action));
+        JsonNode *body = NULL;
+        g_object_get(res_msg, "body", &body, NULL);
+        g_return_if_fail((NULL != body));
 
         if (g_str_equal(action, "get_osd"))
         {
-            ipcam_imedia_got_osd_parameter(IPCAM_IMEDIA(obj), res_msg);
+            ipcam_imedia_got_osd_parameter(IPCAM_IMEDIA(obj), body);
         }
         else if (g_str_equal(action, "get_base_info"))
         {
-            ipcam_imedia_got_baseinfo_parameter(IPCAM_IMEDIA(obj), res_msg);
+            ipcam_imedia_got_baseinfo_parameter(IPCAM_IMEDIA(obj), body);
+        }
+        else if (g_str_equal("get_network", action))
+        {
+            ipcam_imedia_set_rtsp_port(IPCAM_IMEDIA(obj), body);
+        }
+        else if (g_str_equal("get_users", action))
+        {
+            ipcam_imedia_set_users(IPCAM_IMEDIA(obj), body);
+        }
+        else if (g_str_equal("get_misc", action))
+        {
+            ipcam_imedia_set_rtsp_auth(IPCAM_IMEDIA(obj), body);
         }
         else
         {
@@ -132,10 +156,18 @@ static void message_handler(GObject *obj, IpcamMessage* msg, gboolean timeout)
         }
     }
 }
+static void ipcam_imedia_query_param(IpcamIMedia *imedia, IpcamRequestMessage *rq_msg, JsonBuilder *builder)
+{
+    gchar *token = (gchar *)ipcam_base_app_get_config(IPCAM_BASE_APP(imedia), "token");
+    JsonNode *body = json_builder_get_root(builder);
+    g_object_set(G_OBJECT(rq_msg), "body", body, NULL);
+    ipcam_base_app_send_message(IPCAM_BASE_APP(imedia), IPCAM_MESSAGE(rq_msg), "iconfig", token,
+                                message_handler, 10);
+}
 static void ipcam_imedia_query_osd_parameter(IpcamIMedia *imedia)
 {
-    gchar *token = ipcam_base_app_get_config(IPCAM_BASE_APP(imedia), "token");
-    IpcamRequestMessage *rq_msg = g_object_new(IPCAM_REQUEST_MESSAGE_TYPE, "action", "get_osd", NULL);
+    IpcamRequestMessage *rq_msg = g_object_new(IPCAM_REQUEST_MESSAGE_TYPE,
+                                               "action", "get_osd", NULL);
     
     JsonBuilder *builder = json_builder_new();
     json_builder_begin_object(builder);
@@ -154,17 +186,14 @@ static void ipcam_imedia_query_osd_parameter(IpcamIMedia *imedia)
     json_builder_end_array(builder);
     json_builder_end_object(builder);
     
-    JsonNode *body = json_builder_get_root(builder);
-    g_object_set(G_OBJECT(rq_msg), "body", body, NULL);
-    ipcam_base_app_send_message(IPCAM_BASE_APP(imedia), IPCAM_MESSAGE(rq_msg), "iconfig", token,
-                                message_handler, 10);
+    ipcam_imedia_query_param(imedia, rq_msg, builder);
     g_object_unref(rq_msg);
     g_object_unref(builder);
 }
 static void ipcam_imedia_query_baseinfo_parameter(IpcamIMedia *imedia)
 {
-    gchar *token = ipcam_base_app_get_config(IPCAM_BASE_APP(imedia), "token");
-    IpcamRequestMessage *rq_msg = g_object_new(IPCAM_REQUEST_MESSAGE_TYPE, "action", "get_base_info", NULL);
+    IpcamRequestMessage *rq_msg = g_object_new(IPCAM_REQUEST_MESSAGE_TYPE,
+                                               "action", "get_base_info", NULL);
     JsonBuilder *builder = json_builder_new();
     json_builder_begin_object(builder);
     json_builder_set_member_name(builder, "items");
@@ -173,10 +202,57 @@ static void ipcam_imedia_query_baseinfo_parameter(IpcamIMedia *imedia)
     json_builder_add_string_value(builder, "comment");
     json_builder_end_array(builder);
     json_builder_end_object(builder);
-    JsonNode *body = json_builder_get_root(builder);
-    g_object_set(G_OBJECT(rq_msg), "body", body, NULL);
-    ipcam_base_app_send_message(IPCAM_BASE_APP(imedia), IPCAM_MESSAGE(rq_msg), "iconfig", token,
-                                message_handler, 10);
+
+    ipcam_imedia_query_param(imedia, rq_msg, builder);
+    g_object_unref(rq_msg);
+    g_object_unref(builder);
+}
+static void ipcam_imedia_request_users(IpcamIMedia *imedia)
+{
+    IpcamRequestMessage *rq_msg = g_object_new(IPCAM_REQUEST_MESSAGE_TYPE,
+                                              "action", "get_users", NULL);
+    JsonBuilder *builder = json_builder_new();
+    json_builder_begin_object(builder);
+    json_builder_set_member_name(builder, "items");
+    json_builder_begin_array(builder);
+    json_builder_add_string_value(builder, "password");
+    json_builder_end_array(builder);
+    json_builder_end_object(builder);
+
+    ipcam_imedia_query_param(imedia, rq_msg, builder);
+    g_object_unref(rq_msg);
+    g_object_unref(builder);
+}
+
+static void ipcam_imedia_request_rtsp_port(IpcamIMedia *imedia)
+{
+    IpcamRequestMessage *rq_msg = g_object_new(IPCAM_REQUEST_MESSAGE_TYPE,
+                                              "action", "get_network", NULL);
+    JsonBuilder *builder = json_builder_new();
+    json_builder_begin_object(builder);
+    json_builder_set_member_name(builder, "items");
+    json_builder_begin_array(builder);
+    json_builder_add_string_value(builder, "port");
+    json_builder_end_array(builder);
+    json_builder_end_object(builder);
+
+    ipcam_imedia_query_param(imedia, rq_msg, builder);
+    g_object_unref(rq_msg);
+    g_object_unref(builder);
+}
+static void ipcam_imedia_query_rtsp_auth(IpcamIMedia *imedia)
+{
+    IpcamRequestMessage *rq_msg = g_object_new(IPCAM_REQUEST_MESSAGE_TYPE,
+                                              "action", "get_misc", NULL);
+    JsonBuilder *builder = json_builder_new();
+    json_builder_begin_object(builder);
+    json_builder_set_member_name(builder, "items");
+    json_builder_begin_array(builder);
+    json_builder_add_string_value(builder, "rtsp_auth");
+    json_builder_end_array(builder);
+    json_builder_end_object(builder);
+
+    ipcam_imedia_query_param(imedia, rq_msg, builder);
     g_object_unref(rq_msg);
     g_object_unref(builder);
 }
@@ -212,11 +288,10 @@ static IPCAM_OSD_TYPE ipcam_imedia_parse_osd_type(IpcamIMedia *imedia, const gch
     return type;
 }
 
-static void ipcam_imedia_got_osd_parameter(IpcamIMedia *imedia, IpcamResponseMessage *res_msg)
+static void ipcam_imedia_got_osd_parameter(IpcamIMedia *imedia, JsonNode *body)
 {
     IpcamIMediaPrivate *priv = ipcam_imedia_get_instance_private(imedia);
     IpcamOSDParameter parameter;
-    JsonNode *body = NULL;
     JsonObject *profile_object;
     JsonObject *osd_object;
     JsonObject *res_object;
@@ -226,7 +301,6 @@ static void ipcam_imedia_got_osd_parameter(IpcamIMedia *imedia, IpcamResponseMes
     const char *key[] = {"master", "slave"};
     gint i = 0;
 
-    g_object_get(res_msg, "body", &body, NULL);
     res_object = json_object_get_object_member(json_node_get_object(body), "items");
 
     for (i = 0; i < ARRAY_SIZE(key); i++)
@@ -262,13 +336,11 @@ static void ipcam_imedia_got_osd_parameter(IpcamIMedia *imedia, IpcamResponseMes
         }
     }
 }
-static void ipcam_imedia_got_baseinfo_parameter(IpcamIMedia *imedia, IpcamResponseMessage *res_msg)
+static void ipcam_imedia_got_baseinfo_parameter(IpcamIMedia *imedia, JsonNode *body)
 {
     IpcamIMediaPrivate *priv = ipcam_imedia_get_instance_private(imedia);
-    JsonNode *body = NULL;
     JsonObject *res_object;
     
-    g_object_get(res_msg, "body", &body, NULL);
     res_object = json_object_get_object_member(json_node_get_object(body), "items");
 
     const gchar *device_name = NULL;
@@ -286,6 +358,42 @@ static void ipcam_imedia_got_baseinfo_parameter(IpcamIMedia *imedia, IpcamRespon
         ipcam_iosd_set_content(priv->osd, IPCAM_OSD_TYPE_COMMENT, comment);
     }
 }
+
+
+static void ipcam_imedia_set_rtsp_port(IpcamIMedia *imedia, JsonNode *body)
+{
+    JsonObject *items = json_object_get_object_member(json_node_get_object(body), "items");
+    JsonObject *server_port = json_object_get_object_member(items, "port");
+    const guint rtsp_port = json_object_get_int_member(server_port, "rtsp");
+    g_print("rtsp_port = %u\n", rtsp_port);
+    IpcamIMediaPrivate *priv = ipcam_imedia_get_instance_private(imedia);
+    ipcam_rtsp_set_port(priv->rtsp, rtsp_port);
+}
+
+static void proc_each_user(JsonArray *array, guint index_, JsonNode *element_node, gpointer user_data)
+{
+    const gchar *username = json_object_get_string_member(json_node_get_object(element_node), "username");
+    const gchar *password = json_object_get_string_member(json_node_get_object(element_node), "password");
+    g_print("username = %s\npassword = %s\n", username, password);
+    IpcamIMediaPrivate *priv = ipcam_imedia_get_instance_private(IPCAM_IMEDIA(user_data));
+    ipcam_rtsp_insert_user(priv->rtsp, username, password);
+}
+
+static void ipcam_imedia_set_users(IpcamIMedia *irtsp, JsonNode *body)
+{
+    JsonArray *users = json_object_get_array_member(json_node_get_object(body), "items");
+    json_array_foreach_element(users, proc_each_user, irtsp);
+}
+
+static void ipcam_imedia_set_rtsp_auth(IpcamIMedia *imedia, JsonNode *body)
+{
+    JsonObject *res_obj = json_object_get_object_member(json_node_get_object(body), "items");
+    gboolean rtsp_auth = json_object_get_boolean_member(res_obj, "rtsp_auth");
+    g_print("rtsp_auth = %d\n", rtsp_auth);
+    IpcamIMediaPrivate *priv = ipcam_imedia_get_instance_private(imedia);
+    ipcam_rtsp_set_auth(priv->rtsp, rtsp_auth);
+}
+
 static void ipcam_imedia_osd_int_to_string(IpcamIMedia *imedia,
                                            gint val,
                                            gchar **string,

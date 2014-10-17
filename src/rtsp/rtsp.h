@@ -24,5 +24,8 @@ struct _IpcamRtspClass
 };
 
 GType ipcam_rtsp_get_type(void);
+void ipcam_rtsp_set_port(IpcamRtsp *rtsp, guint port);
+void ipcam_rtsp_insert_user(IpcamRtsp *rtsp, const gchar *username, const gchar *password);
+void ipcam_rtsp_set_auth(IpcamRtsp *rtsp, gboolean auth);
 
 #endif /* __RTSP_H__ */
