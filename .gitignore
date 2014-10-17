@@ -1,0 +1,15 @@
+*.anjuta*
+build*
+*.*~
+*.in
+*.cache
+INSTALL
+aclocal.m4
+compile
+config.guess
+config.sub
+configure
+depcomp
+install-sh
+ltmain.sh
+missing

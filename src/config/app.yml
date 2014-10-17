@@ -1,0 +1,7 @@
+token: imedia_rtsp_token
+bind:
+  imedia_rtsp: tcp://127.0.0.1:4000
+connect:
+  iconfig: tcp://127.0.0.1:3000
+subscribe:
+  iconfig_pub: tcp://127.0.0.1:3010
