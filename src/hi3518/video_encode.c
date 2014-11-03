@@ -2,7 +2,6 @@
 #include <hi_comm_venc.h>
 #include <mpi_venc.h>
 #include <memory.h>
-#include "stream_descriptor.h"
 #include "video_encode.h"
 
 enum
@@ -26,8 +25,8 @@ static GParamSpec *obj_properties[N_PROPERTIES] = {NULL, };
 static void ipcam_video_encode_init(IpcamVideoEncode *self)
 {
 	IpcamVideoEncodePrivate *priv = ipcam_video_encode_get_instance_private(self);
-    priv->image_width = IMAGE_WIDTH;
-    priv->image_height = IMAGE_HEIGHT;
+    priv->image_width = IMAGE_MAX_WIDTH;
+    priv->image_height = IMAGE_MAX_HEIGHT;
 }
 static void ipcam_video_encode_get_property(GObject    *object,
                                             guint       property_id,
@@ -87,23 +86,23 @@ static void ipcam_video_encode_class_init(IpcamVideoEncodeClass *klass)
         g_param_spec_uint("width",
                           "Image width",
                           "set video input unit image width.",
-                          640, // min value
-                          IMAGE_WIDTH, // max value
-                          IMAGE_WIDTH, // default value
+                          352, // min value
+                          IMAGE_MAX_WIDTH, // max value
+                          IMAGE_MAX_WIDTH, // default value
                           G_PARAM_READWRITE);
     obj_properties[PROP_IMAGE_HEIGHT] =
         g_param_spec_uint("height",
                           "Image height",
                           "set video input unit image height.",
-                          480, // min value
-                          IMAGE_HEIGHT, // max value
-                          IMAGE_HEIGHT, // default value
+                          288, // min value
+                          IMAGE_MAX_HEIGHT, // max value
+                          IMAGE_MAX_HEIGHT, // default value
                           G_PARAM_READWRITE);
 
     g_object_class_install_properties(object_class, N_PROPERTIES, obj_properties);
 }
 
-gint32 ipcam_video_encode_start(IpcamVideoEncode *self)
+gint32 ipcam_video_encode_start(IpcamVideoEncode *self, StreamDescriptor desc[])
 {
     g_return_val_if_fail(IPCAM_IS_VIDEO_ENCODE(self), HI_FAILURE);
     HI_S32 s32Ret;
@@ -111,65 +110,92 @@ gint32 ipcam_video_encode_start(IpcamVideoEncode *self)
     VENC_CHN VeChn = 0;
     VENC_CHN_ATTR_S stAttr;
     IpcamVideoEncodePrivate *priv = ipcam_video_encode_get_instance_private(self);
+    HI_S32 chn;
+    guint image_width;
+    guint image_height;
     
-    /* set h264 chnnel video encode attribute */
-    memset(&stAttr, 0, sizeof(VENC_CHN_ATTR_S));
-    stAttr.stVeAttr.enType = PT_H264;
-    stAttr.stVeAttr.stAttrH264e.u32PicWidth = priv->image_width;
-    stAttr.stVeAttr.stAttrH264e.u32PicHeight = priv->image_height;
-    stAttr.stVeAttr.stAttrH264e.u32MaxPicWidth = priv->image_width;
-    stAttr.stVeAttr.stAttrH264e.u32MaxPicHeight = priv->image_height;
-    stAttr.stVeAttr.stAttrH264e.u32Profile = 0;
-    stAttr.stVeAttr.stAttrH264e.u32BufSize  = priv->image_width * priv->image_height * 2;/*stream buffer size*/
-    stAttr.stVeAttr.stAttrH264e.u32Profile  = 0;/*0: baseline; 1:MP; 2:HP   ? */
-    stAttr.stVeAttr.stAttrH264e.bByFrame = HI_FALSE;/*get stream mode is slice mode or frame mode?*/
-    stAttr.stVeAttr.stAttrH264e.bField = HI_FALSE;  /* surpport frame code only for hi3516, bfield = HI_FALSE */
-    stAttr.stVeAttr.stAttrH264e.bMainStream = HI_TRUE; /* surpport main stream only for hi3516, bMainStream = HI_TRUE */
-    stAttr.stVeAttr.stAttrH264e.u32Priority = 0; /*channels precedence level. invalidate for hi3516*/
-    stAttr.stVeAttr.stAttrH264e.bVIField = HI_FALSE;/*the sign of the VI picture is field or frame. Invalidate for hi3516*/
-    // omit other video encode assignments here.
-    /* set h264 chnnel rate control attribute */
-    stAttr.stRcAttr.enRcMode = VENC_RC_MODE_H264VBR;
-    /*
-    stAttr.stRcAttr.stAttrH264Cbr.u32BitRate = 2.5 * 1024;
-    stAttr.stRcAttr.stAttrH264Cbr.fr32TargetFrmRate = 30;
-    stAttr.stRcAttr.stAttrH264Cbr.u32ViFrmRate = 30;
-    stAttr.stRcAttr.stAttrH264Cbr.u32Gop = 30;
-    stAttr.stRcAttr.stAttrH264Cbr.u32FluctuateLevel = 0;
-    stAttr.stRcAttr.stAttrH264Cbr.u32StatTime = 1;
-    */
-    stAttr.stRcAttr.stAttrH264Vbr.u32MaxBitRate = 4 * 1024;
-    stAttr.stRcAttr.stAttrH264Vbr.fr32TargetFrmRate = 25;
-    stAttr.stRcAttr.stAttrH264Vbr.u32ViFrmRate = 30;
-    stAttr.stRcAttr.stAttrH264Vbr.u32Gop = 30;
-    stAttr.stRcAttr.stAttrH264Vbr.u32MinQp = 0;
-    stAttr.stRcAttr.stAttrH264Vbr.u32MaxQp = 51;
-    stAttr.stRcAttr.stAttrH264Vbr.u32StatTime = 1;
-    // omit other rate control assignments here.
-    s32Ret = HI_MPI_VENC_CreateGroup(VeGroup);
-    if (HI_SUCCESS != s32Ret)
+    for (chn = MASTER_CHN; chn < STREAM_CHN_LAST; chn++)
     {
-        g_critical("HI_MPI_VENC_CreateGroup err 0x%x\n",s32Ret);
-        return HI_FAILURE;
+        /* set h264 chnnel video encode attribute */
+        memset(&stAttr, 0, sizeof(VENC_CHN_ATTR_S));
+        if (desc[chn].v_desc.format == VIDEO_FORMAT_H264)
+        {
+            stAttr.stVeAttr.enType = PT_H264;
+        }
+        else
+        {
+            g_warn_if_reached();
+        }
+        image_width = desc[chn].v_desc.image_width;
+        image_height = desc[chn].v_desc.image_height;
+        stAttr.stVeAttr.stAttrH264e.u32PicWidth = image_width;
+        stAttr.stVeAttr.stAttrH264e.u32PicHeight = image_height;
+        stAttr.stVeAttr.stAttrH264e.u32MaxPicWidth = IMAGE_MAX_WIDTH;
+        stAttr.stVeAttr.stAttrH264e.u32MaxPicHeight = IMAGE_MAX_HEIGHT;
+        stAttr.stVeAttr.stAttrH264e.u32Profile = desc[chn].v_desc.profile;
+        stAttr.stVeAttr.stAttrH264e.u32BufSize  = IMAGE_MAX_WIDTH * IMAGE_MAX_HEIGHT * 2;/*stream buffer size*/
+        stAttr.stVeAttr.stAttrH264e.bByFrame = HI_FALSE;/*get stream mode is slice mode or frame mode?*/
+        stAttr.stVeAttr.stAttrH264e.bField = HI_FALSE;  /* surpport frame code only for hi3516, bfield = HI_FALSE */
+        stAttr.stVeAttr.stAttrH264e.bMainStream = HI_TRUE; /* surpport main stream only for hi3516, bMainStream = HI_TRUE */
+        stAttr.stVeAttr.stAttrH264e.u32Priority = 0; /*channels precedence level. invalidate for hi3516*/
+        stAttr.stVeAttr.stAttrH264e.bVIField = HI_FALSE;/*the sign of the VI picture is field or frame. Invalidate for hi3516*/
+        // omit other video encode assignments here.
+        /* set h264 chnnel rate control attribute */
+        if (desc[chn].v_desc.bit_rate_type == CONSTANT_BIT_RATE)
+        {
+            stAttr.stRcAttr.enRcMode = VENC_RC_MODE_H264CBR;
+            stAttr.stRcAttr.stAttrH264Cbr.u32BitRate = desc[chn].v_desc.bit_rate;
+            stAttr.stRcAttr.stAttrH264Cbr.fr32TargetFrmRate = 30;//desc[chn].v_desc.frame_rate;
+            stAttr.stRcAttr.stAttrH264Cbr.u32ViFrmRate = 30;//desc[chn].v_desc.frame_rate;
+            stAttr.stRcAttr.stAttrH264Cbr.u32Gop = 30;
+            stAttr.stRcAttr.stAttrH264Cbr.u32FluctuateLevel = 0;
+            stAttr.stRcAttr.stAttrH264Cbr.u32StatTime = 1;
+        }
+        else if (desc[chn].v_desc.bit_rate_type = VARIABLE_BIT_RATE)
+        {
+            stAttr.stRcAttr.enRcMode = VENC_RC_MODE_H264VBR;
+            stAttr.stRcAttr.stAttrH264Vbr.u32MaxBitRate = desc[chn].v_desc.bit_rate;
+            stAttr.stRcAttr.stAttrH264Vbr.fr32TargetFrmRate = 30;//desc[chn].v_desc.frame_rate;
+            stAttr.stRcAttr.stAttrH264Vbr.u32ViFrmRate = 30;//desc[chn].v_desc.frame_rate;
+            stAttr.stRcAttr.stAttrH264Vbr.u32Gop = 30;
+            stAttr.stRcAttr.stAttrH264Vbr.u32MinQp = 0;
+            stAttr.stRcAttr.stAttrH264Vbr.u32MaxQp = 51;
+            stAttr.stRcAttr.stAttrH264Vbr.u32StatTime = 1;
+        }
+        else
+        {
+            g_warn_if_reached();
+        }
+        // omit other rate control assignments here.
+        VeGroup = chn;
+        VeChn = chn;
+        s32Ret = HI_MPI_VENC_CreateGroup(VeGroup);
+        if (HI_SUCCESS != s32Ret)
+        {
+            g_critical("HI_MPI_VENC_CreateGroup err 0x%x\n",s32Ret);
+            return HI_FAILURE;
+        }
+        s32Ret = HI_MPI_VENC_CreateChn(VeChn, &stAttr);
+        if (HI_SUCCESS != s32Ret)
+        {
+            g_critical("HI_MPI_VENC_CreateChn err 0x%x\n",s32Ret);
+            return HI_FAILURE;
+        }
+        s32Ret = HI_MPI_VENC_RegisterChn(VeGroup, VeChn);
+        if (HI_SUCCESS != s32Ret)
+        {
+            g_critical("HI_MPI_VENC_RegisterChn err 0x%x\n",s32Ret);
+            return HI_FAILURE;
+        }
+
+        s32Ret = HI_MPI_VENC_StartRecvPic(VeChn);
+        if (s32Ret != HI_SUCCESS)
+        {
+            g_critical("HI_MPI_VENC_StartRecvPic err 0x%x\n",s32Ret);
+            return HI_FAILURE;
+        }
     }
-    s32Ret = HI_MPI_VENC_CreateChn(VeChn, &stAttr);
-    if (HI_SUCCESS != s32Ret)
-    {
-        g_critical("HI_MPI_VENC_CreateChn err 0x%x\n",s32Ret);
-        return HI_FAILURE;
-    }
-    s32Ret = HI_MPI_VENC_RegisterChn(VeGroup, VeChn);
-    if (HI_SUCCESS != s32Ret)
-    {
-        g_critical("HI_MPI_VENC_RegisterChn err 0x%x\n",s32Ret);
-        return HI_FAILURE;
-    }
-    s32Ret = HI_MPI_VENC_StartRecvPic(VeChn);
-    if (s32Ret != HI_SUCCESS)
-    {
-        g_critical("HI_MPI_VENC_StartRecvPic err 0x%x\n",s32Ret);
-        return HI_FAILURE;
-    }
+    
     // omit other code here.
     return HI_SUCCESS;
 }

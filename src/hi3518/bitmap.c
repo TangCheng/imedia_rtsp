@@ -21,8 +21,8 @@ static void ipcam_bitmap_init(IpcamBitmap *self)
 {
 	IpcamBitmapPrivate *priv = ipcam_bitmap_get_instance_private(self);
     priv->data.enPixelFormat = PIXEL_FORMAT_RGB_1555;
-    priv->data.u32Width = (IMAGE_WIDTH / 16 + 1) * 16;
-    priv->data.u32Height = (IMAGE_HEIGHT / 16 + 1) * 16;
+    priv->data.u32Width = (IMAGE_MAX_WIDTH / 16 + 1) * 16;
+    priv->data.u32Height = (IMAGE_MAX_HEIGHT / 16 + 1) * 16;
     priv->data.pData = malloc(2 * priv->data.u32Width * priv->data.u32Height);
     memset(priv->data.pData, 0, 2 * priv->data.u32Width * priv->data.u32Height);
 }

@@ -29,23 +29,26 @@ along with this library; if not, write to the Free Software Foundation, Inc.,
 #endif
 
 // The following class can be used to define specific encoder parameters
-/*
-class DeviceParameters {
+class H264LiveStreamParameters {
   //%%% TO BE WRITTEN %%%
+public:
+    void *fVideoEngine;
 };
-*/
 
 class H264LiveStreamSource: public FramedSource
 {
 public:
-    static H264LiveStreamSource* createNew(UsageEnvironment& env);
+    static H264LiveStreamSource* createNew(UsageEnvironment& env, H264LiveStreamParameters params);
+    static unsigned getRefCount();
+     
 public:
+    static EventTriggerId eventTriggerId; 
     // Note that this is defined here to be a static class variable, because this code is intended to illustrate how to
     // encapsulate a *single* device - not a set of devices.
     // You can, however, redefine this to be a non-static member variable.
 
 protected:
-    H264LiveStreamSource(UsageEnvironment& env);
+    H264LiveStreamSource(UsageEnvironment& env, H264LiveStreamParameters params);
     // called only by createNew(), or by subclass constructors
     virtual ~H264LiveStreamSource();
 
@@ -53,11 +56,13 @@ private:
     // redefined virtual functions:
     virtual void doGetNextFrame();
     //virtual void doStopGettingFrames(); // optional
+    static void deliverFrame0(void* clientData);
+    void deliverFrame();
 
 private:
-    static void deliverFrame0(void* clientData, int mask);
-    void deliverFrame();
-    int mFD;
+    static unsigned referenceCount; // used to count how many instances of this class currently exist
+    static bool firstDeliverFrame;
+    H264LiveStreamParameters fParams;
 };
 
 #endif

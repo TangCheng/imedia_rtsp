@@ -1,7 +1,6 @@
 #include <hi_defines.h>
 #include <hi_comm_vpss.h>
 #include <mpi_vpss.h>
-#include "stream_descriptor.h"
 #include "video_process_subsystem.h"
 
 enum
@@ -25,8 +24,8 @@ static GParamSpec *obj_properties[N_PROPERTIES] = {NULL, };
 static void ipcam_video_process_subsystem_init(IpcamVideoProcessSubsystem *self)
 {
 	IpcamVideoProcessSubsystemPrivate *priv = ipcam_video_process_subsystem_get_instance_private(self);
-    priv->image_width = IMAGE_WIDTH;
-    priv->image_height = IMAGE_HEIGHT;
+    priv->image_width = IMAGE_MAX_WIDTH;
+    priv->image_height = IMAGE_MAX_HEIGHT;
 }
 static void ipcam_video_process_subsystem_get_property(GObject    *object,
                                                        guint       property_id,
@@ -86,23 +85,23 @@ static void ipcam_video_process_subsystem_class_init(IpcamVideoProcessSubsystemC
         g_param_spec_uint("width",
                           "Image width",
                           "set video input unit image width.",
-                          640, // min value
-                          IMAGE_WIDTH, // max value
-                          IMAGE_WIDTH, // default value
+                          352, // min value
+                          IMAGE_MAX_WIDTH, // max value
+                          IMAGE_MAX_WIDTH, // default value
                           G_PARAM_READWRITE);
     obj_properties[PROP_IMAGE_HEIGHT] =
         g_param_spec_uint("height",
                           "Image height",
                           "set video input unit image height.",
-                          480, // min value
-                          IMAGE_HEIGHT, // max value
-                          IMAGE_HEIGHT, // default value
+                          288, // min value
+                          IMAGE_MAX_HEIGHT, // max value
+                          IMAGE_MAX_HEIGHT, // default value
                           G_PARAM_READWRITE);
 
     g_object_class_install_properties(object_class, N_PROPERTIES, obj_properties);
 }
 
-gint32 ipcam_video_process_subsystem_start(IpcamVideoProcessSubsystem *self)
+gint32 ipcam_video_process_subsystem_start(IpcamVideoProcessSubsystem *self, StreamDescriptor desc[])
 {
     g_return_val_if_fail(IPCAM_IS_VIDEO_PROCESS_SUBSYSTEM(self), HI_FAILURE);
     VPSS_GRP VpssGrp = 0;
@@ -112,6 +111,9 @@ gint32 ipcam_video_process_subsystem_start(IpcamVideoProcessSubsystem *self)
     VPSS_GRP_PARAM_S stVpssParam;
     HI_S32 s32Ret;
     IpcamVideoProcessSubsystemPrivate *priv = ipcam_video_process_subsystem_get_instance_private(self);
+
+    priv->image_width = desc[MASTER].v_desc.image_width;
+    priv->image_height = desc[MASTER].v_desc.image_height;
 
     /*** Set Vpss Grp Attr ***/
 
@@ -150,7 +152,7 @@ gint32 ipcam_video_process_subsystem_start(IpcamVideoProcessSubsystem *self)
         return HI_FAILURE;
     }
 
-    /*** enable vpss chn, with frame ***/
+    /*** enable vpss chn, without frame ***/
     /* Set Vpss Chn attr */
     stChnAttr.bSpEn = HI_FALSE;
     stChnAttr.bFrameEn = HI_FALSE;

@@ -1,7 +1,7 @@
 #include "iRTSPServer.hh"
 
-IRTSPServer::IRTSPServer(Boolean reuseFirstSource, Boolean iFramesOnly)
-     : m_reuseFirstSource(reuseFirstSource),
+IRTSPServer::IRTSPServer(void *videoEngine, Boolean iFramesOnly)
+     : m_VideoEngine(videoEngine),
        m_iFramesOnly(iFramesOnly),
        m_authDB(NULL),
        m_rtspServer(NULL)
@@ -30,8 +30,28 @@ IRTSPServer::~IRTSPServer()
     }
 }
 
-void IRTSPServer::setAuthUser()
+void IRTSPServer::setAuthUser(user *users, size_t len)
 {
+    // To implement client access control to the RTSP server, do the following:
+    if (m_authDB == NULL)
+    {
+        m_authDB = new UserAuthenticationDatabase;
+    }
+    
+    if (m_authDB)
+    {
+        int i = 0;
+        for (i = 0; i < len; i++)
+        {
+            m_authDB->addUserRecord(users[i].name, users[i].password);
+        }
+    }
+}
+
+void IRTSPServer::setPath(char **path, size_t len)
+{
+    m_path = path;
+    m_pathSize = len;
 }
 
 void IRTSPServer::startServer(unsigned int port, char *watchVariable)
@@ -42,16 +62,25 @@ void IRTSPServer::startServer(unsigned int port, char *watchVariable)
         *m_env << "Failed to create RTSP server: " << m_env->getResultMsg() << "\n";
         return;
     }
-    char const* streamName = "liveStream";
-    char const* descriptionString = "Session streamed by \"iRTSP\"";
-    ServerMediaSession* sms =
-        ServerMediaSession::createNew(*m_env, streamName, streamName, descriptionString);
-    sms->addSubsession(H264LiveStreamServerMediaSubsession::createNew(*m_env, m_reuseFirstSource));
-    m_rtspServer->addServerMediaSession(sms);
+    ServerMediaSession* sms[m_pathSize];
+    
+    for (int i = 0; i < m_pathSize; i++)
+    {
+        char const* streamName = m_path[i];
+        char const* descriptionString = "Session streamed by \"iRTSP\"";
+        H264LiveStreamInput *inputDevice = H264LiveStreamInput::createNew(*m_env, m_VideoEngine);
+        ServerMediaSession* sms =
+            ServerMediaSession::createNew(*m_env, streamName, streamName, descriptionString);
+        sms->addSubsession(H264LiveStreamServerMediaSubsession::createNew(*m_env, *inputDevice));
+        m_rtspServer->addServerMediaSession(sms);
+    }
 
     m_env->taskScheduler().doEventLoop(watchVariable); // does not return
-
-    m_rtspServer->deleteServerMediaSession(sms);
+    for (int i = 0; i < m_pathSize; i++)
+    {
+        m_rtspServer->deleteServerMediaSession(sms[i]);
+    }
+    
     RTSPServer::close(m_rtspServer);
     m_rtspServer = NULL;
 }

@@ -3,6 +3,7 @@
 
 #include <glib.h>
 #include <glib-object.h>
+#include "stream_descriptor.h"
 
 #define IPCAM_VIDEO_ENCODE_TYPE (ipcam_video_encode_get_type())
 #define IPCAM_VIDEO_ENCODE(obj) (G_TYPE_CHECK_INSTANCE_CAST((obj), IPCAM_VIDEO_ENCODE_TYPE, IpcamVideoEncode))
@@ -25,7 +26,7 @@ struct _IpcamVideoEncodeClass
 };
 
 GType ipcam_video_encode_get_type(void);
-gint32 ipcam_video_encode_start(IpcamVideoEncode *self);
+gint32 ipcam_video_encode_start(IpcamVideoEncode *self, StreamDescriptor desc[]);
 gint32 ipcam_video_encode_stop(IpcamVideoEncode *self);
 
 #endif /* __VIDEO_ENCODE_H__ */

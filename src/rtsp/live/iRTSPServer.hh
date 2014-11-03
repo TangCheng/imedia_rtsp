@@ -4,7 +4,9 @@
 #include <liveMedia.hh>
 #include <BasicUsageEnvironment.hh>
 #include "H264LiveStreamServerMediaSubsession.hh"
+#include "H264LiveStreamInput.hh"
 #include "H264LiveStreamSource.hh"
+#include "iRTSPServerLauncher.hh"
 
 class IRTSPServer
 {
@@ -12,20 +14,20 @@ private:
     TaskScheduler* m_scheduler;
     UsageEnvironment* m_env;
     UserAuthenticationDatabase* m_authDB;
+    char **m_path;
+    size_t m_pathSize;
     RTSPServer* m_rtspServer;
-    // To make the second and subsequent client for each stream reuse the same
-    // input stream as the first client (rather than playing the file from the
-    // start for each client), change the following "False" to "True":
-    Boolean m_reuseFirstSource;
-
+    
     // To stream *only* MPEG-1 or 2 video "I" frames
     // (e.g., to reduce network bandwidth),
     // change the following "False" to "True":
     Boolean m_iFramesOnly;
+    void *m_VideoEngine;
 public:
-    IRTSPServer(Boolean reuseFirstSource = True, Boolean iFramesOnly = False);
+    IRTSPServer(void *videoEngine, Boolean iFramesOnly = False);
     virtual ~IRTSPServer();
-    void setAuthUser();
+    void setAuthUser(user *users, size_t len);
+    void setPath(char *path[], size_t len);
     void startServer(unsigned int port, char *watchVariable);
 };
 

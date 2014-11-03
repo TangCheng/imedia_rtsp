@@ -22,32 +22,68 @@
 // Implementation
 
 #include <MediaSink.hh>
+#include <hi_mem.h>
 #include "H264LiveStreamSource.hh"
-#include "mpi_venc.h"
-#include "hi_mem.h"
+#include "stream_descriptor.h"
+#include "interface/media_video_interface.h"
 
 H264LiveStreamSource*
-H264LiveStreamSource::createNew(UsageEnvironment& env)
+H264LiveStreamSource::createNew(UsageEnvironment& env, H264LiveStreamParameters params)
 {
-    return new H264LiveStreamSource(env);
+    return new H264LiveStreamSource(env, params);
 }
 
-H264LiveStreamSource::H264LiveStreamSource(UsageEnvironment& env)
-    : FramedSource(env)
+EventTriggerId H264LiveStreamSource::eventTriggerId = 0;
+unsigned H264LiveStreamSource::referenceCount = 0;
+bool H264LiveStreamSource::firstDeliverFrame = True;
+
+H264LiveStreamSource::H264LiveStreamSource(UsageEnvironment& env, H264LiveStreamParameters params)
+    : FramedSource(env), fParams(params)
 {
-    mFD = HI_MPI_VENC_GetFd(0);
-    envir().taskScheduler().turnOnBackgroundReadHandling(mFD,
-                                                         (TaskScheduler::BackgroundHandlerProc*)&deliverFrame0, this);
+    if (referenceCount == 0) {
+        // Any global initialization of the device would be done here:
+        //%%% TO BE WRITTEN %%%
+    }
+    ++referenceCount;
+    ipcam_ivideo_register_rtsp_source((IpcamIVideo *)fParams.fVideoEngine, (void *)this);
+
+    // Any instance-specific initialization of the device would be done here:
+    //%%% TO BE WRITTEN %%%
+
+    // We arrange here for our "deliverFrame" member function to be called
+    // whenever the next frame of data becomes available from the device.
+    //
+    // If the device can be accessed as a readable socket, then one easy way to do this is using a call to
+    //     envir().taskScheduler().turnOnBackgroundReadHandling( ... )
+    // (See examples of this call in the "liveMedia" directory.)
+    //
+    // If, however, the device *cannot* be accessed as a readable socket, then instead we can implement it using 'event triggers':
+    // Create an 'event trigger' for this device (if it hasn't already been done):
+    if (eventTriggerId == 0) {
+         eventTriggerId = envir().taskScheduler().createEventTrigger(deliverFrame0);
+    }
 }
 
 H264LiveStreamSource::~H264LiveStreamSource() {
     // Any instance-specific 'destruction' (i.e., resetting) of the device would be done here:
     //%%% TO BE WRITTEN %%%
-    envir().taskScheduler().turnOffBackgroundReadHandling(mFD);
-    
-    // Any global 'destruction' (i.e., resetting) of the device would be done here:
-    //%%% TO BE WRITTEN %%%
-    // Reclaim our 'event trigger'
+    ipcam_ivideo_unregister_rtsp_source((IpcamIVideo *)fParams.fVideoEngine, (void *)this);
+    --referenceCount;
+    if (referenceCount == 0)
+    {
+        // Any global 'destruction' (i.e., resetting) of the device would be done here:
+        //%%% TO BE WRITTEN %%%
+
+        // Reclaim our 'event trigger'
+        envir().taskScheduler().deleteEventTrigger(eventTriggerId);
+        eventTriggerId = 0;
+        firstDeliverFrame = True;
+    } // Any instance-specific 'destruction' (i.e., resetting) of the device would be done here:
+}
+
+unsigned H264LiveStreamSource::getRefCount()
+{
+    return referenceCount;
 }
 
 void H264LiveStreamSource::doGetNextFrame() {
@@ -60,7 +96,7 @@ void H264LiveStreamSource::doGetNextFrame() {
      }
 
      // If a new frame of data is immediately available to be delivered, then do this now:
-     if (0 /* a new frame of data is immediately available to be delivered*/ /*%%% TO BE WRITTEN %%%*/) {
+     if (True /*ipcam_ivideo_has_video_data((IpcamIVideo *)fParams.fVideoEngine)*/ /* a new frame of data is immediately available to be delivered*/ /*%%% TO BE WRITTEN %%%*/) {
           deliverFrame();
      }
 
@@ -68,17 +104,10 @@ void H264LiveStreamSource::doGetNextFrame() {
      // Instead, our event trigger must be called (e.g., from a separate thread) when new data becomes available.
 }
 
-void H264LiveStreamSource::deliverFrame0(void* clientData, int mask) {
+void H264LiveStreamSource::deliverFrame0(void* clientData) {
      if (clientData)
           ((H264LiveStreamSource*)clientData)->deliverFrame();
 }
-
-#define MIN(X, Y)                               \
-     ({                                         \
-          __typeof__ (X) __x = (X);             \
-          __typeof__ (Y) __y = (Y);             \
-          (__x < __y) ? __x : __y;              \
-     })
 
 void H264LiveStreamSource::deliverFrame() {
      // This function is called when new frame data is available from the device.
@@ -106,135 +135,38 @@ void H264LiveStreamSource::deliverFrame() {
      if (!isCurrentlyAwaitingData()) return; // we're not ready for the data yet
 
      unsigned int newFrameSize = 0; //%%% TO BE WRITTEN %%%
+     StreamData *data = (StreamData *)ipcam_ivideo_get_video_data((IpcamIVideo *)fParams.fVideoEngine);
 
-     VENC_CHN_STAT_S stStat;
-     VENC_STREAM_S stStream;
-     HI_S32 s32Ret;
-     static HI_BOOL first_time = HI_TRUE;
-     static HI_U64 u64PTSBase;
-
-     /*******************************************************
-      step 2.1 : query how many packs in one-frame stream.
-     *******************************************************/
-     memset(&stStream, 0, sizeof(stStream));
-     s32Ret = HI_MPI_VENC_Query(0, &stStat);
-     if (HI_SUCCESS != s32Ret)
+     if (data && data->magic == 0xdeadbeef)
      {
-          printf("HI_MPI_VENC_Query chn[%d] failed with %#x!\n", 0, s32Ret);
-          return;
-     }
-
-     /*******************************************************
-      step 2.2 : malloc corresponding number of pack nodes.
-     *******************************************************/
-     stStream.pstPack = (VENC_PACK_S *)malloc(sizeof(VENC_PACK_S) * stStat.u32CurPacks);
-     if (NULL == stStream.pstPack)
-     {
-          printf("malloc stream pack failed!\n");
-          return;
-     }
-                    
-     /*******************************************************
-      step 2.3 : call mpi to get one-frame stream
-     *******************************************************/
-     stStream.u32PackCount = stStat.u32CurPacks;
-     s32Ret = HI_MPI_VENC_GetStream(0, &stStream, HI_TRUE);
-     if (HI_SUCCESS != s32Ret)
-     {
-          free(stStream.pstPack);
-          stStream.pstPack = NULL;
-          printf("HI_MPI_VENC_GetStream failed with %#x!\n", s32Ret);
-          return;
-     }
-
-     /*******************************************************
-      step 2.4 : send frame to live stream
-     *******************************************************/
-     HI_U8 *p = NULL;
-     int i;
-#if 0
-     if (first_time)
-     {
-         first_time = HI_FALSE;
-         u64PTSBase = stStream.pstPack[0].u64PTS;
-         fPresentationTime.tv_sec = 0;
-         fPresentationTime.tv_usec = 0;
-     }
-     else
-     {
-          fPresentationTime.tv_sec = (stStream.pstPack[0].u64PTS - u64PTSBase) / 1000000UL;
-          fPresentationTime.tv_usec = (stStream.pstPack[0].u64PTS - u64PTSBase) % 1000000UL;
-     }
-#endif
-     fPresentationTime.tv_sec = stStream.pstPack[0].u64PTS / 1000000UL;
-     fPresentationTime.tv_usec = stStream.pstPack[0].u64PTS % 1000000UL;
-     //gettimeofday(&fPresentationTime, NULL);
-
-     HI_U64 pos = 0;
-     HI_U64 left = 0;
-     for (i = 0; i < stStream.u32PackCount; i++)
-     {
-          left = (fMaxSize - pos);
-          p = stStream.pstPack[i].pu8Addr[0];
-          newFrameSize += stStream.pstPack[i].u32Len[0];
-          if (p[0] == 0x00 && p[1] == 0x00 && p[2] == 0x00 && p[3] == 0x01)
+          if (data->isIFrame || !firstDeliverFrame)
           {
-              left = MIN(left, stStream.pstPack[i].u32Len[0] - 4);
-              if (pos + left <= fMaxSize)
+              firstDeliverFrame = False;
+              newFrameSize = data->len;
+              //gettimeofday(&fPresentationTime, NULL); // If you have a more accurate time - e.g., from an encoder - then use that instead.
+              fPresentationTime = data->pts;
+
+              // Deliver the data here:
+              if (newFrameSize > fMaxSize)
               {
-                  memcpy(fTo + pos, p + 4, left);
-                  pos += left;
+                   fFrameSize = fMaxSize;
+                   fNumTruncatedBytes = newFrameSize - fMaxSize;
+              } else
+              {
+                   fFrameSize = newFrameSize;
               }
-              newFrameSize -= 4;
+              // If the device is *not* a 'live source' (e.g., it comes instead from a file or buffer), then set "fDurationInMicroseconds" here.
+              memcpy(fTo, data->data, fFrameSize);
           }
-          else
-          {
-              left = MIN(left, stStream.pstPack[i].u32Len[0]);
-              if (pos + left <= fMaxSize)
-              {
-                  memcpy(fTo + pos, p, left);
-                  pos += left;
-              }
-          }
-          if (stStream.pstPack[i].u32Len[1] > 0)
-          {
-              left = (fMaxSize - pos);
-              p = stStream.pstPack[i].pu8Addr[1];
-              newFrameSize += stStream.pstPack[i].u32Len[1];
-
-              left = MIN(left, stStream.pstPack[i].u32Len[1]);
-              if (pos + left <= fMaxSize)
-              {
-                  memcpy(fTo + pos, p, left);
-                  pos += left;
-              }
-           }
-      }
-      // Deliver the data here:
-      if (newFrameSize > fMaxSize)
-      {
-          fFrameSize = fMaxSize;
-          fNumTruncatedBytes = newFrameSize - fMaxSize;
-      } else
-      {
-          fFrameSize = newFrameSize;
-      }
-                 
-     /*******************************************************
-      step 2.5 : release stream
-     *******************************************************/
-     s32Ret = HI_MPI_VENC_ReleaseStream(0, &stStream);
-     if (HI_SUCCESS != s32Ret)
-     {
-          free (stStream.pstPack);
-          stStream.pstPack = NULL;
-          return;
      }
-     /*******************************************************
-      step 2.6 : free pack nodes
-     *******************************************************/
-     free(stStream.pstPack);
-     stStream.pstPack = NULL;
+     if (data)
+     {
+          data->magic = 0x0;
+          data->pts.tv_sec = 0;
+          data->pts.tv_usec = 0;
+          data->len = 0;
+          ipcam_ivideo_release_video_data((IpcamIVideo *)fParams.fVideoEngine, data);
+     }
 
      // After delivering the data, inform the reader that it is now available:
      if (newFrameSize > 0)
@@ -248,12 +180,15 @@ void H264LiveStreamSource::deliverFrame() {
 // Also, if you want to have multiple device threads, each one using a different 'event trigger id', then you will need
 // to make "eventTriggerId" a non-static member variable of "H264LiveStreamSource".)
 /*
-  void signalNewFrameData() {
-  TaskScheduler* ourScheduler = NULL; //%%% TO BE WRITTEN %%%
-  H264LiveStreamSource* ourDevice  = NULL; //%%% TO BE WRITTEN %%%
+void signalNewFrameData(H264LiveStreamSource *ourDevice)
+{
+    TaskScheduler* ourScheduler = NULL; //%%% TO BE WRITTEN %%%
+    //H264LiveStreamSource* ourDevice  = NULL; //%%% TO BE WRITTEN %%%
+    ourScheduler = &(ourDevice->envir().taskScheduler());
 
-  if (ourScheduler != NULL) { // sanity check
-  ourScheduler->triggerEvent(H264LiveStreamSource::eventTriggerId, ourDevice);
-  }
-  }
+    if (ourScheduler != NULL)
+    { // sanity check
+        ourScheduler->triggerEvent(H264LiveStreamSource::eventTriggerId, ourDevice);
+    }
+}
 */

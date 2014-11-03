@@ -133,10 +133,12 @@ AM_CONDITIONAL([INTERNAL_MPP], [test $mpp_found = no])
 
 if test "x$enable_hi3518" = "xyes"; then
   CFLAGS="-DHI3518 $CFLAGS"
+  CXXFLAGS="-DHI3518 $CXXFLAGS"
 fi
 
 if test "x$enable_hi3516" = "xyes"; then
   CFLAGS="-DHI3516 $CFLAGS"
+  CXXFLAGS="-DHI3516 $CXXFLAGS"
 fi
 
 fi

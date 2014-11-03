@@ -3,6 +3,7 @@
 
 #include <glib.h>
 #include <glib-object.h>
+#include "stream_descriptor.h"
 
 #define IPCAM_VIDEO_PROCESS_SUBSYSTEM_TYPE (ipcam_video_process_subsystem_get_type())
 #define IPCAM_VIDEO_PROCESS_SUBSYSTEM(obj) (G_TYPE_CHECK_INSTANCE_CAST((obj), IPCAM_VIDEO_PROCESS_SUBSYSTEM_TYPE, IpcamVideoProcessSubsystem))
@@ -25,7 +26,7 @@ struct _IpcamVideoProcessSubsystemClass
 };
 
 GType ipcam_video_process_subsystem_get_type(void);
-gint32 ipcam_video_process_subsystem_start(IpcamVideoProcessSubsystem *self);
+gint32 ipcam_video_process_subsystem_start(IpcamVideoProcessSubsystem *self, StreamDescriptor desc[]);
 gint32 ipcam_video_process_subsystem_stop(IpcamVideoProcessSubsystem *self);
 
 #endif /* __VIDEO_PROCESS_SUBSYSTEM_H__ */

@@ -5,7 +5,7 @@
 #include <stdlib.h>
 #include <string.h>
 #include "osd_font/osd_font.h"
-#include "media_osd_interface.h"
+#include "interface/media_osd_interface.h"
 #include "media_osd.h"
 #include "bitmap.h"
 #include "stream_descriptor.h"
@@ -84,8 +84,8 @@ static void ipcam_media_osd_init(IpcamMediaOsd *self)
     {
         priv->stRgnAttr.enType = OVERLAY_RGN;
         priv->stRgnAttr.unAttr.stOverlay.enPixelFmt = PIXEL_FORMAT_RGB_1555;
-        priv->stRgnAttr.unAttr.stOverlay.stSize.u32Width  = (IMAGE_WIDTH / 16 + 1) * 16;
-        priv->stRgnAttr.unAttr.stOverlay.stSize.u32Height = (IMAGE_HEIGHT / 16 + 1) * 16;
+        priv->stRgnAttr.unAttr.stOverlay.stSize.u32Width  = (IMAGE_MAX_WIDTH / 16 + 1) * 16;
+        priv->stRgnAttr.unAttr.stOverlay.stSize.u32Height = (IMAGE_MAX_HEIGHT / 16 + 1) * 16;
         priv->stRgnAttr.unAttr.stOverlay.u32BgColor = 0x7FFF;
 
         s32Ret = HI_MPI_RGN_Create(priv->RgnHandle, &priv->stRgnAttr);

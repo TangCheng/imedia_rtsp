@@ -3,6 +3,7 @@
 
 #include <glib.h>
 #include <glib-object.h>
+#include "stream_descriptor.h"
 
 #define IPCAM_ISP_TYPE (ipcam_isp_get_type())
 #define IPCAM_ISP(obj) (G_TYPE_CHECK_INSTANCE_CAST((obj), IPCAM_ISP_TYPE, IpcamIsp))

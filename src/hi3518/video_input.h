@@ -3,6 +3,7 @@
 
 #include <glib.h>
 #include <glib-object.h>
+#include "stream_descriptor.h"
 
 #define IPCAM_VIDEO_INPUT_TYPE (ipcam_video_input_get_type())
 #define IPCAM_VIDEO_INPUT(obj) (G_TYPE_CHECK_INSTANCE_CAST((obj), IPCAM_VIDEO_INPUT_TYPE, IpcamVideoInput))
@@ -25,7 +26,8 @@ struct _IpcamVideoInputClass
 };
 
 GType ipcam_video_input_get_type(void);
-gint32 ipcam_video_input_start(IpcamVideoInput *self);
+gint32 ipcam_video_input_start(IpcamVideoInput *self, StreamDescriptor desc[]);
 gint32 ipcam_video_input_stop(IpcamVideoInput *self);
+void ipcam_video_input_param_change(IpcamVideoInput *self, StreamDescriptor desc[]);
 
 #endif /* __VIDEO_INPUT_H__ */

@@ -25,26 +25,30 @@ along with this library; if not, write to the Free Software Foundation, Inc.,
 #ifndef _ON_DEMAND_SERVER_MEDIA_SUBSESSION_HH
 #include <OnDemandServerMediaSubsession.hh>
 #endif
+#include "H264LiveStreamInput.hh"
 
 class H264LiveStreamServerMediaSubsession: public OnDemandServerMediaSubsession {
 public:
   static H264LiveStreamServerMediaSubsession*
-  createNew(UsageEnvironment& env, Boolean reuseFirstSource);
+  createNew(UsageEnvironment& env, H264LiveStreamInput& h264LiveStreamInput);
 
   // Used to implement "getAuxSDPLine()":
-  void checkForAuxSDPLine1();
-  void afterPlayingDummy1();
+  //void checkForAuxSDPLine1();
+  //void afterPlayingDummy1();
 
 protected:
-  H264LiveStreamServerMediaSubsession(UsageEnvironment& env, Boolean reuseFirstSource);
+  H264LiveStreamInput &fH264LiveStreamInput;
+  H264LiveStreamServerMediaSubsession(UsageEnvironment& env, H264LiveStreamInput& h264LiveStreamInput);
       // called only by createNew();
   virtual ~H264LiveStreamServerMediaSubsession();
 
-  void setDoneFlag() { fDoneFlag = ~0; }
+  //void setDoneFlag() { fDoneFlag = ~0; }
 
 protected: // redefined virtual functions
+  /*
   virtual char const* getAuxSDPLine(RTPSink* rtpSink,
 				    FramedSource* inputSource);
+  */
   virtual FramedSource* createNewStreamSource(unsigned clientSessionId,
 					      unsigned& estBitrate);
   virtual RTPSink* createNewRTPSink(Groupsock* rtpGroupsock,
@@ -52,9 +56,9 @@ protected: // redefined virtual functions
 				    FramedSource* inputSource);
 
 private:
-  char* fAuxSDPLine;
-  char fDoneFlag; // used when setting up "fAuxSDPLine"
-  RTPSink* fDummyRTPSink; // ditto
+  //char* fAuxSDPLine;
+  //char fDoneFlag; // used when setting up "fAuxSDPLine"
+  //RTPSink* fDummyRTPSink; // ditto
 };
 
 #endif

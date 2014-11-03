@@ -26,20 +26,21 @@ along with this library; if not, write to the Free Software Foundation, Inc.,
 
 H264LiveStreamServerMediaSubsession*
 H264LiveStreamServerMediaSubsession::createNew(UsageEnvironment& env,
-					      Boolean reuseFirstSource) {
-  return new H264LiveStreamServerMediaSubsession(env, reuseFirstSource);
+					      H264LiveStreamInput& h264LiveStreamInput) {
+  return new H264LiveStreamServerMediaSubsession(env, h264LiveStreamInput);
 }
 
 H264LiveStreamServerMediaSubsession::H264LiveStreamServerMediaSubsession(UsageEnvironment& env,
-								       Boolean reuseFirstSource)
-  : OnDemandServerMediaSubsession(env, reuseFirstSource),
-    fAuxSDPLine(NULL), fDoneFlag(0), fDummyRTPSink(NULL) {
+								       H264LiveStreamInput& h264LiveStreamInput)
+    : OnDemandServerMediaSubsession(env, True /* always reuse the first source */),
+      /*fAuxSDPLine(NULL), fDoneFlag(0), fDummyRTPSink(NULL),*/
+    fH264LiveStreamInput(h264LiveStreamInput) {
 }
 
 H264LiveStreamServerMediaSubsession::~H264LiveStreamServerMediaSubsession() {
-  delete[] fAuxSDPLine;
+  //delete[] fAuxSDPLine;
 }
-
+/*
 static void afterPlayingDummy(void* clientData) {
   H264LiveStreamServerMediaSubsession* subsess = (H264LiveStreamServerMediaSubsession*)clientData;
   subsess->afterPlayingDummy1();
@@ -97,17 +98,15 @@ char const* H264LiveStreamServerMediaSubsession::getAuxSDPLine(RTPSink* rtpSink,
 
   return fAuxSDPLine;
 }
-
+*/
 FramedSource* H264LiveStreamServerMediaSubsession::createNewStreamSource(unsigned /*clientSessionId*/, unsigned& estBitrate) {
   estBitrate = 5000; // kbps, estimate
 
   // Create the video source:
-  H264LiveStreamSource* liveSource = H264LiveStreamSource::createNew(envir());
-  if (liveSource == NULL) return NULL;
-
+ 
   // Create a framer for the Video Elementary Stream:
   //return H264VideoStreamFramer::createNew(envir(), liveSource);
-  return H264VideoStreamDiscreteFramer::createNew(envir(), liveSource);
+  return H264VideoStreamDiscreteFramer::createNew(envir(), fH264LiveStreamInput.videoSource());
 }
 
 RTPSink* H264LiveStreamServerMediaSubsession

@@ -36,13 +36,16 @@ bin_PROGRAMS = imedia_rtsp
 imedia_rtsp_SOURCES = \
 	rtsp/rtsp.c \
 	rtsp/live/H264LiveStreamSource.cpp \
+	rtsp/live/H264LiveStreamInput.cpp \
 	rtsp/live/H264LiveStreamServerMediaSubsession.cpp \
 	rtsp/live/iRTSPServer.cpp \
 	rtsp/live/iRTSPServerLauncher.cpp \
 	osd_font/osd_font.c \
-	media_sys_ctrl_interface.c \
-	media_video_interface.c \
-	media_osd_interface.c \
+	interface/media_sys_ctrl_interface.c \
+	interface/media_video_interface.c \
+	interface/media_osd_interface.c \
+	video_param_change_handler.c \
+	buffer_manager.c \
 	imedia.c \
 	main.c
 
@@ -72,7 +75,7 @@ endif
 
 imedia_rtsp_LDFLAGS = 
 
-imedia_rtsp_LDADD = $(IMEDIA_RTSP_LIBS) -ldl -lmpi -lmem -lisp -l_hiae -l_hiaf -l_hiawb -ltde -lBasicUsageEnvironment -lUsageEnvironment -lgroupsock -lliveMedia $(MPP_LIBDIR)/libanr.a $(MPP_LIBDIR)/libaec.a $(MPP_LIBDIR)/libVoiceEngine.a $(MPP_LIBDIR)/libresampler.a
+imedia_rtsp_LDADD = $(IMEDIA_RTSP_LIBS) -ldl -lmpi -lmem -lisp -l_hiae -l_hiaf -l_hiawb -ltde $(MPP_LIBDIR)/libanr.a $(MPP_LIBDIR)/libaec.a $(MPP_LIBDIR)/libVoiceEngine.a $(MPP_LIBDIR)/libresampler.a -lliveMedia -lBasicUsageEnvironment -lUsageEnvironment -lgroupsock
 
 SUBDIRS = \
 	config

@@ -18,6 +18,7 @@ typedef struct _IpcamIspPrivate
     gchar *sensor_type;
     void *sensor_lib_handle;
     gint32 (*sensor_register_callback)();
+    gint32 (*sensor_set_image_size)(const char *);
     pthread_t IspPid;
 } IpcamIspPrivate;
 
@@ -59,7 +60,7 @@ static gint32 ipcam_isp_load_sensor_lib(IpcamIsp *self)
     }
     else if (g_str_equal(priv->sensor_type, "IMX222"))
     {
-        priv->sensor_lib_handle = dlopen("/usr/lib/libsns_imx122.so", RTLD_NOW);
+        priv->sensor_lib_handle = dlopen("/usr/lib/libsns_imx122.so", RTLD_LAZY);
     }
     else
     {
@@ -74,6 +75,15 @@ static gint32 ipcam_isp_load_sensor_lib(IpcamIsp *self)
             g_critical("%s: get sensor_register_callback failed with %s!\n", __FUNCTION__, error);
             return HI_FAILURE;
         }
+#if 0
+        priv->sensor_set_image_size = dlsym(priv->sensor_lib_handle, "sensor_set_image_size");
+        error = dlerror();
+        if (NULL != error)
+        {
+            g_critical("%s: get sensor_set_image_size failed with %s!\n", __FUNCTION__, error);
+            return HI_FAILURE;
+        }
+#endif
     }
     return priv->sensor_lib_handle ? HI_SUCCESS : HI_FAILURE;
 }
@@ -81,7 +91,8 @@ static void ipcam_isp_init_image_attr(IpcamIsp *self, ISP_IMAGE_ATTR_S *pstImage
 {
     IpcamIspPrivate *priv = ipcam_isp_get_instance_private(self);
 
-    if (g_str_equal(priv->sensor_type, "AR0130"))
+    if (g_str_equal(priv->sensor_type, "AR0130") ||
+        g_str_equal(priv->sensor_type, "NT99141"))
     {
         pstImageAttr->enBayer      = BAYER_GRBG;
         pstImageAttr->u16FrameRate = 30;
@@ -95,13 +106,6 @@ static void ipcam_isp_init_image_attr(IpcamIsp *self, ISP_IMAGE_ATTR_S *pstImage
         pstImageAttr->u16Width     = 1920;
         pstImageAttr->u16Height    = 1080;
     }
-    else if (g_str_equal(priv->sensor_type, "NT99141"))
-    {
-        pstImageAttr->enBayer      = BAYER_GRBG;
-        pstImageAttr->u16FrameRate = 30;
-        pstImageAttr->u16Width     = 1280;
-        pstImageAttr->u16Height    = 720;
-    }
     else if (g_str_equal(priv->sensor_type, "IMX222"))
     {
         pstImageAttr->enBayer      = BAYER_RGGB;
@@ -111,8 +115,8 @@ static void ipcam_isp_init_image_attr(IpcamIsp *self, ISP_IMAGE_ATTR_S *pstImage
     }
     else
     {
-        // never run to here, but we must shut compiler up.
         g_warning("Unknown sensor type %s\n!", priv->sensor_type);
+        g_warn_if_reached();
     }
 }
 gint32 ipcam_isp_start(IpcamIsp *self)
@@ -120,7 +124,7 @@ gint32 ipcam_isp_start(IpcamIsp *self)
     g_return_val_if_fail(IPCAM_IS_ISP(self), HI_FAILURE);
     HI_S32 s32Ret = HI_SUCCESS;
     IpcamIspPrivate *priv = ipcam_isp_get_instance_private(self);
-    
+
     /******************************************
      step 1: configure sensor.
      note: you can jump over this step, if you do not use Hi3518 interal isp. 
@@ -132,7 +136,7 @@ gint32 ipcam_isp_start(IpcamIsp *self)
         return s32Ret;
     }
 
-    if (priv->sensor_register_callback())
+    if (priv->sensor_register_callback)
     {   
         s32Ret = (*priv->sensor_register_callback)();
         if (s32Ret != HI_SUCCESS)
@@ -220,6 +224,12 @@ gint32 ipcam_isp_start(IpcamIsp *self)
         return HI_FAILURE;
     }
 
+#if 0
+    if (priv->sensor_set_image_size)
+    {
+        (*priv->sensor_set_image_size)("UXGA"/*desc[MASTER].v_desc.resolution*/);
+    }
+#endif
     return HI_SUCCESS;
 }
 void ipcam_isp_stop(IpcamIsp *self)

@@ -2,6 +2,7 @@
 #define __IMEDIA_H__
 
 #include <base_app.h>
+#include <json-glib/json-glib.h>
 
 #define IPCAM_IMEDIA_TYPE (ipcam_imedia_get_type())
 #define IPCAM_IMEDIA(obj) (G_TYPE_CHECK_INSTANCE_CAST((obj), IPCAM_IMEDIA_TYPE, IpcamIMedia))
@@ -24,5 +25,6 @@ struct _IpcamIMediaClass
 };
 
 GType ipcam_imedia_get_type(void);
+void ipcam_imedia_got_video_param(IpcamIMedia *imedia, JsonNode *body, gboolean is_notice);
 
 #endif /* __IMEDIA_H__ */

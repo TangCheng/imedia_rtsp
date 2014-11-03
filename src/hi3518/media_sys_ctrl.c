@@ -6,7 +6,7 @@
 #include <memory.h>
 #include "media_sys_ctrl.h"
 #include "stream_descriptor.h"
-#include "../media_sys_ctrl_interface.h"
+#include "interface/media_sys_ctrl_interface.h"
 
 static void ipcam_imedia_sys_ctrl_interface_init(IpcamIMediaSysCtrlInterface *iface);
 static void ipcam_media_sys_ctrl_init_media_system(IpcamMediaSysCtrl *self);
@@ -42,11 +42,11 @@ static void ipcam_media_sys_ctrl_init_media_system(IpcamMediaSysCtrl *self)
     HI_S32 s32Ret = HI_FAILURE;
 
     memset(&stVbConf, 0, sizeof(VB_CONF_S));
-    stVbConf.u32MaxPoolCnt = 128;
-    stVbConf.astCommPool[0].u32BlkSize = (CEILING_2_POWER(IMAGE_WIDTH, SYS_ALIGN_WIDTH) * \
-                                          CEILING_2_POWER(IMAGE_HEIGHT, SYS_ALIGN_WIDTH) * \
+    stVbConf.u32MaxPoolCnt = 200;
+    stVbConf.astCommPool[0].u32BlkSize = (CEILING_2_POWER(IMAGE_MAX_WIDTH, SYS_ALIGN_WIDTH) * \
+                                          CEILING_2_POWER(IMAGE_MAX_HEIGHT, SYS_ALIGN_WIDTH) * \
                                           2);
-    stVbConf.astCommPool[0].u32BlkCnt = 10;
+    stVbConf.astCommPool[0].u32BlkCnt = 20;
     memset(stVbConf.astCommPool[0].acMmzName, 0, sizeof(stVbConf.astCommPool[0].acMmzName));
 
     HI_MPI_SYS_Exit();
