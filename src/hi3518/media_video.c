@@ -347,8 +347,8 @@ static void ipcam_media_video_copy_data(IpcamMediaVideo *self, VENC_STREAM_S *ps
     // Deliver the data here:
     video_data->len = newFrameSize;
     video_data->isIFrame =
-        pstStream->pstPack[0].DataType.enH264EType == H264E_NALU_ISLICE ||
-        pstStream->pstPack[0].DataType.enH264EType == H264E_NALU_SEI ||
+        /* pstStream->pstPack[0].DataType.enH264EType == H264E_NALU_ISLICE || */
+        /* pstStream->pstPack[0].DataType.enH264EType == H264E_NALU_SEI || */
         pstStream->pstPack[0].DataType.enH264EType == H264E_NALU_SPS ||
         pstStream->pstPack[0].DataType.enH264EType == H264E_NALU_PPS;
 
@@ -382,25 +382,31 @@ static void ipcam_media_video_process_data(IpcamMediaVideo *self, VENC_STREAM_S 
         StreamData *video_data = ipcam_media_video_get_write_data(self);
         if (video_data)
         {
-            ipcam_media_video_copy_data(self, pstStream, video_data, newFrameSize );
+            ipcam_media_video_copy_data(self, pstStream, video_data,
+                                        newFrameSize < ((1024 * 1024) - sizeof(StreamData)) ? newFrameSize : ((1024 * 1024) - sizeof(StreamData)));
             ipcam_media_video_release_write_data(self, video_data);
             ipcam_media_video_notify_rtsp_source(self);
         }
     }
 }
 
+#define MAX_FRAME_PACK_NUM  4
+
 static gpointer ipcam_media_video_livestream(gpointer data)
 {
     IpcamMediaVideo *media_video = IPCAM_MEDIA_VIDEO(data);
     IpcamMediaVideoPrivate *priv = IPCAM_MEDIA_VIDEO_GET_PRIVATE(media_video);
-    HI_S32 maxfd = 0;
     struct timeval TimeoutVal;
     fd_set read_fds;
     HI_S32 VencFd;
     VENC_CHN_STAT_S stStat;
     VENC_STREAM_S stStream;
     HI_S32 s32Ret;
-    
+    HI_U32 u32PackCount = MAX_FRAME_PACK_NUM;
+
+    memset(&stStream, 0, sizeof(stStream));
+    stStream.pstPack = g_new(VENC_PACK_S, u32PackCount);
+
     /******************************************
      step 1:  check & prepare save-file & venc-fd
     ******************************************/
@@ -409,10 +415,6 @@ static gpointer ipcam_media_video_livestream(gpointer data)
     if (VencFd < 0)
     {
         g_critical("HI_MPI_VENC_GetFd failed with %#x!\n", VencFd);
-    }
-    if (maxfd <= VencFd)
-    {
-        maxfd = VencFd;
     }
 
     /******************************************
@@ -423,9 +425,9 @@ static gpointer ipcam_media_video_livestream(gpointer data)
         FD_ZERO(&read_fds);
         FD_SET(VencFd, &read_fds);
 
-        TimeoutVal.tv_sec  = 2;
+        TimeoutVal.tv_sec  = 1;
         TimeoutVal.tv_usec = 0;
-        s32Ret = select(maxfd + 1, &read_fds, NULL, NULL, &TimeoutVal);
+        s32Ret = select(VencFd + 1, &read_fds, NULL, NULL, &TimeoutVal);
         if (s32Ret < 0)
         {
             g_critical("select failed with %#x!\n", s32Ret);
@@ -443,71 +445,51 @@ static gpointer ipcam_media_video_livestream(gpointer data)
                 /*******************************************************
                  step 2.1 : query how many packs in one-frame stream.
                 *******************************************************/
-                memset(&stStream, 0, sizeof(stStream));
-                stStream.pstPack = g_new(VENC_PACK_S, 5);
                 s32Ret = HI_MPI_VENC_Query(0, &stStat);
-                do 
-                {    
-                    if (HI_SUCCESS != s32Ret)
-                    {
-                        g_print("HI_MPI_VENC_Query chn[%d] failed with %#x!\n", 0, s32Ret);
-                        break;
-                    }
+                if (HI_SUCCESS != s32Ret)
+                {
+                    g_print("HI_MPI_VENC_Query chn[%d] failed with %#x!\n", 0, s32Ret);
+                    continue;
+                }
 
-                    /*******************************************************
-                     step 2.2 : malloc corresponding number of pack nodes.
-                    *******************************************************/
-                    //stStream.pstPack = g_new(VENC_PACK_S, stStat.u32CurPacks);
-                    if (NULL == stStream.pstPack)
-                    {
-                        g_critical("malloc stream pack failed!\n");
-                        break;
-                    }
-                    
-                    /*******************************************************
-                     step 2.3 : call mpi to get one-frame stream
-                    *******************************************************/
-                    stStream.u32PackCount = stStat.u32CurPacks;
-                    s32Ret = HI_MPI_VENC_GetStream(0, &stStream, HI_TRUE);
-                    if (HI_SUCCESS != s32Ret)
-                    {
-                        g_free(stStream.pstPack);
-                        stStream.pstPack = NULL;
-                        g_critical("HI_MPI_VENC_GetStream failed with %#x!\n", s32Ret);
-                        break;
-                    }
+                /*******************************************************
+                 step 2.3 : call mpi to get one-frame stream
+                *******************************************************/
+                if (stStat.u32CurPacks > u32PackCount)
+                {
+                    u32PackCount = stStat.u32CurPacks;
+                    stStream.pstPack = g_renew(VENC_PACK_S, stStream.pstPack, u32PackCount);
+                }
+                stStream.u32PackCount = stStat.u32CurPacks;
+                stStream.u32Seq = 0;
+                memset(&stStream.stH264Info, 0, sizeof(VENC_STREAM_INFO_H264_S));
+                s32Ret = HI_MPI_VENC_GetStream(0, &stStream, HI_TRUE);
+                if (HI_SUCCESS != s32Ret)
+                {
+                    g_critical("HI_MPI_VENC_GetStream failed with %#x!\n", s32Ret);
+                    continue;
+                }
 
-                    /*******************************************************
-                     step 2.4 : send frame to live stream
-                    *******************************************************/
-                    if (g_list_length(priv->notify_source_list) > 0)
-                    {
-                        ipcam_media_video_process_data(media_video, &stStream);
-                    }
-                    /*******************************************************
-                     step 2.5 : release stream
-                    *******************************************************/
-                    s32Ret = HI_MPI_VENC_ReleaseStream(0, &stStream);
-                    if (HI_SUCCESS != s32Ret)
-                    {
-                        /*
-                        g_free(stStream.pstPack);
-                        stStream.pstPack = NULL;
-                        */
-                        break;
-                    }
-                    /*******************************************************
-                     step 2.6 : free pack nodes
-                    *******************************************************/
-                    /*
-                    g_free(stStream.pstPack);
-                    stStream.pstPack = NULL;
-                    */
-                } while (HI_SUCCESS == HI_MPI_VENC_Query(0, &stStat) && stStat.u32LeftStreamFrames > 0);
+                /*******************************************************
+                 step 2.4 : send frame to live stream
+                *******************************************************/
+                if (g_list_length(priv->notify_source_list) > 0)
+                {
+                    ipcam_media_video_process_data(media_video, &stStream);
+                }
+                /*******************************************************
+                 step 2.5 : release stream
+                *******************************************************/
+                s32Ret = HI_MPI_VENC_ReleaseStream(0, &stStream);
+                if (HI_SUCCESS != s32Ret)
+                {
+                    g_critical("HI_MPI_VENC_ReleaseStream failed with %#x!\n", s32Ret);
+                }
             }
         }
     }
-
+    g_free(stStream.pstPack);
+    stStream.pstPack = NULL;
     /*******************************************************
      * step 3 : close save-file
      *******************************************************/
