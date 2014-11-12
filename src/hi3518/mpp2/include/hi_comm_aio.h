@@ -34,10 +34,11 @@ extern "C"{
 #define MAX_VOICE_POINT_NUM    480      /*max sample per frame for voice encode */
 
 #define MAX_AUDIO_POINT_NUM    2048     /*max sample per frame for all encoder(aacplus:2048)*/
+#define MAX_AO_POINT_NUM       4096     /*31/21 AO support 4096 framelen*/
 #define MIN_AUDIO_POINT_NUM    80       /*min sample per frame*/
 
 /*max length of audio frame by bytes, one frame contain many sample point */
-#define MAX_AUDIO_FRAME_LEN    (MAX_AUDIO_POINT_BYTES*MAX_AUDIO_POINT_NUM)  
+#define MAX_AUDIO_FRAME_LEN    (MAX_AUDIO_POINT_BYTES*MAX_AO_POINT_NUM)  
 
 /*max length of audio stream by bytes */
 #define MAX_AUDIO_STREAM_LEN   MAX_AUDIO_FRAME_LEN
@@ -169,6 +170,7 @@ typedef struct hiAEC_FRAME_S
 {
     AUDIO_FRAME_S   stRefFrame;    /* AEC reference audio frame */
     HI_BOOL         bValid;        /* whether frame is valid */
+	HI_BOOL         bSysBind;        /* whether is sysbind */
 } AEC_FRAME_S;
 
 typedef struct hiAUDIO_FRAME_COMBINE_S
@@ -192,7 +194,6 @@ typedef struct hiAUDIO_STREAM_S
     HI_U32 u32Seq;          /* frame seq,if stream is not a valid frame,u32Seq is 0*/
 } AUDIO_STREAM_S;
 
-
 typedef enum hiAUDIO_RESAMPLE_TYPE_E
 {
     AUDIO_RESAMPLE_1X2 = 0x1,
@@ -211,6 +212,13 @@ typedef struct hiAUDIO_RESAMPLE_ATTR_S
     AUDIO_RESAMPLE_TYPE_E   enReSampleType; /* resample type */
 } AUDIO_RESAMPLE_ATTR_S;
 
+typedef struct hiAUDIO_RESAMPLE_ATTR_EX_S
+{
+    HI_U32                  u32InPointNum;      /* input point number of frame */
+    AUDIO_SAMPLE_RATE_E     enInSampleRate;     /* input sample rate */
+    AUDIO_SAMPLE_RATE_E     enOutSampleRate;    /* output sample rate */
+} AUDIO_RESAMPLE_ATTR_EX_S;
+
 typedef struct hiAO_CHN_STATE_S
 {
     HI_U32                  u32ChnTotalNum;    /* total number of channel buffer */
@@ -221,7 +229,9 @@ typedef struct hiAO_CHN_STATE_S
 typedef struct hiAIO_RESMP_INFO_S
 {
     HI_BOOL                 bReSmpEnable;      /* resample enable or disable */
+    HI_BOOL                 bReSmpEnableEx;    /*advanced resample enable or disable */
     AUDIO_RESAMPLE_ATTR_S   stResmpAttr;
+    AUDIO_RESAMPLE_ATTR_EX_S   stResmpAttrEx;
 } AIO_RESMP_INFO_S;
 
 typedef struct hiAI_ANR_INFO_S
@@ -229,7 +239,66 @@ typedef struct hiAI_ANR_INFO_S
     HI_BOOL                 bAnrEnable;      /* noise reduce enable or disable */
 } AI_ANR_INFO_S;
 
+typedef enum hiAUDIO_AEC_MODE_E
+{
+    AUDIO_AEC_MODE_RECEIVER	 = 0,
+    AUDIO_AEC_MODE_SPEAKER	 = 1,
+    AUDIO_AEC_MODE_HEADPHONE = 2,
+    
+    AUDIO_AEC_MODE_BUTT
+} AUDIO_AEC_MODE_E; 
 
+/**Defines the configure parameters of ALC.*/
+typedef struct hiAI_ALC_CONFIG_S
+{
+    HI_S32 s32MaxLev;         /*s32MaxLev£º[-23dBm0, -4dBm0]¡£default: -4dBm0*/
+    HI_S32 s32MinLev;         /*s32MinLev£º [-23dBm0, -4dBm0]¡£default: -16dBm0*/
+    HI_U32 u32MaxGain;        /*u32MaxGain£º[3dB,12dB]¡£default: 12dB*/
+} AI_ALC_CONFIG_S;
+
+/**Defines the configure parameters of AEC.*/
+typedef struct hiAI_AEC_CONFIG_S
+{
+    AUDIO_AEC_MODE_E  	enAecMode;       /* AEC mode, default is speaker,   0:receiver  1:speaker  2:headphone */
+    HI_S32 				s32Reserved;      
+} AI_AEC_CONFIG_S;
+
+
+/**Defines the configure parameters of ANR.*/
+typedef struct hiAI_ANR_CONFIG_S
+{
+    HI_S32 s32Reserved;
+} AI_ANR_CONFIG_S;
+
+/**Defines the configure parameters of VQE.*/
+typedef struct hiAI_VQE_CONFIG_S
+{
+    HI_S32              bAecOpen;     
+    HI_S32              bAnrOpen;
+    HI_S32              bAlcOpen;
+    HI_S32              s32SampleRate;  /* Sample Rate£º8KHz/11.025K/12K/16KHz¡£default: 8KHz*/
+    HI_S32              s32FrameSample; /* VQE frame length£º
+                                         sample rate 8KHz:  VQE frame length: 80/160/240/320/400/480£¬ default: 160;
+                                         sample rate 11.025K/12K/16KHz: VQE frame length: 160/320/480/960£¬ default: 160 */
+    AI_AEC_CONFIG_S stAecCfg;
+    AI_ANR_CONFIG_S stAnrCfg;
+    AI_ALC_CONFIG_S stAlcCfg;
+} AI_VQE_CONFIG_S;
+
+typedef struct hiAI_VQE_INFO_S
+{
+    AI_VQE_CONFIG_S         stVqeConfig;     /*vqe config*/
+    HI_BOOL                 bVqeEnable;      /* vqe enable or disable */
+} AI_VQE_INFO_S;
+
+/**Defines the configure parameters of AI saving file.*/
+typedef struct hiAUDIO_SAVE_FILE_INFO_S
+{
+    HI_BOOL               bCfg;
+    HI_CHAR  aFilePath[256];
+    //AI_SAVE_FILE_COMMOND_E eSaveFileCommond;
+    HI_U32 u32FileSize;  /*in KB*/
+} AUDIO_SAVE_FILE_INFO_S;
 
 /* invlalid device ID */
 #define HI_ERR_AI_INVALID_DEVID     HI_DEF_ERR(HI_ID_AI, EN_ERR_LEVEL_ERROR, EN_ERR_INVALID_DEVID)

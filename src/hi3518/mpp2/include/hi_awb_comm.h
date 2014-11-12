@@ -71,11 +71,11 @@ typedef struct hiAWB_DBG_ATTR_S
 typedef struct hiAWB_ZONE_DBG_S
 {
     HI_U16 u16Num;
+    HI_U32 u32Sum;
     HI_U16 u16Rg;
     HI_U16 u16Bg;
-    HI_U32 u32Sum;
     HI_U32 u32TK;
-    HI_U32 u32Shift;
+    HI_S32 s32Shift;
     HI_U32 u32Weight;
     HI_S32 s32Dev;    
 }AWB_ZONE_DBG_S;
@@ -87,9 +87,9 @@ typedef struct hiAWB_DBG_STATUS_S
     HI_U32 u32GlobalRgSta;
     HI_U32 u32GlobalBgSta;
     HI_U32 u32TK;
-    HI_U32 u32Rgain;
-    HI_U32 u32Ggain;
-    HI_U32 u32Bgain;
+    HI_U16 u16Rgain;
+    HI_U16 u16Ggain;
+    HI_U16 u16Bgain;
     HI_U16 au16CCM[9];
     
     AWB_ZONE_DBG_S astZoneDebug[255];

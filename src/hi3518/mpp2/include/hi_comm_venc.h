@@ -124,6 +124,7 @@ typedef struct hiVENC_PACK_S
     HI_BOOL  bFrameEnd;             /*frame end£¿*/
     
     VENC_DATA_TYPE_U  DataType;     /*the type of stream*/
+    HI_U32   u32Offset;
 }VENC_PACK_S;
 
 typedef enum hiH264E_REF_TYPE_E
@@ -187,7 +188,7 @@ typedef struct hiVENC_ATTR_H264_S
     HI_U32  u32MaxPicHeight;     /*maximum height of a picture to be encoded, in pixel*/
 
     HI_U32  u32BufSize;          /*stream buffer size*/
-    HI_U32  u32Profile;          /*0: baseline; 1:MP; 2:HP [0,2]*/          
+    HI_U32  u32Profile;          /*0: baseline; 1:MP; 2:HP; 3: SVC-T [0,3]; */          
     HI_BOOL bByFrame;            /*get stream mode is slice mode or frame mode*/
 
     HI_S32  bField;              /* surpport frame code only for hi3516, bfield = HI_FALSE */
@@ -538,6 +539,14 @@ typedef struct hiVENC_RECV_PIC_PARAM_S
 {
     HI_S32 s32RecvPicNum;       /**/
 } VENC_RECV_PIC_PARAM_S;
+
+typedef struct hiVENC_STREAM_BUF_INFO_S
+{
+    HI_U32 u32PhyAddr;
+    HI_U32 u32Size;    
+} VENC_STREAM_BUF_INFO_S;
+
+
 
 #ifdef __cplusplus
 #if __cplusplus

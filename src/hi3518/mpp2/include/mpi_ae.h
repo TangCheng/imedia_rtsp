@@ -29,10 +29,12 @@ extern "C"{
 
 /* The interface of ae lib register to isp. */
 HI_S32 HI_MPI_AE_Register(ALG_LIB_S *pstAeLib);
+HI_S32 HI_MPI_AE_UnRegister(ALG_LIB_S *pstAeLib);
 
 /* The callback function of sensor register to ae lib. */
 HI_S32 HI_MPI_AE_SensorRegCallBack(ALG_LIB_S *pstAeLib, SENSOR_ID SensorId,
     AE_SENSOR_REGISTER_S *pstRegister);
+HI_S32 HI_MPI_AE_SensorUnRegCallBack(ALG_LIB_S *pstAeLib, SENSOR_ID SensorId);
 
 /* The new ae lib is compatible with the old mpi interface. */
 HI_S32 HI_MPI_ISP_SetExposureType(ISP_OP_TYPE_E enExpType);
@@ -70,6 +72,14 @@ HI_S32 HI_MPI_ISP_GetAIAttr(ISP_AI_ATTR_S *pstAIAttr);
 
 HI_S32 HI_MPI_ISP_SetMIAttr(const ISP_MI_ATTR_S *pstMIAttr);    //not support yet
 HI_S32 HI_MPI_ISP_GetMIAttr(ISP_MI_ATTR_S *pstMIAttr);          //not support yet
+
+HI_S32 HI_MPI_ISP_SetAERouteAttr(const ISP_AE_ROUTE_S *pstAERouteAttr);
+HI_S32 HI_MPI_ISP_GetAERouteAttr(ISP_AE_ROUTE_S *pstAERouteAttr);
+
+HI_S32 HI_MPI_ISP_SetAEDelayAttr(const ISP_AE_DELAY_S *pstAEDelayAttr);
+HI_S32 HI_MPI_ISP_GetAEDelayAttr(ISP_AE_DELAY_S *pstAEDelayAttr);
+
+
 
 #ifdef __cplusplus
 #if __cplusplus

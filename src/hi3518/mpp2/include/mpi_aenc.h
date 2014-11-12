@@ -29,6 +29,8 @@ extern "C"
 #endif
 #endif /* __cplusplus */
 
+#define AENC_ADAPT_MAGIC 0Xfcfcfcfc
+
 HI_S32 HI_MPI_AENC_CreateChn(AENC_CHN AeChn, const AENC_CHN_ATTR_S *pstAttr);
 HI_S32 HI_MPI_AENC_DestroyChn(AENC_CHN AeChn);
 
@@ -39,6 +41,8 @@ HI_S32 HI_MPI_AENC_GetStream(AENC_CHN AeChn, AUDIO_STREAM_S *pstStream, HI_BOOL 
 HI_S32 HI_MPI_AENC_ReleaseStream(AENC_CHN AeChn, const AUDIO_STREAM_S *pstStream);
 
 HI_S32 HI_MPI_AENC_GetFd(AENC_CHN AeChn);
+
+HI_S32 HI_MPI_AENC_Save_File(AENC_CHN AeChn, AUDIO_SAVE_FILE_INFO_S *pstSaveFileInfo);
 
 HI_S32 HI_MPI_AENC_RegeisterEncoder(HI_S32 *ps32Handle, AENC_ENCODER_S *pstEncoder);
 HI_S32 HI_MPI_AENC_UnRegisterEncoder(HI_S32 s32Handle);

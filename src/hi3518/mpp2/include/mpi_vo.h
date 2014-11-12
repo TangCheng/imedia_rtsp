@@ -62,6 +62,12 @@ HI_S32 HI_MPI_VO_DisablePipLayer(HI_VOID);
 HI_S32 HI_MPI_VO_EnableChn (VO_DEV VoDev, VO_CHN VoChn);
 HI_S32 HI_MPI_VO_DisableChn(VO_DEV VoDev, VO_CHN VoChn);
 
+
+/* These two interfaces only support for Hi3518 */
+HI_S32 HI_MPI_VO_EnableSdTdeBypass (VO_DEV VoDev);
+HI_S32 HI_MPI_VO_DisableSdTdeBypass(VO_DEV VoDev);
+
+
 HI_S32 HI_MPI_VO_SetChnAttr(VO_DEV VoDev, VO_CHN VoChn, const VO_CHN_ATTR_S *pstChnAttr);
 HI_S32 HI_MPI_VO_GetChnAttr(VO_DEV VoDev, VO_CHN VoChn, VO_CHN_ATTR_S *pstChnAttr);
 
@@ -95,6 +101,7 @@ HI_S32 HI_MPI_VO_SendFrame(VO_DEV VoDev, VO_CHN VoChn, VIDEO_FRAME_INFO_S *pstVF
 HI_S32 HI_MPI_VO_SendFrameTimeOut(VO_DEV VoDev, VO_CHN VoChn, VIDEO_FRAME_INFO_S *pstVFrame, HI_U32 u32MilliSec);
 
 HI_S32 HI_MPI_VO_ClearChnBuffer(VO_DEV VoDev, VO_CHN VoChn, HI_BOOL bClrAll);
+
 
 HI_S32 HI_MPI_VO_SetChnDispThreshold(VO_DEV VoDev, VO_CHN VoChn, HI_U32 u32Threshold);
 HI_S32 HI_MPI_VO_GetChnDispThreshold(VO_DEV VoDev, VO_CHN VoChn, HI_U32 *pu32Threshold);
@@ -158,6 +165,12 @@ HI_S32 HI_MPI_VO_SetVgaParam(VO_DEV VoDev, VO_VGA_PARAM_S *pstVgaParam);
 HI_S32 HI_MPI_VO_SetVtth(VO_DEV VoDev, HI_U32 u32Vtth);
 HI_S32 HI_MPI_VO_GetVtth(VO_DEV VoDev, HI_U32 *pu32Vtth);
 
+HI_S32 HI_MPI_VO_SetDevFramerate(VO_DEV VoDev, HI_U32 u32Framerate);
+HI_S32 HI_MPI_VO_GetDevFramerate(VO_DEV VoDev, HI_U32 *pu32Framerate);
+
+
+HI_S32 HI_MPI_VO_EnableRecvFrameRateMatch (VO_DEV VoDev, VO_CHN VoChn);
+HI_S32 HI_MPI_VO_DisableRecvFrameRateMatch (VO_DEV VoDev, VO_CHN VoChn);
 
 #ifdef __cplusplus
 #if __cplusplus

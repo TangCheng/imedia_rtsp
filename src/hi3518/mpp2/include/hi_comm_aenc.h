@@ -78,7 +78,6 @@ typedef enum hiEN_AENC_ERR_CODE_E
 
 } EN_AENC_ERR_CODE_E;
 
-
 /* invlalid device ID */
 #define HI_ERR_AENC_INVALID_DEVID     HI_DEF_ERR(HI_ID_AENC, EN_ERR_LEVEL_ERROR, EN_ERR_INVALID_DEVID)
 /* invlalid channel ID */

@@ -65,6 +65,7 @@ extern "C"{
 
 HI_S32 VReg_Init(HI_U32 u32BaseAddr, HI_U32 u32Size);
 HI_S32 VReg_Exit(HI_U32 u32BaseAddr, HI_U32 u32Size);
+HI_U32 VReg_GetVirtAddr(HI_U32 u32BaseAddr);
 HI_VOID VReg_Munmap(HI_VOID);
 HI_U32 IO_READ32(HI_U32 u32Addr);
 HI_S32 IO_WRITE32(HI_U32 u32Addr, HI_U32 u32Value);

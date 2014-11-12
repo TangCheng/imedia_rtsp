@@ -33,6 +33,7 @@ HI_S32 HI_MPI_ISP_Init(HI_VOID);
 HI_S32 HI_MPI_ISP_Run(HI_VOID);
 HI_S32 HI_MPI_ISP_Exit(HI_VOID);
 HI_S32 HI_MPI_ISP_SensorRegCallBack(SENSOR_ID SensorId, ISP_SENSOR_REGISTER_S *pstRegister);
+HI_S32 HI_MPI_ISP_SensorUnRegCallBack(SENSOR_ID SensorId);
 
 /* if have registered multy libs, set bind attr to appoint the active lib. */
 HI_S32 HI_MPI_ISP_SetBindAttr(const ISP_BIND_ATTR_S *pstBindAttr);
@@ -43,6 +44,9 @@ HI_S32 HI_MPI_ISP_AwbLibRegCallBack(ALG_LIB_S *pstAwbLib,
         ISP_AWB_REGISTER_S *pstRegister);
 HI_S32 HI_MPI_ISP_AfLibRegCallBack(ALG_LIB_S *pstAfLib,
         ISP_AF_REGISTER_S *pstRegister);
+HI_S32 HI_MPI_ISP_AeLibUnRegCallBack(ALG_LIB_S *pstAeLib);
+HI_S32 HI_MPI_ISP_AwbLibUnRegCallBack(ALG_LIB_S *pstAwbLib);
+HI_S32 HI_MPI_ISP_AfLibUnRegCallBack(ALG_LIB_S *pstAfLib);
 
 HI_S32 HI_MPI_ISP_SetInputTiming(const ISP_INPUT_TIMING_S *pstInputTiming);
 HI_S32 HI_MPI_ISP_GetInputTiming(ISP_INPUT_TIMING_S *pstInputTiming);
@@ -83,11 +87,11 @@ HI_S32 HI_MPI_ISP_GetDenoiseAttr(ISP_DENOISE_ATTR_S *pstDenoiseAttr);
 HI_S32 HI_MPI_ISP_SetGammaAttr(const ISP_GAMMA_ATTR_S* pstGammaAttr);
 HI_S32 HI_MPI_ISP_GetGammaAttr(ISP_GAMMA_ATTR_S* pstGammaAttr);
 
-HI_S32 HI_MPI_ISP_SetGammaTable(const ISP_GAMMA_TABLE_S* pstGammaAttr);  //not support yet
-HI_S32 HI_MPI_ISP_GetGammaTable(ISP_GAMMA_TABLE_S* pstGammaAttr);  //not support yet
+HI_S32 HI_MPI_ISP_SetGammaTable(const ISP_GAMMA_TABLE_S* pstGammaAttr);
+HI_S32 HI_MPI_ISP_GetGammaTable(ISP_GAMMA_TABLE_S* pstGammaAttr);
 
 HI_S32 HI_MPI_ISP_SetGammaFETable(const ISP_GAMMA_TABLE_S* pstGammaAttr);
-HI_S32 HI_MPI_ISP_GetGammaFETable(ISP_GAMMA_TABLE_S* pstGammaAttr);  //not support yet
+HI_S32 HI_MPI_ISP_GetGammaFETable(ISP_GAMMA_TABLE_S* pstGammaAttr);
 
 HI_S32 HI_MPI_ISP_SetSharpenAttr(const ISP_SHARPEN_ATTR_S *pstSharpenAttr);
 HI_S32 HI_MPI_ISP_GetSharpenAttr(ISP_SHARPEN_ATTR_S *pstSharpenAttr);
@@ -117,6 +121,7 @@ HI_S32 HI_MPI_ISP_SnsRegsCfg(const ISP_SNS_REGS_INFO_S *pstSnsRegsInfo);
 
 HI_S32 HI_MPI_ISP_GetVDTimeOut(ISP_VD_INFO_S *pstIspVdInfo, HI_U32 u32MilliSec);
 
+HI_S32 HI_MPI_ISP_GetISPRegAttr(ISP_REG_ATTR_S * pstIspRegAttr);
 #ifdef __cplusplus
 #if __cplusplus
 }

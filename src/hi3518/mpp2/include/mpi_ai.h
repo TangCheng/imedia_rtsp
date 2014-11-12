@@ -56,6 +56,17 @@ HI_S32 HI_MPI_AI_DisableAnr(AUDIO_DEV AudioDevId, AI_CHN AiChn);
 
 HI_S32 HI_MPI_AI_GetFd(AUDIO_DEV AudioDevId, AI_CHN AiChn);
 
+HI_S32 HI_MPI_AI_SetVqeAttr(AUDIO_DEV AiDevId, AI_CHN AiChn, AUDIO_DEV AoDevId, AO_CHN AoChn, AI_VQE_CONFIG_S *pstVqeConfig);
+HI_S32 HI_MPI_AI_GetVqeAttr(AUDIO_DEV AiDevId, AI_CHN AiChn, AI_VQE_CONFIG_S *pstVqeConfig);
+HI_S32 HI_MPI_AI_EnableVqe(AUDIO_DEV AiDevId, AI_CHN AiChn);
+HI_S32 HI_MPI_AI_DisableVqe(AUDIO_DEV AiDevId, AI_CHN AiChn);
+
+HI_S32 HI_MPI_AI_EnableReSmpEx(AUDIO_DEV AudioDevId, AI_CHN AiChn, AUDIO_RESAMPLE_ATTR_EX_S *pstAttr);
+HI_S32 HI_MPI_AI_DisableReSmpEx(AUDIO_DEV AudioDevId, AI_CHN AiChn);
+
+HI_S32 HI_MPI_AI_Save_File(AUDIO_DEV AudioDevId, AI_CHN AiChn,AUDIO_SAVE_FILE_INFO_S *pstSaveFileInfo);
+
+HI_S32 HI_MPI_AI_ClrPubAttr(AUDIO_DEV AudioDevId);
 
 #ifdef __cplusplus
 #if __cplusplus
