@@ -5,7 +5,8 @@
 #include <hi_comm_venc.h>
 #include <mpi_sys.h>
 #include <mpi_venc.h>
-#include <hi_mem.h>
+//#include <hi_mem.h>
+#include <memory.h>
 #include "stream_descriptor.h"
 #include "buffer_manager.h"
 #include "interface/media_video_interface.h"

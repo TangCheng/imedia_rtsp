@@ -22,7 +22,8 @@
 // Implementation
 
 #include <MediaSink.hh>
-#include <hi_mem.h>
+//#include <hi_mem.h>
+#include <memory.h>
 #include "H264LiveStreamSource.hh"
 #include "stream_descriptor.h"
 #include "interface/media_video_interface.h"

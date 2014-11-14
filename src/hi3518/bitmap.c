@@ -1,6 +1,7 @@
 #include <hi_defines.h>
 #include <stdlib.h>
-#include <hi_mem.h>
+//#include <hi_mem.h>
+#include <memory.h>
 #include "bitmap.h"
 #include "stream_descriptor.h"
 
