@@ -55,7 +55,7 @@ extern "C"{
 #endif
 
 #ifdef HI_DEBUG
-    #define VER_D " Debug"
+    #define VER_D " "
 #else
     #define VER_D " Release"
 #endif
@@ -63,6 +63,7 @@ extern "C"{
 #define __MK_VERSION(x,y,z,p) #x"."#y"."#z"."#p
 #define MK_VERSION(x,y,z,p) __MK_VERSION(x,y,z,p)
 #define MPP_VERSION  CHIP_NAME MPP_VER_PRIX MK_VERSION(VER_X,VER_Y,VER_Z,VER_P) VER_D
+#define COM_VERSION  MPP_VER_PRIX MK_VERSION(VER_X,VER_Y,VER_Z,VER_P) VER_D
 
 #define VERSION_NAME_MAXLEN 64
 typedef struct hiMPP_VERSION_S
@@ -275,6 +276,7 @@ typedef struct hiMPP_CHN_S
 
 #define MPP_MOD_TDE       "tde"
 #define MPP_MOD_ISP       "isp"
+#define MPP_MOD_ACODEC    "acodec"
 
 /* We just coyp this value of payload type from RTP/RTSP definition */
 typedef enum

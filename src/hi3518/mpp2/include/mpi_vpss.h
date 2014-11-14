@@ -97,6 +97,10 @@ HI_S32 HI_MPI_VPSS_GetChnSpParam(VPSS_GRP VpssGrp, VPSS_CHN VpssChn, VPSS_CHN_SP
 HI_S32 HI_MPI_VPSS_SetChnField(VPSS_GRP VpssGrp, VPSS_CHN VpssChn, VPSS_CAPSEL_E enCapSel);
 HI_S32 HI_MPI_VPSS_GetChnField(VPSS_GRP VpssGrp, VPSS_CHN VpssChn, VPSS_CAPSEL_E *enCapSel);
 
+/*set&get vpss group field information.*/
+HI_S32 HI_MPI_VPSS_SetGrpField(VPSS_GRP VpssGrp, VPSS_CAPSEL_E enCapSel);
+HI_S32 HI_MPI_VPSS_GetGrpField(VPSS_GRP VpssGrp, VPSS_CAPSEL_E *penCapSel);
+
 //////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 /*set&get vpss extend channel attributes*/
 HI_S32 HI_MPI_VPSS_SetExtChnAttr(VPSS_GRP VpssGrp, VPSS_CHN VpssChn, VPSS_EXT_CHN_ATTR_S *pstExtChnAttr);

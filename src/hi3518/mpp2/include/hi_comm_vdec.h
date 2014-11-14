@@ -173,6 +173,22 @@ typedef struct hiVDEC_PRTCL_PARAM_S
 }VDEC_PRTCL_PARAM_S;
 
 
+typedef enum hiVDEC_EVNT_E
+{
+    VDEC_EVNT_STREAM_ERR = 1,
+    VDEC_EVNT_UNSUPPORT,
+    VDEC_EVNT_OVER_REFTHR,
+    VDEC_EVNT_REF_NUM_OVER,
+    VDEC_EVNT_SLICE_NUM_OVER,
+    VDEC_EVNT_SPS_NUM_OVER,
+    VDEC_EVNT_PPS_NUM_OVER,
+    VDEC_EVNT_PICBUF_SIZE_ERR,   
+    VDEC_EVNT_SIZE_OVER,
+	VDEC_EVNT_IMG_SIZE_CHANGE, 
+	VDEC_EVNT_BUTT
+} VDEC_EVNT_E;
+
+
 //structure & varibale for jpegd decoder lib
 /*********************************************************************************************************/
 /* stream packet for jpeg */

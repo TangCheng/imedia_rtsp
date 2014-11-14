@@ -54,6 +54,7 @@ HI_S32 HI_MPI_VENC_SetMaxStreamCnt(VENC_CHN VeChn, HI_U32 u32MaxStrmCnt);
 HI_S32 HI_MPI_VENC_GetMaxStreamCnt(VENC_CHN VeChn, HI_U32 *pu32MaxStrmCnt);
 
 HI_S32 HI_MPI_VENC_RequestIDR(VENC_CHN VeChn);
+HI_S32 HI_MPI_VENC_RequestIDRInst(VENC_CHN VeChn);
 
 HI_S32 HI_MPI_VENC_GetFd(VENC_CHN VeChn);
 
@@ -119,6 +120,11 @@ HI_S32 HI_MPI_VENC_GetGrpCrop(VENC_GRP VeGroup, GROUP_CROP_CFG_S *pstGrpCropCfg)
 HI_S32 HI_MPI_VENC_SetJpegSnapMode(VENC_CHN VeChn, VENC_JPEG_SNAP_MODE_E enJpegSnapMode);
 HI_S32 HI_MPI_VENC_GetJpegSnapMode(VENC_CHN VeChn, VENC_JPEG_SNAP_MODE_E *penJpegSnapMode);
 
+HI_S32 HI_MPI_VENC_SetRcPriority(VENC_CHN VeChn, VENC_RC_PRIORITY_E enRcPriority);
+HI_S32 HI_MPI_VENC_GetRcPriority(VENC_CHN VeChn, VENC_RC_PRIORITY_E *penRcPriority);
+    
+HI_S32 HI_MPI_VENC_SetLostFrameStrategy(VENC_CHN VeChn, VENC_PARAM_LOSTFRM_S *pstLostFrmParam);
+HI_S32 HI_MPI_VENC_GetLostFrameStrategy(VENC_CHN VeChn, VENC_PARAM_LOSTFRM_S *pstLostFrmParam);
 #ifdef __cplusplus
 #if __cplusplus
 }

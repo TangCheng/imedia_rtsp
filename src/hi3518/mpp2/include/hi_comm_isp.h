@@ -42,6 +42,7 @@ extern "C"{
 #define GAMMA_FE_LUT_SIZE   ((1<<LUT_FACTOR)+1)
 #define GAMMA_NODE_NUMBER   257
 #define SHADING_TABLE_NODE_NUMBER_MAX (129)
+#define LIGHTSOURCE_NUM          4
 
 #define ISP_REG_BASE        0x205A0000
 #define ISP_REG_SIZE        0x7fff
@@ -98,12 +99,34 @@ typedef enum hiISP_OP_TYPE_E
     OP_TYPE_BUTT
 } ISP_OP_TYPE_E;
 
+#define ISP_AE_ROUTE_MAX_NODES 8
+typedef struct hiISP_AE_ROUTE_NODE_S
+{
+    HI_U32  u32IntTime;
+    HI_U32  u32SysGain;     /* shift is in the ISP_AE_ATTR_S's stSysGainRange. */
+    HI_U32  u32ApePercent;  /* the percent of the iris's aperture, range is [0~100], dc-iris not support in auto mode. */
+} ISP_AE_ROUTE_NODE_S;
+
+typedef struct hiISP_AE_ROUTE_S
+{
+    HI_U32 u32TotalNum;    
+    ISP_AE_ROUTE_NODE_S astRouteNode[ISP_AE_ROUTE_MAX_NODES];
+} ISP_AE_ROUTE_S;
+
 typedef enum hiISP_AE_MODE_E
 {
     AE_MODE_LOW_NOISE   = 0,
     AE_MODE_FRAME_RATE  = 1,
     AE_MODE_BUTT
 } ISP_AE_MODE_E;
+
+typedef enum hiISP_AWB_ALG_TYPE_E
+{
+	AWB_ALG_DEFAULT = 0,
+	AWB_ALG_ADVANCE = 1,
+	AWB_ALG_BUTT
+    
+} ISP_AWB_ALG_TYPE_E;
 
 typedef enum hiISP_WB_MODE_E
 {
@@ -229,8 +252,18 @@ typedef struct hiISP_AE_ATTR_S
     ISP_AE_FRAME_END_UPDATE_E  enFrameEndUpdateMode;
     HI_BOOL bByPassAE;
     /*AE weighting table*/
-    HI_U8 u8Weight[WEIGHT_ZONE_ROW][WEIGHT_ZONE_COLUMN]; /*Range :  [0, 0xF]*/    
+    HI_U8 u8Weight[WEIGHT_ZONE_ROW][WEIGHT_ZONE_COLUMN]; /*Range :  [0, 0xF]*/
+    /* ae route strategy */
+    //ISP_AE_ROUTE_S stRoute;     /* */
 } ISP_AE_ATTR_S;
+
+typedef enum hiISP_AE_STRATEGY_E
+{
+    AE_EXP_HIGHLIGHT_PRIOR = 0,
+    AE_EXP_LOWLIGHT_PRIOR  = 1,
+    AE_STRATEGY_MODE_BUTT
+} ISP_AE_STRATEGY_E;
+
 
 typedef struct hiISP_AE_ATTR_EX_S
 {
@@ -244,16 +277,30 @@ typedef struct hiISP_AE_ATTR_EX_S
     HI_U32 u32AGainMin;         /*RW, Range: [0x400, u16AainMax]*/
     HI_U32 u32ISPDGainMax;      /*RW,  the ISPDgain's  max value, Range : [0x400, 0xFFFFFFFF]*/
     HI_U32 u32SystemGainMax;    /*RW, the maximum gain of the system, Range: [0x400, 0xFFFFFFFF],it's related to specific sensor*/
-    
+    HI_U32 u32GainThreshold;    /*RW, the setting of the system gain threshold  for low nosie mode */
+
     HI_U8  u8ExpStep;			/*RW, AE adjust step, Range: [0x0, 0xFF]*/
     HI_S16 s16ExpTolerance;		/*RW, AE adjust tolerance, Range: [0x0, 0xFF]*/
     HI_U8  u8ExpCompensation;	/*RW, AE compensation, Range: [0x0, 0xFF]*/ 
+	HI_U16  u16EVBias;          /*RW, AE EV bias, Range: [0x100, 0x1000]*/
+    ISP_AE_STRATEGY_E enAEStrategyMode;  /*RW, Support Highlight prior or Lowlight prior*/
+    HI_U16  u16HistRatioSlope;       /*RW, Range: [0x0, 0xFFFF], AE hist ratio slope*/
+    HI_U8   u8MaxHistOffset;         /*RW, Range: [0x0, 0xFF], Max hist offset*/
     ISP_AE_FRAME_END_UPDATE_E  enFrameEndUpdateMode;
     HI_BOOL bByPassAE;
     /*AE weighting table*/
     HI_U8 u8Weight[WEIGHT_ZONE_ROW][WEIGHT_ZONE_COLUMN]; /*Range :  [0, 0xF]*/
-    
+    /* ae route strategy */
+    //ISP_AE_ROUTE_S stRoute;     /* */
 } ISP_AE_ATTR_EX_S;
+
+
+typedef struct hiISP_AE_DELAY_S
+{
+    HI_U16 u16BlackDelayFrame;    /*RW, AE black delay frame count, Range: [0x0, 0xFFFF]*/
+    HI_U16 u16WhiteDelayFrame;    /*RW, AE white delay frame count, Range: [0x0, 0xFFFF]*/
+} ISP_AE_DELAY_S;
+
 
 typedef struct hiISP_EXP_STA_INFO_S
 {
@@ -263,6 +310,7 @@ typedef struct hiISP_EXP_STA_INFO_S
     HI_U16 u16Exp_Hist5Value[5];            /*RO, 5 bins histogram, Range: [0x0, 0xFFFF]*/
     HI_U8  u8AveLum;                        /*RO, average lum,Range: [0x0, 0xFF]*/
     HI_U8  u8ExpHistTarget[5];              /*RW, Histogram target for bin 0/1/2/3/4 */
+    HI_S16 s16HistError;   
 }ISP_EXP_STA_INFO_S;
 
 typedef struct hiISP_ME_ATTR_S
@@ -280,11 +328,13 @@ typedef struct hiISP_ME_ATTR_EX_S
 {
     HI_S32 s32AGain;            /*RW,  sensor analog gain (unit: times), Range: [0x0, 0xFF],it's related to the specific sensor */
     HI_S32 s32DGain;            /*RW,  sensor digital gain (unit: times), Range: [0x0, 0xFF],it's related to the specific sensor */
+    HI_U32 u32ISPDGain;         /*RW,  sensor digital gain (unit: times), Range: [0x0, 0xFF],it's related to the specific isp   */
     HI_U32 u32ExpLine;          /*RW,  sensor exposure time (unit: line ), Range: [0x0, 0xFFFF],it's related to the specific sensor */
 
     HI_BOOL bManualExpLineEnable;
     HI_BOOL bManualAGainEnable;
     HI_BOOL bManualDGainEnable;
+    HI_BOOL bManualISPGainEnable;
 } ISP_ME_ATTR_EX_S;
 
 typedef struct hiISP_AF_ATTR_S
@@ -323,7 +373,7 @@ typedef struct hiISP_AWB_CALIBRATION_S
 typedef struct hiISP_AWB_ATTR_S
 {
     ISP_AWB_CALIBRATION_S stAWBCalibration; /*RW, AWB Calibration parameters*/
-    HI_U8 u8Speed;             /*RW, Range: [0x0, 0xFF], AWB converging speed*/ 
+    HI_U16 u16Speed;             /*RW, Range: [0x0, 0xFFF], AWB converging speed*/ 
     HI_U8 u8RGStrength;        /*RW, Range: [0x0, 0xFF]*/
     HI_U8 u8BGStrength;        /*RW, Range: [0x0, 0xFF]*/
     HI_U8 u8ZoneSel;           /*RW,  A value of 0 or 0x3F means global AWB, A value between 0 and 0x3F means zoned AWB */
@@ -333,6 +383,56 @@ typedef struct hiISP_AWB_ATTR_S
     HI_U8 u8Weight[WEIGHT_ZONE_ROW][WEIGHT_ZONE_COLUMN];  /*RW, Range :  [0, 0xF]*/
     
 } ISP_AWB_ATTR_S;
+
+typedef struct hiISP_AWB_IN_OUT_ATTR_S
+{
+    HI_BOOL bEnable;
+    ISP_OP_TYPE_E   enOpType;
+    HI_BOOL bOutdoorStatus;                /*in Auto mode, this is RO, in Manual mode, this is WO*/
+    HI_U32 u32OutThresh;                   /*shutter time(in us) to judge indoor or outdoor */
+    HI_U16 u16LowStart;                    /*5000K is recommend. [u8LowStart, u8HighStart] is the color temperature range of Day Light*/
+    HI_U16 u16LowStop;                     /*4500K is recommend, u16LowStop < u8LowStart*/
+    HI_U16 u16HighStart;                   /*6500K is recommend, u16HighStart > u8LowStart*/
+    HI_U16 u16HighStop;                    /*8000K is recommend, u16HighStop > u8HighStart*/
+    HI_BOOL bGreenEnhanceEn;               /*If this is enabled, Green channel will be enhanced based on the area of green plant, only take effect outdoor*/
+} ISP_AWB_IN_OUT_ATTR_S;
+
+typedef struct hiISP_AWB_CT_LIMIT_ATTR_S
+{
+    HI_BOOL bEnable;
+    ISP_OP_TYPE_E   enOpType;
+
+    HI_U16 u16HighRgLimit;     /*RO, in Manual Mode, user should define the Max Rgain of High Color Temperature, u16HighRgLimit > u16LowRgLimit*/
+    HI_U16 u16HighBgLimit;     /*RO, in Manual Mode, user should define the Min Bgain of High Color Temperature, u16HighBgLimit < u16LowBgLimit*/
+    HI_U16 u16LowRgLimit;      /*RO, in Manual Mode, user should define the Min Rgain of Low Color Temperature*/
+    HI_U16 u16LowBgLimit;      /*RO, in Manual Mode, user should define the Max Bgain of Low Color Temperature*/
+} ISP_AWB_CT_LIMIT_ATTR_S;
+
+typedef struct hiISP_ADV_AWB_ATTR_S
+{
+    HI_BOOL bAccuPrior;         /*RW, recommend 0 for outdoor, 1 for indoor*/    
+    HI_U8  u8Tolerance;         /*RW, Range:[0x0, 0xFF], AWB adjust tolerance,for outdoor, this value should be small,recomend 4*/   
+    HI_U16 u16CurveLLimit;      /*RW, Range:[0x0, 0x100],   Left limit of AWB Curve, recomend for indoor 0xE0, outdoor 0xE0*/ 
+    HI_U16 u16CurveRLimit;      /*RW, Range:[0x100, 0xFFF], Right Limit of AWB Curve,recomend for indoor 0x130, outdoor 0x120*/ 
+
+    HI_BOOL bGainNormEn;     
+    ISP_AWB_IN_OUT_ATTR_S       stInOrOut;    
+    ISP_AWB_CT_LIMIT_ATTR_S     stCTLimit;
+} ISP_ADV_AWB_ATTR_S;
+
+typedef struct hiISP_AWB_LIGHTSOURCE_INFO_S
+{
+    HI_U16 u16WhiteRgain;        /*G/R of White points at this light source*/
+    HI_U16 u16WhiteBgain;        /*G/B of White points at this light source*/
+    HI_U16 u16ExpQuant;          /*shtter time * again * dgain >> 4, Not support Now*/
+    HI_BOOL bLightStatus;         /*RW, 0: idle  1:busy */	
+} ISP_AWB_LIGHTSOURCE_INFO_S;
+
+typedef struct hiISP_AWB_ADD_LIGHTSOURCE_S
+{
+    HI_BOOL  bLightEnable;                     /*Enable special light source function*/
+    ISP_AWB_LIGHTSOURCE_INFO_S	stLightInfo[LIGHTSOURCE_NUM]; 
+} ISP_AWB_ADD_LIGHTSOURCE_S;
 
 typedef struct hiISP_WB_ZONE_STA_INFO_S
 {
@@ -370,13 +470,21 @@ typedef struct hiISP_MWB_ATTR_S
 } ISP_MWB_ATTR_S;
 
 typedef struct hiISP_COLORMATRIX_S
-{   HI_U16 u16HighColorTemp;    /*RW,  Range: [2000,  10000]*/
+{   HI_U16 u16HighColorTemp;    /*RW,  Range: [u16MidColorTemp + 400,  10000]*/
     HI_U16 au16HighCCM[9];      /*RW,  Range: [0x0,  0xFFFF]*/
-    HI_U16 u16MidColorTemp;     /*RW,  the MidColorTemp should be at least 400 smaller than HighColorTemp, Range: [2000,  u16HighColorTemp-400]*/
+    HI_U16 u16MidColorTemp;     /*RW,  the MidColorTemp should be at least 400 smaller than HighColorTemp, Range: [u16LowColorTemp + 400,  u16HighColorTemp-400]*/
     HI_U16 au16MidCCM[9];       /*RW,  Range: [0x0,  0xFFFF]*/
-    HI_U16 u16LowColorTemp;     /*RW,  the LowColorTemp should be at least 400 smaller than HighColorTemp, Range: [2000,  u16MidColorTemp-400]*/
+    HI_U16 u16LowColorTemp;     /*RW,  the LowColorTemp should be at least 400 smaller than HighColorTemp, Range: [0,  u16MidColorTemp-400]*/
     HI_U16 au16LowCCM[9];       /*RW,  Range: [0x0,  0xFFFF]*/
 } ISP_COLORMATRIX_S;
+
+typedef struct hiISP_COLORTONE_S
+{
+  HI_U16 u16RedCastGain;        /*RW,  Range: [0x100, 0xFFFF], adjust the final red channel  tone of the picture */
+  HI_U16 u16GreenCastGain;      /*RW,  Range: [0x100, 0xFFFF], adjust the final green channel  tone of the picture*/
+  HI_U16 u16BlueCastGain;       /*RW,  Range: [0x100, 0xFFFF], adjust the final blue channel  tone of the picture*/ 
+  
+}ISP_COLORTONE_S;
 
 typedef struct hiISP_SATURATION_ATTR_S
 {
@@ -384,6 +492,14 @@ typedef struct hiISP_SATURATION_ATTR_S
     HI_U8   u8SatTarget;        /*RW,  Range: [0, 0xFF] */
     HI_U8   au8Sat[8];           /*RW,  Range: [0, 0xFF] */ 
 }ISP_SATURATION_ATTR_S;
+
+typedef enum hiISP_IRIS_TYPE_E
+{
+    ISP_IRIS_DC_TYPE = 0,
+    ISP_IRIS_P_TYPE,
+    
+    ISP_IRIS_TYPE_BUTT,
+} ISP_IRIS_TYPE_E;
 
 typedef struct hiISP_AI_ATTR_S
 {
@@ -397,15 +513,14 @@ typedef struct hiISP_AI_ATTR_S
     HI_U16 u16IrisCloseDrive;   /*RW, the drive value to close Iris, Range: [0x0,0x3E8], Recommended value: [700, 900]. A larger value means faster.*/
     HI_U16 u16IrisTriggerTime;  /*RW, frame numbers of AI trigger lasting time. > 600, [0x0, 0xFFF]*/
     HI_U8  u8IrisInertiaValue;  /*RW, frame numbers of  AI moment of inertia, Range: [0x0, 0xFF],the recommended value is between[0x3, 0xa]*/
-    
 } ISP_AI_ATTR_S;
 
 typedef struct hiISP_MI_ATTR_S
 {
-    HI_S32 s32FixAttenuation;        
-    
+    HI_BOOL bEnable;            /* manual iris  on/off*/
+    HI_U32  u32IrisHoldValue;   /*RW, iris hold value, Range: [0x0, 0x3E8]*/
+    HI_U16  u16ApePercent;      /* the percent of the iris's aperture, range is [0~100]. */
 } ISP_MI_ATTR_S;
-
 
 typedef struct hiISP_DRC_ATTR_S
 {
@@ -415,8 +530,10 @@ typedef struct hiISP_DRC_ATTR_S
                                      * It will be clipped to reasonable value when image is noisy. */
     HI_U32  u32SlopeMax;        /*RW,  Range: [0, 0xFF]. Not recommended to change. */
     HI_U32  u32SlopeMin;        /*RW,  Range: [0, 0xFF]. Not recommended to change. */
-    HI_U32  u32WhiteLevel;      /*RW,  Range: [0, 0xFFFF]. Not recommended to change. */
+    HI_U32  u32WhiteLevel;      /*RW,  Range: [0, 0xFFF]. Not recommended to change. */
     HI_U32  u32BlackLevel;      /*RW,  Range: [0, 0xFFF]. Not recommended to change. */
+    HI_U32  u32VarianceSpace;     /*RW,  Range: [0, 0xF]. Not recommended to change*/
+    HI_U32  u32VarianceIntensity; /*RW,  Range: [0, 0xF].Not recommended to change*/
 } ISP_DRC_ATTR_S;
 
 typedef enum hiISP_ANTIFLICKER_MODE_E
@@ -569,7 +686,7 @@ typedef struct hiISP_PARA_REC_S
 typedef struct hiISP_CR_ATTR_S
 {
     HI_BOOL  bEnable;
-    HI_U8    u8Strength;    /*Range: [0x0, 0xFF],this register is  not recommended  to change */
+    HI_U8    u8Strength[8];  /*Range: [0x0, 0xFF] */
     HI_U8    u8Sensitivity; /*Range: [0x0, 0xFF],this register is  not recommended  to change */
     HI_U16   u16Threshold;  /*Range: [0x0, 0xFFFF],this register is  not recommended  to change */
     HI_U16   u16Slope;      /*Range: [0x0, 0xFFFF],this register is  not recommended  to change */
@@ -624,7 +741,9 @@ typedef struct hiISP_DEMOSAIC_ATTR_S
     HI_U16  u16AaThresh;            /*RW,Range: [0x0, 0xFFFF] */
     HI_U16  u16VaThresh;            /*RW,Range: [0x0, 0xFFFF] */
     HI_U16  u16UuThresh;            /*RW,Range: [0x0, 0xFFFF] */
-    HI_U8   u8DemosaicConfig;       /*RW,Range: [0x0, 0xFF] */    
+    HI_U8   u8DemosaicConfig;       /*RW,Range: [0x0, 0xFF] */
+    HI_U8   u8LumThresh[8];         /*RW, Range:[0x0, 0xFF] */
+    HI_U8   u8NpOffset[8];          /*RW, Range:[0x0, 0xFF] */
 }ISP_DEMOSAIC_ATTR_S;
 
 typedef struct hiISP_BLACK_LEVEL_S 
@@ -700,6 +819,20 @@ typedef struct hiISP_VD_INFO_S
 {
   HI_U32  u32Reserved;          /*RO, Range: [0x0, 0xFFFFFFFF] */
 }ISP_VD_INFO_S;
+
+
+typedef struct hiISP_REG_ATTR_S
+{
+    HI_U32 u32IspRegAddr;
+    HI_U32 u32IspRegSize;
+    HI_U32 u32IspExtRegAddr;
+    HI_U32 u32IspExtRegSize;
+    HI_U32 u32AeExtRegAddr;
+    HI_U32 u32AeExtRegSize;
+    HI_U32 u32AwbExtRegAddr;
+    HI_U32 u32AwbExtRegSize;
+} ISP_REG_ATTR_S;
+
 
 #ifdef __cplusplus
 #if __cplusplus

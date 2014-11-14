@@ -32,6 +32,7 @@ int  sensor_write_register(int addr, int data);
 int  sensor_read_register(int addr);
 int  sensor_write_register_bit(int addr, int data, int mask);
 int  sensor_register_callback(void); 
+int sensor_unregister_callback(void);
 
 
 #ifdef __cplusplus

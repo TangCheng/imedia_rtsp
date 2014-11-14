@@ -63,6 +63,7 @@ private:
     static unsigned referenceCount; // used to count how many instances of this class currently exist
     static bool firstDeliverFrame;
     H264LiveStreamParameters fParams;
+    //FILE *fTmpFile;
 };
 
 #endif

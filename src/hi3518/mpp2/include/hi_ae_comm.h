@@ -100,6 +100,7 @@ typedef enum hiAE_ACCURACY_E
 {
     AE_ACCURACY_DB = 0,
     AE_ACCURACY_LINEAR,
+    AE_ACCURACY_TABLE,
     
     AE_ACCURACY_BUTT,
 } AE_ACCURACY_E;
@@ -117,7 +118,8 @@ typedef struct hiAE_SENSOR_DEFAULT_S
 
     HI_U32  u32LinesPer500ms;
     HI_U32  u32FlickerFreq;
-    
+
+    HI_U32  u32FullLinesStd;
     HI_U32  u32MaxIntTime;     /* unit is line */
     HI_U32  u32MinIntTime;
     HI_U32  u32MaxIntTimeTarget;
@@ -141,17 +143,29 @@ typedef struct hiAE_SENSOR_DEFAULT_S
     HI_U32  u32ISPDgainShift;
 } AE_SENSOR_DEFAULT_S;
 
+typedef struct hiAE_SENSOR_GAININFO_S
+{
+    HI_U32  u32SnsTimes;  //10bit precision
+    HI_U32  u32GainDb;    // gain step in db
+    
+} AE_SENSOR_GAININFO_S;
+
+
 typedef struct hiAE_SENSOR_EXP_FUNC_S
 {
     HI_S32(*pfn_cmos_get_ae_default)(AE_SENSOR_DEFAULT_S *pstAeSnsDft);
 
     /* the function of sensor set fps */
     HI_VOID(*pfn_cmos_fps_set)(HI_U8 u8Fps, AE_SENSOR_DEFAULT_S *pstAeSnsDft);
-    HI_VOID(*pfn_cmos_slow_framerate_set)(HI_U8 u8SlowFrameRate, AE_SENSOR_DEFAULT_S *pstAeSnsDft);
+    HI_VOID(*pfn_cmos_slow_framerate_set)(HI_U16 u16FullLines, AE_SENSOR_DEFAULT_S *pstAeSnsDft);
 
     /* while isp notify ae to update sensor regs, ae call these funcs. */
     HI_VOID(*pfn_cmos_inttime_update)(HI_U32 u32IntTime);
     HI_VOID(*pfn_cmos_gains_update)(HI_U32 u32Again, HI_U32 u32Dgain);
+
+    HI_VOID (*pfn_cmos_again_calc_table)(HI_U32 u32InTimes, AE_SENSOR_GAININFO_S *pstAeSnsGainInfo);
+    HI_VOID (*pfn_cmos_dgain_calc_table)(HI_U32 u32InTimes, AE_SENSOR_GAININFO_S *pstAeSnsGainInfo);
+    
 } AE_SENSOR_EXP_FUNC_S;
 
 typedef struct hiAE_SENSOR_REGISTER_S

@@ -220,7 +220,8 @@ typedef enum hiVO_INTF_SYNC_E
     VO_OUTPUT_1680x1050_60,          /* VESA 1680 x 1050 at 60 Hz (non-interlaced) */
     VO_OUTPUT_1920x1200_60,          /* VESA 1920 x 1600 at 60 Hz (non-interlaced) CVT (Reduced Blanking)*/
     VO_OUTPUT_640x480_60,            /* VESA 640 x 480 at 60 Hz (non-interlaced) CVT */
-    
+    VO_OUTPUT_1920x2160_30,          /* 1920x2160_30 */
+    VO_OUTPUT_2560x1440_30,          /* 2560x1440_30 */
     VO_OUTPUT_USER,
     VO_OUTPUT_BUTT
 

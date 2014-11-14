@@ -35,7 +35,7 @@
     }while(0)
 
 /* To avoid divide-0 exception in code. */
-#define DIV_0_TO_1(a)   ( (0 == a) ? 1 : a )
+#define DIV_0_TO_1(a)   ( (0 == (a)) ? 1 : (a) )
 
 #endif     /* __HI_ISP_DEBUG_H__ */            
 

@@ -45,6 +45,9 @@ HI_S32 HI_MPI_AO_SendFrame(AUDIO_DEV AudioDevId, AO_CHN AoChn,
 HI_S32 HI_MPI_AO_EnableReSmp(AUDIO_DEV AudioDevId, AO_CHN AoChn, AUDIO_RESAMPLE_ATTR_S *pstAttr);
 HI_S32 HI_MPI_AO_DisableReSmp(AUDIO_DEV AudioDevId, AO_CHN AoChn);
 
+HI_S32 HI_MPI_AO_EnableReSmpEx(AUDIO_DEV AudioDevId, AO_CHN AoChn, AUDIO_RESAMPLE_ATTR_EX_S *pstAttr);
+HI_S32 HI_MPI_AO_DisableReSmpEx(AUDIO_DEV AudioDevId, AO_CHN AoChn);
+
 HI_S32 HI_MPI_AO_ClearChnBuf(AUDIO_DEV AudioDevId ,AO_CHN AoChn);
 HI_S32 HI_MPI_AO_QueryChnStat(AUDIO_DEV AudioDevId ,AO_CHN AoChn, AO_CHN_STATE_S *pstStatus);
 
@@ -56,6 +59,7 @@ HI_S32 HI_MPI_AO_GetVolume(AUDIO_DEV AudioDevId, AO_CHN AoChn, HI_S32 *ps32Volum
 
 HI_S32 HI_MPI_AO_GetFd(AUDIO_DEV AudioDevId, AO_CHN AoChn);
 
+HI_S32 HI_MPI_AO_ClrPubAttr(AUDIO_DEV AudioDevId);
 
 #ifdef __cplusplus
 #if __cplusplus

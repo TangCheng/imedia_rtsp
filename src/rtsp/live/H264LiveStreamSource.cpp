@@ -43,6 +43,7 @@ H264LiveStreamSource::H264LiveStreamSource(UsageEnvironment& env, H264LiveStream
     if (referenceCount == 0) {
         // Any global initialization of the device would be done here:
         //%%% TO BE WRITTEN %%%
+        //fTmpFile = fopen("./test.data", "w");
     }
     ++referenceCount;
     ipcam_ivideo_register_rtsp_source((IpcamIVideo *)fParams.fVideoEngine, (void *)this);
@@ -69,11 +70,13 @@ H264LiveStreamSource::~H264LiveStreamSource() {
     //%%% TO BE WRITTEN %%%
     ipcam_ivideo_unregister_rtsp_source((IpcamIVideo *)fParams.fVideoEngine, (void *)this);
     --referenceCount;
+    //fflush(fTmpFile);
+    //fclose(fTmpFile);
     if (referenceCount == 0)
     {
         // Any global 'destruction' (i.e., resetting) of the device would be done here:
         //%%% TO BE WRITTEN %%%
-
+         
         // Reclaim our 'event trigger'
         envir().taskScheduler().deleteEventTrigger(eventTriggerId);
         eventTriggerId = 0;
@@ -145,6 +148,7 @@ void H264LiveStreamSource::deliverFrame() {
               newFrameSize = data->len;
               //gettimeofday(&fPresentationTime, NULL); // If you have a more accurate time - e.g., from an encoder - then use that instead.
               fPresentationTime = data->pts;
+              //printf("%lu.%06lu\n", fPresentationTime.tv_sec, fPresentationTime.tv_usec);
 
               // Deliver the data here:
               if (newFrameSize > fMaxSize)
@@ -157,6 +161,7 @@ void H264LiveStreamSource::deliverFrame() {
               }
               // If the device is *not* a 'live source' (e.g., it comes instead from a file or buffer), then set "fDurationInMicroseconds" here.
               memcpy(fTo, data->data, fFrameSize);
+              //fwrite(data->data, 1, fFrameSize, fTmpFile);
           }
      }
      if (data)

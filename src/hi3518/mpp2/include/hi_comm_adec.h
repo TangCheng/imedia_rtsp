@@ -104,6 +104,15 @@ typedef enum hiEN_ADEC_ERR_CODE_E
 } EN_ADEC_ERR_CODE_E;
 
 
+typedef enum hi_ADEC_OUTPUT_MODE_E
+{
+    ADEC_OUTPUT_MODE_BIND = 0,   
+    ADEC_OUTPUT_MODE_MANUAL,   
+    ADEC_OUTPUT_MODE_BUTTL
+} ADEC_OUTPUT_MODE_E;
+
+
+
 /* invlalid device ID */
 #define HI_ERR_ADEC_INVALID_DEVID     HI_DEF_ERR(HI_ID_ADEC, EN_ERR_LEVEL_ERROR, EN_ERR_INVALID_DEVID)
 /* invlalid channel ID */

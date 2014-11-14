@@ -158,17 +158,38 @@ typedef enum hiISP_CMOS_MODE_E
     ISP_CMOS_MODE_BUTT,
 } ISP_CMOS_MODE_E;
 
+typedef struct hiISP_CMOS_SENSOR_MAX_RESOLUTION_S
+{
+  HI_U32  u32MaxWidth;
+  HI_U32  u32MaxHeight;
+
+}ISP_CMOS_SENSOR_MAX_RESOLUTION;
+
+
+typedef struct hiISP_CMOS_SENSOR_IMAGE_MODE_S
+{
+  HI_U16 u16Width;
+  HI_U16 u16Height;
+  HI_U16 u16Fps;
+  
+}ISP_CMOS_SENSOR_IMAGE_MODE;
+
+
 typedef struct hiISP_SENSOR_EXP_FUNC_S
 {
     HI_VOID(*pfn_cmos_sensor_init)(HI_VOID);
+    HI_VOID(*pfn_cmos_sensor_global_init)(HI_VOID);
     /* the algs get data which is associated with sensor, except 3a */
     HI_U32(*pfn_cmos_get_isp_default)(ISP_CMOS_DEFAULT_S *pstDef);
     HI_U32(*pfn_cmos_get_isp_black_level)(ISP_CMOS_BLACK_LEVEL_S *pstBlackLevel);
+    HI_S32(*pfn_cmos_get_sensor_max_resolution)(ISP_CMOS_SENSOR_MAX_RESOLUTION *pstSensorMaxResolution);
 
     /* the function of sensor set pixel detect */
     HI_VOID(*pfn_cmos_set_pixel_detect)(HI_BOOL bEnable);
     HI_VOID(*pfn_cmos_set_wdr_mode)(HI_U8 u8Mode);
     HI_VOID(*pfn_cmos_set_resolution)(HI_U32 u32ResolutionMode);
+    HI_S32(*pfn_cmos_set_image_mode)(ISP_CMOS_SENSOR_IMAGE_MODE *pstSensorImageMode);
+  
 } ISP_SENSOR_EXP_FUNC_S;
 
 typedef struct hiISP_SENSOR_REGISTER_S

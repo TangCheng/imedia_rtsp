@@ -29,6 +29,7 @@ extern "C"{
 
 /* The interface of af lib register to isp. */
 HI_S32 HI_MPI_AF_Register(ALG_LIB_S *pstAfLib);
+HI_S32 HI_MPI_AF_UnRegister(ALG_LIB_S *pstAfLib);
 
 #if 0
 /* The callback function of sensor register to af lib. */

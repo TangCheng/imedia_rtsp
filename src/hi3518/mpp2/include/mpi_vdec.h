@@ -54,9 +54,15 @@ HI_S32 HI_MPI_VDEC_QueryData(VDEC_CHN VdChn,HI_BOOL *pbIsData);
 HI_S32 HI_MPI_VDEC_SetChnParam(VDEC_CHN VdChn, VDEC_CHN_PARAM_S* pstParam);
 HI_S32 HI_MPI_VDEC_GetChnParam(VDEC_CHN VdChn, VDEC_CHN_PARAM_S* pstParam);
 
+HI_S32 HI_MPI_VDEC_SetChnPrevMode(VDEC_CHN VdChn, const HI_BOOL bPrevMode);
+HI_S32 HI_MPI_VDEC_GetChnPrevMode(VDEC_CHN VdChn, HI_BOOL *pbPrevMode);
+
 //param about memory allocation and protocol type
 HI_S32 HI_MPI_VDEC_SetPrtclParam(VDEC_CHN VdChn,VDEC_PRTCL_PARAM_S *pstParam);
 HI_S32 HI_MPI_VDEC_GetPrtclParam(VDEC_CHN VdChn,VDEC_PRTCL_PARAM_S *pstParam);
+
+HI_S32 HI_MPI_VDEC_SetDisplayFrameNum(VDEC_CHN VdChn, HI_S32  s32DisplayFrameNum);
+HI_S32 HI_MPI_VDEC_GetDisplayFrameNum(VDEC_CHN VdChn, HI_S32 *ps32DisplayFrameNum);
 
 
 // list of modified function

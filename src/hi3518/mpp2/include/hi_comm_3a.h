@@ -58,7 +58,10 @@ typedef enum hiISP_CTRL_CMD_E
     
     ISP_AE_FPS_BASE_SET,
     ISP_AWB_ISO_SET,  /* set iso, change saturation when iso change */
+    ISP_AE_INTTIME_GET,
+    ISP_AWB_INTTIME_SET,
 
+    ISP_CHANGE_IMAGE_MODE_SET,
     ISP_CTRL_CMD_BUTT,
 } ISP_CTRL_CMD_E;
 

@@ -347,6 +347,30 @@ typedef struct hiVENC_RC_PARAM_S
     HI_VOID* pRcParam;                      /*RC parameter which could be specified by usrer*/
 }VENC_RC_PARAM_S;
 
+typedef enum hiVENC_RC_PRIORITY_E
+{
+    VENC_RC_PRIORITY_BITRATE_FIRST = 1,    
+    VENC_RC_PRIORITY_FRAMEBITS_FIRST,
+
+    VENC_RC_PRIORITY_BUTT,
+} VENC_RC_PRIORITY_E;
+
+typedef enum hiVENC_LOSTFRM_MODE_E
+{   
+    LOSTFRM_NORMAL,                                /*normal mode*/         
+    LOSTFRM_PSKIP,                                  /*pskip*/ 
+    LOSTFRM_BUTT,
+} VENC_LOSTFRM_MODE_E;
+
+typedef struct hiVENC_PARAM_LOSTFRM_S
+{ 
+    HI_BOOL bLostFrmOpen;               /* Indicates whether to discard frames to ensure 
+                                           stable bit rate when the instant bit rate is exceeded */
+    HI_U32  u32LostFrmBpsThr;           /* the instant bit rate threshold */
+    VENC_LOSTFRM_MODE_E enLostFrmMode;  /* lost frame strategy */
+    HI_U32  u32LostFrmGaps;             /* the gap of lost frame */
+} VENC_PARAM_LOSTFRM_S;
+
 #ifdef __cplusplus
 #if __cplusplus
 }
