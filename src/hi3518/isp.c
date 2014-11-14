@@ -111,7 +111,7 @@ static void ipcam_isp_init_image_attr(IpcamIsp *self, ISP_IMAGE_ATTR_S *pstImage
         pstImageAttr->enBayer      = BAYER_RGGB;
         pstImageAttr->u16FrameRate = 30;
         pstImageAttr->u16Width     = 1920;
-        pstImageAttr->u16Height    = 1080;
+        pstImageAttr->u16Height    = 1200;
     }
     else
     {
@@ -206,10 +206,10 @@ gint32 ipcam_isp_start(IpcamIsp *self)
     if (g_str_equal(priv->sensor_type, "IMX222"))
     {
         stInputTiming.enWndMode = ISP_WIND_ALL;
-        stInputTiming.u16HorWndStart = 200;
+        stInputTiming.u16HorWndStart = 138;
         stInputTiming.u16HorWndLength = 1920;
-        stInputTiming.u16VerWndStart = 12;
-        stInputTiming.u16VerWndLength = 1080;
+        stInputTiming.u16VerWndStart = 22;
+        stInputTiming.u16VerWndLength = 1200;
     }
     s32Ret = HI_MPI_ISP_SetInputTiming(&stInputTiming);
     if (s32Ret != HI_SUCCESS)

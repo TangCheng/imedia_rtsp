@@ -125,7 +125,6 @@ gint32 ipcam_video_input_start(IpcamVideoInput *self, StreamDescriptor desc[])
     for (i = 0; i < u32DevNum; i++)
     {
         ViDev = i;
-        #if 1
         VI_DEV_ATTR_S stViDevAttr =
             {
                 VI_MODE_DIGITAL_CAMERA,
@@ -161,7 +160,6 @@ gint32 ipcam_video_input_start(IpcamVideoInput *self, StreamDescriptor desc[])
         if (g_str_equal(priv->sensor_type, "IMX222"))
         {
             stViDevAttr.stSynCfg.enVsync = VI_VSYNC_PULSE;
-            //stViDevAttr.stSynCfg.enVsyncValid = VI_VSYNC_NORM_PULSE;
         }
         else if (g_str_equal(priv->sensor_type, "NT99141"))
         {
@@ -175,42 +173,7 @@ gint32 ipcam_video_input_start(IpcamVideoInput *self, StreamDescriptor desc[])
         }
         
         s32Ret = HI_MPI_VI_SetDevAttr(ViDev, &stViDevAttr);
-        #else
-        VI_DEV_ATTR_EX_S stViDevAttrEx =
-            {
-                VI_MODE_DIGITAL_CAMERA,
-                VI_WORK_MODE_1Multiplex,
-                VI_COMBINE_COMPOSITE,
-                VI_COMP_MODE_SINGLE,
-                VI_CLK_EDGE_SINGLE_DOWN,
-                {0xFFF00000, 0x00},
-                VI_SCAN_PROGRESSIVE,
-                {-1, -1, -1, -1},
-                VI_INPUT_DATA_YUYV,
-                {
-                    VI_VSYNC_PULSE,
-                    VI_VSYNC_NEG_HIGH,
-                    VI_HSYNC_VALID_SINGNAL,
-                    VI_HSYNC_NEG_HIGH,
-                    VI_VSYNC_VALID_SINGAL,
-                    VI_VSYNC_VALID_NEG_HIGH,
-                    {
-                        0, priv->image_width[MASTER], 0,
-                        0, priv->image_height[MASTER], 0,
-                        0, 0, 0
-                    }
-                },
-                {
-                    BT656_FIXCODE_1,
-                    BT656_FIELD_POLAR_STD
-                },
-                VI_PATH_ISP,
-                VI_DATA_TYPE_RGB,
-                HI_FALSE
-            };
-        HI_MPI_VI_DisableDev(ViDev);
-        s32Ret = HI_MPI_VI_SetDevAttrEx(ViDev, &stViDevAttrEx);
-        #endif
+
         if (s32Ret != HI_SUCCESS)
         {
             g_critical("HI_MPI_VI_SetDevAttr [%d] failed with %#x!\n", ViDev, s32Ret);
@@ -233,8 +196,8 @@ gint32 ipcam_video_input_start(IpcamVideoInput *self, StreamDescriptor desc[])
         ViChn = i;
         VI_CHN_ATTR_S stChnAttr =
             {
-                {0, 0, priv->image_width[MASTER], priv->image_height[MASTER]},
-                {priv->image_width[MASTER], priv->image_height[MASTER]},
+                {160, 0, 1600/*priv->image_width[MASTER]*/, priv->image_height[MASTER]},
+                {1600/*priv->image_width[MASTER]*/, priv->image_height[MASTER]},
                 VI_CAPSEL_BOTH,
                 PIXEL_FORMAT_YUV_SEMIPLANAR_422,
                 HI_FALSE,

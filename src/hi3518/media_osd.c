@@ -84,7 +84,7 @@ static void ipcam_media_osd_init(IpcamMediaOsd *self)
     {
         priv->stRgnAttr.enType = OVERLAY_RGN;
         priv->stRgnAttr.unAttr.stOverlay.enPixelFmt = PIXEL_FORMAT_RGB_1555;
-        priv->stRgnAttr.unAttr.stOverlay.stSize.u32Width  = (IMAGE_MAX_WIDTH / 16 + 1) * 16;
+        priv->stRgnAttr.unAttr.stOverlay.stSize.u32Width  = (1600/*IMAGE_MAX_WIDTH*/ / 16 + 1) * 16;
         priv->stRgnAttr.unAttr.stOverlay.stSize.u32Height = (IMAGE_MAX_HEIGHT / 16 + 1) * 16;
         priv->stRgnAttr.unAttr.stOverlay.u32BgColor = 0x7FFF;
 

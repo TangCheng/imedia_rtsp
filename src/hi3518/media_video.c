@@ -219,6 +219,7 @@ static gint32 ipcam_media_video_venc_unbind_vpss(IpcamMediaVideo *self)
 static gint32 ipcam_media_video_start_livestream(IpcamMediaVideo *self, StreamDescriptor desc[])
 {
     IpcamMediaVideoPrivate *priv = IPCAM_MEDIA_VIDEO_GET_PRIVATE(self);
+    desc[MASTER].v_desc.image_height = 1200;
     ipcam_isp_start(priv->isp);
     ipcam_video_input_start(priv->vi, desc);
     ipcam_video_process_subsystem_start(priv->vpss, desc);
@@ -344,11 +345,12 @@ static void ipcam_media_video_copy_data(IpcamMediaVideo *self, VENC_STREAM_S *ps
     video_data->magic = 0xDEADBEEF;
     video_data->pts.tv_sec = pstStream->pstPack[0].u64PTS / 1000000ULL;
     video_data->pts.tv_usec = pstStream->pstPack[0].u64PTS % 1000000ULL;
+    gettimeofday(&video_data->pts, NULL);
     // Deliver the data here:
     video_data->len = newFrameSize;
     video_data->isIFrame =
-        /* pstStream->pstPack[0].DataType.enH264EType == H264E_NALU_ISLICE || */
-        /* pstStream->pstPack[0].DataType.enH264EType == H264E_NALU_SEI || */
+        pstStream->pstPack[0].DataType.enH264EType == H264E_NALU_ISLICE ||
+        pstStream->pstPack[0].DataType.enH264EType == H264E_NALU_SEI ||
         pstStream->pstPack[0].DataType.enH264EType == H264E_NALU_SPS ||
         pstStream->pstPack[0].DataType.enH264EType == H264E_NALU_PPS;
 
@@ -376,14 +378,15 @@ static void ipcam_media_video_copy_data(IpcamMediaVideo *self, VENC_STREAM_S *ps
 static void ipcam_media_video_process_data(IpcamMediaVideo *self, VENC_STREAM_S *pstStream)
 {
     guint newFrameSize = ipcam_media_video_get_framesize(pstStream);
-    
+    IpcamMediaVideoPrivate *priv = IPCAM_MEDIA_VIDEO_GET_PRIVATE(self);
     if (newFrameSize > 0)
     {
         StreamData *video_data = ipcam_media_video_get_write_data(self);
+        guint bufferSize = ((1024 * 1024) - sizeof(StreamData));
         if (video_data)
         {
-            ipcam_media_video_copy_data(self, pstStream, video_data,
-                                        newFrameSize < ((1024 * 1024) - sizeof(StreamData)) ? newFrameSize : ((1024 * 1024) - sizeof(StreamData)));
+            newFrameSize = newFrameSize < bufferSize ? newFrameSize : bufferSize;
+            ipcam_media_video_copy_data(self, pstStream, video_data, newFrameSize);
             ipcam_media_video_release_write_data(self, video_data);
             ipcam_media_video_notify_rtsp_source(self);
         }
