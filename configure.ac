@@ -68,7 +68,7 @@ AC_CACHE_CHECK([for hisimpp directory], ac_cv_hisimpp_dir, [
   mpp_found=no
   for mppdir in $trymppdir "" $prefix /usr/local ; do
     LDFLAGS="$saved_LDFLAGS"
-    LIBS="$saved_LIBS $mppdir/lib/libmpi.a $mppdir/lib/lib_hiae.a $mppdir/lib/libanr.a $mppdir/lib/libaec.a $mppdir/lib/lib_hiaf.a $mppdir/lib/lib_hiawb.a $mppdir/lib/libmem.a $mppdir/lib/libtde.a $mppdir/lib/libVoiceEngine.a $mppdir/lib/libresampler.a $mppdir/lib/libisp.a -lpthread"
+    LIBS="$saved_LIBS $mppdir/lib/libmpi.a $mppdir/lib/lib_hiae.a $mppdir/lib/libanr.a $mppdir/lib/libaec.a $mppdir/lib/lib_hiaf.a $mppdir/lib/lib_hiawb.a $mppdir/lib/libmem.a $mppdir/lib/libtde.a $mppdir/lib/libVoiceEngine.a $mppdir/lib/libresampler.a $mppdir/lib/libisp.a $mppdir/lib/libvqev2.a -lpthread"
  
     # Skip the directory if it isn't there.
     if test ! -z "$mppdir" -a ! -d "$mppdir" ; then

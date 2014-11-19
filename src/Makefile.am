@@ -75,7 +75,7 @@ endif
 
 imedia_rtsp_LDFLAGS = 
 
-imedia_rtsp_LDADD = $(IMEDIA_RTSP_LIBS) -ldl -lmpi -lmem -lisp -l_hiae -l_hiaf -l_hiawb -ltde $(MPP_LIBDIR)/libanr.a $(MPP_LIBDIR)/libaec.a $(MPP_LIBDIR)/libVoiceEngine.a $(MPP_LIBDIR)/libresampler.a $(MPP_LIBDIR)/libvqev2.a -lliveMedia -lBasicUsageEnvironment -lUsageEnvironment -lgroupsock
+imedia_rtsp_LDADD = $(IMEDIA_RTSP_LIBS) -ldl -L$(MPP_LIBDIR) -lmpi -lmem -lisp -l_hiae -l_hiaf -l_hiawb -ltde $(MPP_LIBDIR)/libanr.a $(MPP_LIBDIR)/libaec.a $(MPP_LIBDIR)/libVoiceEngine.a $(MPP_LIBDIR)/libresampler.a $(MPP_LIBDIR)/libvqev2.a -lliveMedia -lBasicUsageEnvironment -lUsageEnvironment -lgroupsock
 
 SUBDIRS = \
 	config
