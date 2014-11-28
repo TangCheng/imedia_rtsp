@@ -111,12 +111,10 @@ gboolean ipcam_buffer_manager_has_data(IpcamBufferManager *buffer_manager)
     g_return_val_if_fail(IPCAM_IS_BUFFER_MANAGER(buffer_manager), FALSE);
     IpcamBufferManagerPrivate *priv = ipcam_buffer_manager_get_instance_private(buffer_manager);
     gboolean ret = FALSE;
-    g_mutex_trylock(&priv->dirty_mutex);
-    if (ret)
-    {
-        ret = g_queue_is_empty(priv->dirty_buffer_queue);
-        g_mutex_unlock(&priv->dirty_mutex);
-    }
+
+    g_mutex_lock(&priv->dirty_mutex);
+    ret = g_queue_is_empty(priv->dirty_buffer_queue);
+    g_mutex_unlock(&priv->dirty_mutex);
 
     return ret;
 }
