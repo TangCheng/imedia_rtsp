@@ -338,8 +338,11 @@ static void ipcam_media_video_copy_data(IpcamMediaVideo *self, VENC_STREAM_S *ps
                                         StreamData *video_data, guint32 newFrameSize)
 {
     HI_S32 i = 0;
+    HI_S32 j = 0;
     HI_U32 pos = 0;
     HI_U8 *p = NULL;
+    HI_U32 len;
+
 
     video_data->magic = 0xDEADBEEF;
     /*
@@ -357,28 +360,29 @@ static void ipcam_media_video_copy_data(IpcamMediaVideo *self, VENC_STREAM_S *ps
 
     for (i = 0; i < pstStream->u32PackCount; i++)
     {
-        p = pstStream->pstPack[i].pu8Addr[0];
-        if (p[0] == 0x00 && p[1] == 0x00 && p[2] == 0x01)
+        for (j = 0; j < ARRAY_SIZE(pstStream->pstPack[i].pu8Addr); j++)
         {
-            memcpy(video_data->data + pos, p + 3, pstStream->pstPack[i].u32Len[0] - 3);
-            pos += pstStream->pstPack[i].u32Len[0] - 3;
-        }
-        else if (p[0] == 0x00 && p[1] == 0x00 && p[2] == 0x00 && p[3] == 0x01)
-        {
-            memcpy(video_data->data + pos, p + 4, pstStream->pstPack[i].u32Len[0] - 4);
-            pos += pstStream->pstPack[i].u32Len[0] - 4;
-        }
-        else
-        {
-            memcpy(video_data->data + pos, p, pstStream->pstPack[i].u32Len[0]);
-            pos += pstStream->pstPack[i].u32Len[0];
-        }
+            p = pstStream->pstPack[i].pu8Addr[j];
+            len = pstStream->pstPack[i].u32Len[j];
 
-        if (pstStream->pstPack[i].u32Len[1] > 0)
-        {
-            p = pstStream->pstPack[i].pu8Addr[1];
-            memcpy(video_data->data + pos, p, pstStream->pstPack[i].u32Len[1]);
-            pos += pstStream->pstPack[i].u32Len[1];
+            if (len == 0)
+                continue;
+
+            if (len >= 3 && p[0] == 0x00 && p[1] == 0x00 && p[2] == 0x01)
+            {
+                memcpy(video_data->data + pos, p + 3, len - 3);
+                pos += len - 3;
+            }
+            else if (len >= 4 && p[0] == 0x00 && p[1] == 0x00 && p[2] == 0x00 && p[3] == 0x01)
+            {
+                memcpy(video_data->data + pos, p + 4, len - 4);
+                pos += len - 4;
+            }
+            else
+            {
+                memcpy(video_data->data + pos, p, len);
+                pos += len;
+            }
         }
     }
 }
