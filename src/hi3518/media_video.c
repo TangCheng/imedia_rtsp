@@ -358,15 +358,22 @@ static void ipcam_media_video_copy_data(IpcamMediaVideo *self, VENC_STREAM_S *ps
     for (i = 0; i < pstStream->u32PackCount; i++)
     {
         p = pstStream->pstPack[i].pu8Addr[0];
-        if (p[0] == 0x00 && p[1] == 0x00 && p[2] == 0x00 && p[3] == 0x01)
+        if (p[0] == 0x00 && p[1] == 0x00 && p[2] == 0x01)
+        {
+            memcpy(video_data->data + pos, p + 3, pstStream->pstPack[i].u32Len[0] - 3);
+            pos += pstStream->pstPack[i].u32Len[0] - 3;
+        }
+        else if (p[0] == 0x00 && p[1] == 0x00 && p[2] == 0x00 && p[3] == 0x01)
         {
             memcpy(video_data->data + pos, p + 4, pstStream->pstPack[i].u32Len[0] - 4);
+            pos += pstStream->pstPack[i].u32Len[0] - 4;
         }
         else
         {
             memcpy(video_data->data + pos, p, pstStream->pstPack[i].u32Len[0]);
+            pos += pstStream->pstPack[i].u32Len[0];
         }
-        pos += pstStream->pstPack[i].u32Len[0];
+
         if (pstStream->pstPack[i].u32Len[1] > 0)
         {
             p = pstStream->pstPack[i].pu8Addr[1];
@@ -383,6 +390,9 @@ static void ipcam_media_video_process_data(IpcamMediaVideo *self, VENC_STREAM_S 
     if (newFrameSize > 0)
     {
         StreamData *video_data = ipcam_media_video_get_write_data(self);
+
+        g_warn_if_fail(video_data);
+
         if (video_data)
         {
             ipcam_media_video_copy_data(self, pstStream, video_data,
