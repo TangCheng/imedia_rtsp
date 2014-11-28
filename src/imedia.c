@@ -536,12 +536,18 @@ void ipcam_imedia_got_video_param(IpcamIMedia *imedia, JsonNode *body, gboolean 
     gchar *profile = json_object_get_string_member(res_obj, "profile");
 
     ipcam_imedia_parse_profile(imedia, profile);
-    gboolean bValue = json_object_get_boolean_member(res_obj, "flip");
-    priv->stream_desc[MASTER].v_desc.flip =
+    if (json_object_has_member(res_obj, "flip"))
+    {
+        gboolean bValue = json_object_get_boolean_member(res_obj, "flip");
+        priv->stream_desc[MASTER].v_desc.flip = bValue;
         priv->stream_desc[SLAVE].v_desc.flip = bValue;
-    bValue = json_object_get_boolean_member(res_obj, "mirror");
-    priv->stream_desc[MASTER].v_desc.mirror =
+    }
+    if (json_object_has_member(res_obj, "mirror"))
+    {
+        gboolean bValue = json_object_get_boolean_member(res_obj, "mirror");
+        priv->stream_desc[MASTER].v_desc.mirror = bValue;
         priv->stream_desc[SLAVE].v_desc.mirror = bValue;
+    }
     JsonObject *stream_obj = NULL;
     if (json_object_has_member(res_obj, "main_profile"))
     {
