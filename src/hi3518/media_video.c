@@ -342,8 +342,11 @@ static void ipcam_media_video_copy_data(IpcamMediaVideo *self, VENC_STREAM_S *ps
     HI_U8 *p = NULL;
 
     video_data->magic = 0xDEADBEEF;
+    /*
     video_data->pts.tv_sec = pstStream->pstPack[0].u64PTS / 1000000ULL;
     video_data->pts.tv_usec = pstStream->pstPack[0].u64PTS % 1000000ULL;
+    */
+    gettimeofday(&video_data->pts, NULL);
     // Deliver the data here:
     video_data->len = newFrameSize;
     video_data->isIFrame =
