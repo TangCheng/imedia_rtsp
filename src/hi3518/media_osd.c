@@ -4,7 +4,8 @@
 #include <mpi_region.h>
 #include <stdlib.h>
 #include <string.h>
-#include "osd_font/osd_font.h"
+#include <SDL2/SDL.h>
+#include <SDL2/SDL_ttf.h>
 #include "interface/media_osd_interface.h"
 #include "media_osd.h"
 #include "bitmap.h"
@@ -12,7 +13,7 @@
 
 typedef struct _IpcamMediaOsdPrivate
 {
-    IpcamOsdFont *osd_font;
+	TTF_Font *ttf_font;
     IpcamBitmap *bitmap;
     VENC_GRP VencGrp;
     RGN_HANDLE RgnHandle;
@@ -59,8 +60,11 @@ static void ipcam_media_osd_finalize(GObject *object)
         priv->content[type] = NULL;
     }
 
-    g_object_unref(priv->osd_font);
-    g_clear_object(&priv->bitmap);
+	if (priv->ttf_font)
+		TTF_CloseFont(priv->ttf_font);
+	TTF_Quit();
+
+	g_clear_object(&priv->bitmap);
     G_OBJECT_CLASS(ipcam_media_osd_parent_class)->finalize(object);
 }
 
@@ -77,10 +81,20 @@ static void ipcam_media_osd_init(IpcamMediaOsd *self)
     priv->RgnHandle = 0;
     priv->VencGrp = 0;
     priv->bitmap = g_object_new(IPCAM_BITMAP_TYPE, NULL);
-    priv->osd_font = ipcam_osd_font_new();
-    g_object_ref(priv->osd_font);
 
-    do
+	if (TTF_Init() < 0) {
+		g_critical("Couldn't initialize TTF: %s\n", SDL_GetError());
+	}
+	priv->ttf_font = TTF_OpenFont("/usr/share/fonts/truetype/droid/DroidSansFallback.ttf", 20);
+	if (!priv->ttf_font) {
+		g_critical("Couldn't load %s pt font from %d: %s\n", "ptsize", 20, SDL_GetError());
+	}
+    TTF_SetFontStyle(priv->ttf_font, TTF_STYLE_BOLD);
+	TTF_SetFontOutline(priv->ttf_font, 0);
+	TTF_SetFontKerning(priv->ttf_font, 0);
+	TTF_SetFontHinting(priv->ttf_font, TTF_HINTING_LIGHT);
+
+	do
     {
         priv->stRgnAttr.enType = OVERLAY_RGN;
         priv->stRgnAttr.unAttr.stOverlay.enPixelFmt = PIXEL_FORMAT_RGB_1555;
@@ -131,17 +145,43 @@ static void ipcam_media_osd_class_init(IpcamMediaOsdClass *klass)
     GObjectClass *object_class = G_OBJECT_CLASS(klass);
     object_class->finalize = &ipcam_media_osd_finalize;
 }
+
+static void ipcam_media_osd_bitmap_clear(IpcamBitmap *bitmap, RECT_S *rect)
+{
+	SDL_Surface *scrn_sf;
+	BITMAP_S *bmp;
+	SDL_Rect rc = { rect->s32X, rect->s32Y, rect->u32Width, rect->u32Height	};
+
+	g_return_if_fail(bitmap);
+
+	bmp = ipcam_bitmap_get_data(bitmap);
+	scrn_sf = SDL_CreateRGBSurfaceFrom(bmp->pData, 
+	                                   bmp->u32Width,
+	                                   bmp->u32Height,
+	                                   16,
+	                                   bmp->u32Width * 2,
+	                                   0x1F << 10,
+	                                   0x1F << 5,
+	                                   0x1F << 0,
+	                                   0x1 << 15);
+	if (scrn_sf) {
+		SDL_FillRect(scrn_sf, &rc, 0);
+		SDL_FreeSurface(scrn_sf);
+	}
+}
+
 static gint32 ipcam_media_osd_start(IpcamMediaOsd *self, IPCAM_OSD_TYPE type, IpcamOSDParameter *parameter)
 {
     IpcamMediaOsdPrivate *priv = IPCAM_MEDIA_OSD_GET_PRIVATE(self);
 
+	ipcam_media_osd_bitmap_clear(priv->bitmap, &priv->rect[type]);
     priv->bShow[type] = parameter->is_show;
     priv->font_size[type] = parameter->font_size;
     priv->color[type] = parameter->color;
     priv->rect[type].s32X = parameter->position.x;
     priv->rect[type].s32Y = parameter->position.y;
     
-    return HI_SUCCESS;
+    return ipcam_media_osd_set_content(self, type, priv->content[type]);
 }
 static gint32 ipcam_media_osd_set_region_attr(IpcamMediaOsd *self, IPCAM_OSD_TYPE type)
 {
@@ -167,7 +207,7 @@ static gint32 ipcam_media_osd_show(IpcamMediaOsd *self, IPCAM_OSD_TYPE type, con
 static gint32 ipcam_media_osd_set_pos(IpcamMediaOsd *self, IPCAM_OSD_TYPE type,  const Point pos)
 {
     IpcamMediaOsdPrivate *priv = IPCAM_MEDIA_OSD_GET_PRIVATE(self);
-    ipcam_bitmap_clear(priv->bitmap, &priv->rect[type]);
+    ipcam_media_osd_bitmap_clear(priv->bitmap, &priv->rect[type]);
     priv->rect[type].s32X = pos.x;
     priv->rect[type].s32Y = pos.y;
     return ipcam_media_osd_set_region_attr(self, type);
@@ -186,47 +226,56 @@ static gint32 ipcam_media_osd_set_color(IpcamMediaOsd *self, IPCAM_OSD_TYPE type
 }
 static gint32 ipcam_media_osd_set_content(IpcamMediaOsd *self, IPCAM_OSD_TYPE type, const gchar *content)
 {
+	SDL_Surface *text_sf, *scrn_sf;
     HI_S32 s32Ret = HI_FAILURE;
-    gboolean bRet = FALSE;
-    BITMAP_S stBitmap;
     IpcamMediaOsdPrivate *priv = IPCAM_MEDIA_OSD_GET_PRIVATE(self);
+        
+    g_return_val_if_fail((NULL != priv->ttf_font), s32Ret);
 
     if (priv->content[type] != content && type != IPCAM_OSD_TYPE_DATETIME)
     {
         g_free(priv->content[type]);
         priv->content[type] = g_strdup(content);
     }
-        
-    g_return_val_if_fail((NULL != priv->osd_font), s32Ret);
-    g_return_val_if_fail((NULL != content), s32Ret);
 
-    ipcam_bitmap_clear(priv->bitmap, &priv->rect[type]);
-    if (priv->bShow[type])
+	SDL_Rect rect = {
+		priv->rect[type].s32X, priv->rect[type].s32Y,
+		priv->rect[type].u32Width, priv->rect[type].u32Height
+	};
+	BITMAP_S *bmp = ipcam_bitmap_get_data(priv->bitmap);
+	scrn_sf = SDL_CreateRGBSurfaceFrom(bmp->pData, 
+	                                   bmp->u32Width,
+	                                   bmp->u32Height,
+	                                   16,
+	                                   bmp->u32Width * 2,
+	                                   0x1F << 10,
+	                                   0x1F << 5,
+	                                   0x1F << 0,
+	                                   0x1 << 15);
+    SDL_FillRect(scrn_sf, &rect, 0);
+	if (priv->bShow[type] && content)
     {
-        g_object_set(priv->osd_font,
-                     "font-size", priv->font_size[type],
-                     "font-color", priv->color[type].value,
-                     NULL);
-     
-        stBitmap.enPixelFormat = PIXEL_FORMAT_RGB_1555;
-        bRet = ipcam_osd_font_render_text(priv->osd_font,
-                                          content,
-                                          &stBitmap.pData,
-                                          &stBitmap.u32Width,
-                                          &stBitmap.u32Height);
-        if (bRet)
-        {
-            priv->rect[type].u32Width = stBitmap.u32Width;
-            priv->rect[type].u32Height = stBitmap.u32Height;
-            ipcam_bitmap_bitblt(priv->bitmap, &stBitmap, (POINT_S *)&priv->rect[type]);
-            g_free(stBitmap.pData);
-            s32Ret = HI_SUCCESS;
-        }
+		SDL_Color foreclr= {
+			priv->color[type].red,
+			priv->color[type].green,
+			priv->color[type].blue,
+			priv->color[type].alpha
+		};
+		TTF_SetFontSize(priv->ttf_font, priv->font_size[type]);
+		text_sf = TTF_RenderUTF8_Solid(priv->ttf_font, content, foreclr);
+		SDL_BlitSurface(text_sf, NULL, scrn_sf, &rect);
+
+		priv->rect[type].u32Width = text_sf->w;
+		priv->rect[type].u32Height = text_sf->h;
+
+		SDL_FreeSurface(text_sf);
     }
     else
     {
         s32Ret = HI_SUCCESS;
     }
+
+	SDL_FreeSurface(scrn_sf);
     
     return s32Ret;
 }

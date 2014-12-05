@@ -99,7 +99,8 @@ void H264LiveStreamSource::doGetNextFrame() {
      }
 
      // If a new frame of data is immediately available to be delivered, then do this now:
-     if (True /*ipcam_ivideo_has_video_data((IpcamIVideo *)fParams.fVideoEngine)*/ /* a new frame of data is immediately available to be delivered*/ /*%%% TO BE WRITTEN %%%*/) {
+     if (ipcam_ivideo_has_video_data((IpcamIVideo *)fParams.fVideoEngine)) /* a new frame of data is immediately available to be delivered*/ /*%%% TO BE WRITTEN %%%*/
+     {
           deliverFrame();
      }
 

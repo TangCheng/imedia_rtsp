@@ -26,5 +26,7 @@ struct _IpcamIMediaClass
 
 GType ipcam_imedia_get_type(void);
 void ipcam_imedia_got_video_param(IpcamIMedia *imedia, JsonNode *body, gboolean is_notice);
+void ipcam_imedia_got_baseinfo_parameter(IpcamIMedia *imedia, JsonNode *body);
+void ipcam_imedia_got_osd_parameter(IpcamIMedia *imedia, JsonNode *body);
 
 #endif /* __IMEDIA_H__ */

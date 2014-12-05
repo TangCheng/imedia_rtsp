@@ -176,14 +176,9 @@ gboolean ipcam_osd_font_render_text(IpcamOsdFont *self,
                                         0x1F << 5,
                                         0x1F << 0,
                                         0x1 << 15);
-    SDL_Rect bounds;
     if (NULL != text_rgb1555 && NULL != text)
     {
-    	bounds.x = 0;
-    	bounds.y = 0;
-    	bounds.w = text->w;
-    	bounds.h = text->h;
-    	if (SDL_BlitSurface(text, &bounds, text_rgb1555, NULL) < 0)
+    	if (SDL_BlitSurface(text, NULL, text_rgb1555, NULL) < 0)
         {
     		g_critical("Couldn't convert image to 16 bpp");
     	}

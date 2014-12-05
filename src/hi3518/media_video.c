@@ -395,14 +395,16 @@ static void ipcam_media_video_process_data(IpcamMediaVideo *self, VENC_STREAM_S 
     {
         StreamData *video_data = ipcam_media_video_get_write_data(self);
 
-        g_warn_if_fail(video_data);
-
         if (video_data)
         {
             ipcam_media_video_copy_data(self, pstStream, video_data,
                                         newFrameSize < ((1024 * 1024) - sizeof(StreamData)) ? newFrameSize : ((1024 * 1024) - sizeof(StreamData)));
             ipcam_media_video_release_write_data(self, video_data);
             ipcam_media_video_notify_rtsp_source(self);
+        }
+        else
+        {
+            g_warning("No more buffer for video frame.\n");
         }
     }
 }

@@ -2,7 +2,7 @@
 #include "buffer_manager.h"
 #include "stream_descriptor.h"
 
-#define BUFFER_MAX_LENGTH  10
+#define BUFFER_MAX_LENGTH  16
 
 typedef struct _IpcamBufferManagerPrivate
 {
@@ -48,6 +48,13 @@ static void ipcam_buffer_manager_init(IpcamBufferManager *self)
     for (i = 0; i < BUFFER_MAX_LENGTH; i++)
     {
         gpointer data = malloc(1024 * 1024);
+
+        if (!data)
+        {
+            g_warning("%s: Out of memory.\n", __func__);
+            break;
+        }
+
         g_queue_push_tail(priv->clean_buffer_queue, data);
     }
 }
@@ -113,7 +120,7 @@ gboolean ipcam_buffer_manager_has_data(IpcamBufferManager *buffer_manager)
     gboolean ret = FALSE;
 
     g_mutex_lock(&priv->dirty_mutex);
-    ret = g_queue_is_empty(priv->dirty_buffer_queue);
+    ret = !g_queue_is_empty(priv->dirty_buffer_queue);
     g_mutex_unlock(&priv->dirty_mutex);
 
     return ret;

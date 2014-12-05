@@ -21,20 +21,35 @@ static void ipcam_video_param_change_handler_run_impl(IpcamVideoParamChangeHandl
                                                       IpcamMessage *message)
 {
     gpointer service;
-    g_object_get(G_OBJECT(video_param_change_handler), "service", &service, NULL);
+	const char *event;
     JsonNode *body;
-    JsonGenerator *generator = json_generator_new();
 
-    g_object_get(G_OBJECT(message), "body", &body, NULL);
+    g_object_get(G_OBJECT(video_param_change_handler), "service", &service, NULL);
+    g_object_get(G_OBJECT(message), "event", &event, "body", &body, NULL);
 
-    json_generator_set_root(generator, body);
-    json_generator_set_pretty (generator, TRUE);
-    gchar *str = json_generator_to_data (generator, NULL);
-    
-    g_printf("receive notice, body=\n%s\n", str);
+	/* Debug */
+#if 0
+	{
+		JsonGenerator *generator = json_generator_new();
+		json_generator_set_root(generator, body);
+		json_generator_set_pretty (generator, TRUE);
+		gchar *str = json_generator_to_data (generator, NULL);
+		g_printf("receive notice, body=\n%s\n", str);
+		g_free(str);
+		g_object_unref(generator);
+	}
+#endif
 
-    ipcam_imedia_got_video_param(IPCAM_IMEDIA(service), body, TRUE);
-
-    g_free(str);
-    g_object_unref(generator);
+	if (g_str_equal (event, "set_base_info")) {
+		ipcam_imedia_got_baseinfo_parameter(IPCAM_IMEDIA(service), body);
+	}
+	else if (g_str_equal (event, "set_video")) {
+		ipcam_imedia_got_video_param(IPCAM_IMEDIA(service), body, TRUE);
+	}
+	else if (g_str_equal (event, "set_osd")) {
+		ipcam_imedia_got_osd_parameter(IPCAM_IMEDIA(service), body);
+	}
+	else {
+		g_warning ("unhandled event \"%s\"\n", event);
+	}
 }

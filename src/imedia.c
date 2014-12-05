@@ -47,8 +47,6 @@ static void ipcam_imedia_request_users(IpcamIMedia *imedia);
 static void ipcam_imedia_request_rtsp_port(IpcamIMedia *imedia);
 static void ipcam_imedia_query_rtsp_auth(IpcamIMedia *imedia);
 static void ipcam_imedia_query_video_param(IpcamIMedia *imedia);
-static void ipcam_imedia_got_osd_parameter(IpcamIMedia *imedia, JsonNode *body);
-static void ipcam_imedia_got_baseinfo_parameter(IpcamIMedia *imedia, JsonNode *body);
 static void ipcam_imedia_set_users(IpcamIMedia *imedia, JsonNode *body);
 static void ipcam_imedia_set_rtsp_port(IpcamIMedia *imedia, JsonNode *body);
 static void ipcam_imedia_set_rtsp_auth(IpcamIMedia *imedia, JsonNode *body);
@@ -87,7 +85,9 @@ static void ipcam_imedia_init(IpcamIMedia *self)
     priv->stream_desc[SLAVE].type = VIDEO_STREAM;
     priv->stream_desc[SLAVE].v_desc.format = VIDEO_FORMAT_H264;
     time(&priv->last_time);
+    ipcam_base_app_register_notice_handler(IPCAM_BASE_APP(self), "set_base_info", IPCAM_VIDEO_PARAM_CHANGE_HANDLER_TYPE);
     ipcam_base_app_register_notice_handler(IPCAM_BASE_APP(self), "set_video", IPCAM_VIDEO_PARAM_CHANGE_HANDLER_TYPE);
+    ipcam_base_app_register_notice_handler(IPCAM_BASE_APP(self), "set_osd", IPCAM_VIDEO_PARAM_CHANGE_HANDLER_TYPE);
     priv->osd_buffer = g_malloc(OSD_BUFFER_LENGTH);
 }
 static void ipcam_imedia_class_init(IpcamIMediaClass *klass)
@@ -327,7 +327,7 @@ static IPCAM_OSD_TYPE ipcam_imedia_parse_osd_type(IpcamIMedia *imedia, const gch
     return type;
 }
 
-static void ipcam_imedia_got_osd_parameter(IpcamIMedia *imedia, JsonNode *body)
+void ipcam_imedia_got_osd_parameter(IpcamIMedia *imedia, JsonNode *body)
 {
     IpcamIMediaPrivate *priv = ipcam_imedia_get_instance_private(imedia);
     IpcamOSDParameter parameter;
@@ -375,7 +375,7 @@ static void ipcam_imedia_got_osd_parameter(IpcamIMedia *imedia, JsonNode *body)
         }
     }
 }
-static void ipcam_imedia_got_baseinfo_parameter(IpcamIMedia *imedia, JsonNode *body)
+void ipcam_imedia_got_baseinfo_parameter(IpcamIMedia *imedia, JsonNode *body)
 {
     IpcamIMediaPrivate *priv = ipcam_imedia_get_instance_private(imedia);
     JsonObject *res_object;
