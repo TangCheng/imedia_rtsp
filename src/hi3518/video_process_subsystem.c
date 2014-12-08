@@ -179,6 +179,35 @@ gint32 ipcam_video_process_subsystem_start(IpcamVideoProcessSubsystem *self, Str
         return HI_FAILURE;
     }
 
+
+	VpssChn = 1;
+    /*** enable vpss chn, without frame ***/
+    /* Set Vpss Chn attr */
+    stChnAttr.bSpEn = HI_FALSE;
+    stChnAttr.bFrameEn = HI_FALSE;
+    stChnAttr.stFrame.u32Color[VPSS_FRAME_WORK_LEFT] = 0;
+    stChnAttr.stFrame.u32Color[VPSS_FRAME_WORK_RIGHT] = 0;
+    stChnAttr.stFrame.u32Color[VPSS_FRAME_WORK_BOTTOM] = 0;
+    stChnAttr.stFrame.u32Color[VPSS_FRAME_WORK_TOP] = 0;
+    stChnAttr.stFrame.u32Width[VPSS_FRAME_WORK_LEFT] = 0;
+    stChnAttr.stFrame.u32Width[VPSS_FRAME_WORK_RIGHT] = 0;
+    stChnAttr.stFrame.u32Width[VPSS_FRAME_WORK_TOP] = 0;
+    stChnAttr.stFrame.u32Width[VPSS_FRAME_WORK_BOTTOM] = 0;
+            
+    s32Ret = HI_MPI_VPSS_SetChnAttr(VpssGrp, VpssChn, &stChnAttr);
+    if (s32Ret != HI_SUCCESS)
+    {
+        g_critical("HI_MPI_VPSS_SetChnAttr failed with %#x\n", s32Ret);
+        return HI_FAILURE;
+    }
+    
+    s32Ret = HI_MPI_VPSS_EnableChn(VpssGrp, VpssChn);
+    if (s32Ret != HI_SUCCESS)
+    {
+        g_critical("HI_MPI_VPSS_EnableChn failed with %#x\n", s32Ret);
+        return HI_FAILURE;
+    }
+
     /*** start vpss group ***/
     s32Ret = HI_MPI_VPSS_StartGrp(VpssGrp);
     if (s32Ret != HI_SUCCESS)

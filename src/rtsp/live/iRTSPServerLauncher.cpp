@@ -1,3 +1,4 @@
+#include "stream_descriptor.h"
 #include "iRTSPServer.hh"
 #include "iRTSPServerLauncher.hh"
 
@@ -10,7 +11,7 @@ void launch_rtsp_server(void *video_engine,
                         unsigned int port,
                         char *watchVariable,
                         int auth,
-                        user *users, size_t users_size,
+                        rtsp_user *users, size_t users_size,
                         char *path[], size_t path_size)
 {
     IRTSPServer *server = new IRTSPServer(video_engine);
@@ -27,12 +28,12 @@ void signalNewFrameData(void *clientData)
     TaskScheduler* ourScheduler = NULL; //%%% TO BE WRITTEN %%%
     H264LiveStreamSource* ourDevice  = (H264LiveStreamSource *)clientData; //%%% TO BE WRITTEN %%%
 
-    if (ourDevice && ourDevice->getRefCount() != 0)
+    if (ourDevice)
     { // sanity check
         ourScheduler = &(ourDevice->envir().taskScheduler());
         if (ourScheduler != NULL)
         {
-            ourScheduler->triggerEvent(H264LiveStreamSource::eventTriggerId, ourDevice);
+            ourScheduler->triggerEvent(ourDevice->eventTriggerId, ourDevice);
         }
     }
 }

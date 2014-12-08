@@ -1,3 +1,4 @@
+#include "stream_descriptor.h"
 #include "iRTSPServer.hh"
 
 IRTSPServer::IRTSPServer(void *videoEngine, Boolean iFramesOnly)
@@ -30,7 +31,7 @@ IRTSPServer::~IRTSPServer()
     }
 }
 
-void IRTSPServer::setAuthUser(user *users, size_t len)
+void IRTSPServer::setAuthUser(rtsp_user *users, size_t len)
 {
     // To implement client access control to the RTSP server, do the following:
     if (m_authDB == NULL)
@@ -68,7 +69,7 @@ void IRTSPServer::startServer(unsigned int port, char *watchVariable)
     {
         char const* streamName = m_path[i];
         char const* descriptionString = "Session streamed by \"iRTSP\"";
-        H264LiveStreamInput *inputDevice = H264LiveStreamInput::createNew(*m_env, m_VideoEngine);
+        H264LiveStreamInput *inputDevice = H264LiveStreamInput::createNew(*m_env, m_VideoEngine, (StreamChannel)i);
         ServerMediaSession* sms =
             ServerMediaSession::createNew(*m_env, streamName, streamName, descriptionString);
         sms->addSubsession(H264LiveStreamServerMediaSubsession::createNew(*m_env, *inputDevice));

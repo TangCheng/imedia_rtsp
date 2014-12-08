@@ -26,7 +26,7 @@ private:
 public:
     IRTSPServer(void *videoEngine, Boolean iFramesOnly = False);
     virtual ~IRTSPServer();
-    void setAuthUser(user *users, size_t len);
+    void setAuthUser(rtsp_user *users, size_t len);
     void setPath(char *path[], size_t len);
     void startServer(unsigned int port, char *watchVariable);
 };

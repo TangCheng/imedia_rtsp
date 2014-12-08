@@ -6,19 +6,17 @@
 
 class H264LiveStreamInput: public Medium {
 public:
-  static H264LiveStreamInput* createNew(UsageEnvironment& env, void *videoEngine);
+  static H264LiveStreamInput* createNew(UsageEnvironment& env, void *videoEngine, StreamChannel chn);
 
   FramedSource* videoSource();
 
 private:
-  H264LiveStreamInput(UsageEnvironment& env, void *videoEngine); // called only by createNew()
+  H264LiveStreamInput(UsageEnvironment& env, void *videoEngine, StreamChannel chn); // called only by createNew()
   virtual ~H264LiveStreamInput();
 
 private:
   friend class WISVideoOpenFileSource;
-  static Boolean fHaveInitialized;
-  static int fOurVideoFileNo;
-  static FramedSource* fOurVideoSource;
+  FramedSource* fOurVideoSource;
   void *fVideoEngine;
   H264LiveStreamParameters fDevParams;
 };

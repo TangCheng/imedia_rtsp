@@ -6,17 +6,17 @@ extern "C"
 {
 #endif
 
-typedef struct _user
+typedef struct _rtsp_user
 {
     char *name;
     char *password;
-} user;
+} rtsp_user;
 
 void launch_rtsp_server(void *video_engine,
                         unsigned int port,
                         char *watchVariable,
                         int auth,
-                        user *users, size_t users_size,
+                        rtsp_user *users, size_t users_size,
                         char *path[], size_t path_size);
 
 void signalNewFrameData(void *clientData);

@@ -30,34 +30,27 @@
 // RTSP stream using rtsp://127.0.0.1 from VLC.									//
 //==============================================================================//
 
+#include "stream_descriptor.h"
 #include "H264LiveStreamInput.hh"
 
-H264LiveStreamInput* H264LiveStreamInput::createNew(UsageEnvironment& env, void *videoEngine) {
-	if (!fHaveInitialized) {
-		fHaveInitialized = True;
-	}
-
-	return new H264LiveStreamInput(env, videoEngine);
+H264LiveStreamInput* H264LiveStreamInput::createNew(UsageEnvironment& env, void *videoEngine, StreamChannel chn) {
+	return new H264LiveStreamInput(env, videoEngine, chn);
 }
 
 FramedSource* H264LiveStreamInput::videoSource() {
-	if (fOurVideoSource == NULL || H264LiveStreamSource::getRefCount() == 0) {
-		fOurVideoSource = H264LiveStreamSource::createNew(envir(), fDevParams);
-	}
+	fOurVideoSource = H264LiveStreamSource::createNew(envir(), fDevParams);
 	return fOurVideoSource;
 }
 
-H264LiveStreamInput::H264LiveStreamInput(UsageEnvironment& env, void *videoEngine)
-    : Medium(env), fVideoEngine(videoEngine) {
+H264LiveStreamInput::H264LiveStreamInput(UsageEnvironment& env, void *videoEngine, StreamChannel chn)
+    : Medium(env), fVideoEngine(videoEngine), fOurVideoSource(NULL)
+{
     fDevParams.fVideoEngine = fVideoEngine;
+	fDevParams.fChannelNo = chn;
 }
 
 H264LiveStreamInput::~H264LiveStreamInput() {
-	if (fOurVideoSource != NULL && H264LiveStreamSource::getRefCount() != 0) {
+	if (fOurVideoSource != NULL) {
 		H264LiveStreamSource::handleClosure(fOurVideoSource);
 	}
 }
-
-Boolean H264LiveStreamInput::fHaveInitialized = False;
-int H264LiveStreamInput::fOurVideoFileNo = -1;
-FramedSource* H264LiveStreamInput::fOurVideoSource = NULL;

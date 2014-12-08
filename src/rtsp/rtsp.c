@@ -20,12 +20,12 @@ static gpointer
 live555_thread_proc(gpointer data)
 {
     IpcamRtspPrivate *priv = (IpcamRtspPrivate *)data;
-    user *users = NULL;
+    rtsp_user *users = NULL;
     gssize len = 0;
     if (priv->auth)
     {
         len = g_hash_table_size(priv->users_hash);
-        users = g_new0(user, len);
+        users = g_new0(rtsp_user, len);
         guint i = 0;
         GHashTableIter iter;
         gpointer key, value;

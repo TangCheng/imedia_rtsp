@@ -22,6 +22,7 @@ enum StreamChannel
     SLAVE_CHN  = 1,
     STREAM_CHN_LAST
 };
+typedef enum StreamChannel StreamChannel;
 
 #define MASTER MASTER_CHN
 #define SLAVE  SLAVE_CHN

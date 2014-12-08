@@ -32,6 +32,7 @@ along with this library; if not, write to the Free Software Foundation, Inc.,
 class H264LiveStreamParameters {
   //%%% TO BE WRITTEN %%%
 public:
+	StreamChannel fChannelNo;
     void *fVideoEngine;
 };
 
@@ -39,10 +40,10 @@ class H264LiveStreamSource: public FramedSource
 {
 public:
     static H264LiveStreamSource* createNew(UsageEnvironment& env, H264LiveStreamParameters params);
-    static unsigned getRefCount();
+    //static unsigned getRefCount();
      
 public:
-    static EventTriggerId eventTriggerId; 
+    EventTriggerId eventTriggerId; 
     // Note that this is defined here to be a static class variable, because this code is intended to illustrate how to
     // encapsulate a *single* device - not a set of devices.
     // You can, however, redefine this to be a non-static member variable.
@@ -60,8 +61,8 @@ private:
     void deliverFrame();
 
 private:
-    static unsigned referenceCount; // used to count how many instances of this class currently exist
-    static bool firstDeliverFrame;
+    //static unsigned referenceCount; // used to count how many instances of this class currently exist
+    bool firstDeliverFrame;
     H264LiveStreamParameters fParams;
     //FILE *fTmpFile;
 };

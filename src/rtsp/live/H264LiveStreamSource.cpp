@@ -23,6 +23,7 @@
 
 #include <MediaSink.hh>
 #include <hi_mem.h>
+#include "stream_descriptor.h"
 #include "H264LiveStreamSource.hh"
 #include "stream_descriptor.h"
 #include "interface/media_video_interface.h"
@@ -33,20 +34,17 @@ H264LiveStreamSource::createNew(UsageEnvironment& env, H264LiveStreamParameters 
     return new H264LiveStreamSource(env, params);
 }
 
+/*
 EventTriggerId H264LiveStreamSource::eventTriggerId = 0;
 unsigned H264LiveStreamSource::referenceCount = 0;
 bool H264LiveStreamSource::firstDeliverFrame = True;
+*/
 
 H264LiveStreamSource::H264LiveStreamSource(UsageEnvironment& env, H264LiveStreamParameters params)
-    : FramedSource(env), fParams(params)
+    : FramedSource(env), fParams(params), eventTriggerId(0), firstDeliverFrame(True)
 {
-    if (referenceCount == 0) {
-        // Any global initialization of the device would be done here:
-        //%%% TO BE WRITTEN %%%
-        //fTmpFile = fopen("./test.data", "w");
-    }
-    ++referenceCount;
-    ipcam_ivideo_register_rtsp_source((IpcamIVideo *)fParams.fVideoEngine, (void *)this);
+    ipcam_ivideo_register_rtsp_source((IpcamIVideo *)fParams.fVideoEngine,
+                                      fParams.fChannelNo, (void *)this);
 
     // Any instance-specific initialization of the device would be done here:
     //%%% TO BE WRITTEN %%%
@@ -60,33 +58,20 @@ H264LiveStreamSource::H264LiveStreamSource(UsageEnvironment& env, H264LiveStream
     //
     // If, however, the device *cannot* be accessed as a readable socket, then instead we can implement it using 'event triggers':
     // Create an 'event trigger' for this device (if it hasn't already been done):
-    if (eventTriggerId == 0) {
-         eventTriggerId = envir().taskScheduler().createEventTrigger(deliverFrame0);
-    }
+
+	eventTriggerId = envir().taskScheduler().createEventTrigger(deliverFrame0);
 }
 
 H264LiveStreamSource::~H264LiveStreamSource() {
     // Any instance-specific 'destruction' (i.e., resetting) of the device would be done here:
     //%%% TO BE WRITTEN %%%
-    ipcam_ivideo_unregister_rtsp_source((IpcamIVideo *)fParams.fVideoEngine, (void *)this);
-    --referenceCount;
-    //fflush(fTmpFile);
-    //fclose(fTmpFile);
-    if (referenceCount == 0)
-    {
+    ipcam_ivideo_unregister_rtsp_source((IpcamIVideo *)fParams.fVideoEngine,
+                                        fParams.fChannelNo, (void *)this);
         // Any global 'destruction' (i.e., resetting) of the device would be done here:
         //%%% TO BE WRITTEN %%%
          
         // Reclaim our 'event trigger'
         envir().taskScheduler().deleteEventTrigger(eventTriggerId);
-        eventTriggerId = 0;
-        firstDeliverFrame = True;
-    } // Any instance-specific 'destruction' (i.e., resetting) of the device would be done here:
-}
-
-unsigned H264LiveStreamSource::getRefCount()
-{
-    return referenceCount;
 }
 
 void H264LiveStreamSource::doGetNextFrame() {
@@ -99,7 +84,7 @@ void H264LiveStreamSource::doGetNextFrame() {
      }
 
      // If a new frame of data is immediately available to be delivered, then do this now:
-     if (ipcam_ivideo_has_video_data((IpcamIVideo *)fParams.fVideoEngine)) /* a new frame of data is immediately available to be delivered*/ /*%%% TO BE WRITTEN %%%*/
+     if (ipcam_ivideo_has_video_data((IpcamIVideo *)fParams.fVideoEngine, fParams.fChannelNo)) /* a new frame of data is immediately available to be delivered*/ /*%%% TO BE WRITTEN %%%*/
      {
           deliverFrame();
      }
@@ -139,7 +124,7 @@ void H264LiveStreamSource::deliverFrame() {
      if (!isCurrentlyAwaitingData()) return; // we're not ready for the data yet
 
      unsigned int newFrameSize = 0; //%%% TO BE WRITTEN %%%
-     StreamData *data = (StreamData *)ipcam_ivideo_get_video_data((IpcamIVideo *)fParams.fVideoEngine);
+     StreamData *data = (StreamData *)ipcam_ivideo_get_video_data((IpcamIVideo *)fParams.fVideoEngine, fParams.fChannelNo);
 
      if (data && data->magic == 0xdeadbeef)
      {
@@ -171,7 +156,7 @@ void H264LiveStreamSource::deliverFrame() {
           data->pts.tv_sec = 0;
           data->pts.tv_usec = 0;
           data->len = 0;
-          ipcam_ivideo_release_video_data((IpcamIVideo *)fParams.fVideoEngine, data);
+          ipcam_ivideo_release_video_data((IpcamIVideo *)fParams.fVideoEngine, fParams.fChannelNo, data);
      }
 
      // After delivering the data, inform the reader that it is now available:

@@ -19,6 +19,7 @@ along with this library; if not, write to the Free Software Foundation, Inc.,
 // on demand, from a H264 video file.
 // Implementation
 
+#include "stream_descriptor.h"
 #include "H264LiveStreamServerMediaSubsession.hh"
 #include "H264LiveStreamSource.hh"
 #include <H264VideoRTPSink.hh>

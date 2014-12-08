@@ -21,22 +21,22 @@ struct _IpcamIVideoInterface
     gint32 (*start)(IpcamIVideo *self, StreamDescriptor desc[]);
     gint32 (*stop)(IpcamIVideo *self);
     void (*param_change)(IpcamIVideo *self, StreamDescriptor desc[]);
-    gpointer (*get_video_data)(IpcamIVideo *self);
-    void (*release_video_data)(IpcamIVideo *self, gpointer data);
-    gboolean (*has_video_data)(IpcamIVideo *self);
-    void (*register_rtsp_source)(IpcamIVideo *self, void *source);
-    void (*unregister_rtsp_source)(IpcamIVideo *self, void *source);
+    gpointer (*get_video_data)(IpcamIVideo *self, StreamChannel chn);
+    void (*release_video_data)(IpcamIVideo *self, StreamChannel chn, gpointer data);
+    gboolean (*has_video_data)(IpcamIVideo *self, StreamChannel chn);
+    void (*register_rtsp_source)(IpcamIVideo *self, StreamChannel chn, void *source);
+    void (*unregister_rtsp_source)(IpcamIVideo *self, StreamChannel chn, void *source);
 };
 
 GType ipcam_ivideo_get_type(void);
 gint32 ipcam_ivideo_start(IpcamIVideo *self, StreamDescriptor desc[]);
 gint32 ipcam_ivideo_stop(IpcamIVideo *self);
 void ipcam_ivideo_paran_change(IpcamIVideo *self, StreamDescriptor desc[]);
-gpointer ipcam_ivideo_get_video_data(IpcamIVideo *self);
-void ipcam_ivideo_release_video_data(IpcamIVideo *self, gpointer data);
-gboolean ipcam_ivideo_has_video_data(IpcamIVideo *self);
-void ipcam_ivideo_register_rtsp_source(IpcamIVideo *self, void *source);
-void ipcam_ivideo_unregister_rtsp_source(IpcamIVideo *self, void *source);
+gpointer ipcam_ivideo_get_video_data(IpcamIVideo *self, StreamChannel chn);
+void ipcam_ivideo_release_video_data(IpcamIVideo *self, StreamChannel chn, gpointer data);
+gboolean ipcam_ivideo_has_video_data(IpcamIVideo *self, StreamChannel chn);
+void ipcam_ivideo_register_rtsp_source(IpcamIVideo *self, StreamChannel chn, void *source);
+void ipcam_ivideo_unregister_rtsp_source(IpcamIVideo *self, StreamChannel chn, void *source);
 
 G_END_DECLS
 
