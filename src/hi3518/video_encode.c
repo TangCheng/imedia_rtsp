@@ -24,7 +24,7 @@ static GParamSpec *obj_properties[N_PROPERTIES] = {NULL, };
 
 static void ipcam_video_encode_init(IpcamVideoEncode *self)
 {
-	IpcamVideoEncodePrivate *priv = ipcam_video_encode_get_instance_private(self);
+    IpcamVideoEncodePrivate *priv = ipcam_video_encode_get_instance_private(self);
     priv->image_width = IMAGE_MAX_WIDTH;
     priv->image_height = IMAGE_MAX_HEIGHT;
 }
@@ -37,43 +37,43 @@ static void ipcam_video_encode_get_property(GObject    *object,
     IpcamVideoEncodePrivate *priv = ipcam_video_encode_get_instance_private(self);
     switch(property_id)
     {
-    case PROP_IMAGE_WIDTH:
+        case PROP_IMAGE_WIDTH:
         {
             g_value_set_uint(value, priv->image_width);
         }
-        break;
-    case PROP_IMAGE_HEIGHT:
+            break;
+        case PROP_IMAGE_HEIGHT:
         {
             g_value_set_uint(value, priv->image_height);
         }
-        break;
-    default:
-        G_OBJECT_WARN_INVALID_PROPERTY_ID(object, property_id, pspec);
-        break;
+            break;
+        default:
+            G_OBJECT_WARN_INVALID_PROPERTY_ID(object, property_id, pspec);
+            break;
     }
 }
 static void ipcam_video_encode_set_property(GObject      *object,
-                                           guint         property_id,
-                                           const GValue *value,
-                                           GParamSpec   *pspec)
+                                            guint         property_id,
+                                            const GValue *value,
+                                            GParamSpec   *pspec)
 {
     IpcamVideoEncode *self = IPCAM_VIDEO_ENCODE(object);
     IpcamVideoEncodePrivate *priv = ipcam_video_encode_get_instance_private(self);
     switch(property_id)
     {
-    case PROP_IMAGE_WIDTH:
+        case PROP_IMAGE_WIDTH:
         {
             priv->image_width = g_value_get_uint(value);
         }
-        break;
-    case PROP_IMAGE_HEIGHT:
+            break;
+        case PROP_IMAGE_HEIGHT:
         {
             priv->image_height = g_value_get_uint(value);
         }
-        break;
-    default:
-        G_OBJECT_WARN_INVALID_PROPERTY_ID(object, property_id, pspec);
-        break;
+            break;
+        default:
+            G_OBJECT_WARN_INVALID_PROPERTY_ID(object, property_id, pspec);
+            break;
     }
 }
 static void ipcam_video_encode_class_init(IpcamVideoEncodeClass *klass)
@@ -113,7 +113,7 @@ gint32 ipcam_video_encode_start(IpcamVideoEncode *self, StreamDescriptor desc[])
     HI_S32 chn;
     guint image_width;
     guint image_height;
-    
+
     for (chn = MASTER_CHN; chn < STREAM_CHN_LAST; chn++)
     {
         /* set h264 chnnel video encode attribute */
@@ -195,7 +195,7 @@ gint32 ipcam_video_encode_start(IpcamVideoEncode *self, StreamDescriptor desc[])
             return HI_FAILURE;
         }
     }
-    
+
     // omit other code here.
     return HI_SUCCESS;
 }
@@ -203,53 +203,65 @@ gint32 ipcam_video_encode_stop(IpcamVideoEncode *self)
 {
     g_return_val_if_fail(IPCAM_IS_VIDEO_ENCODE(self), HI_FAILURE);
     HI_S32 s32Ret;
+    HI_S32 chn;
     VENC_GRP VeGrp = 0;
     VENC_CHN VeChn = 0;
 
-    /******************************************
-     step 1:  Stop Recv Pictures
-    ******************************************/
-    s32Ret = HI_MPI_VENC_StopRecvPic(VeChn);
-    if (HI_SUCCESS != s32Ret)
+    for (chn = MASTER_CHN; chn < STREAM_CHN_LAST; chn++)
     {
-        g_critical("HI_MPI_VENC_StopRecvPic vechn[%d] failed with %#x!\n", \
-                   VeChn, s32Ret);
-        return HI_FAILURE;
-    }
+        VeGrp = chn;
+        VeChn = chn;
+        /******************************************
+         step 1:  Stop Recv Pictures
+         ******************************************/
+        s32Ret = HI_MPI_VENC_StopRecvPic(VeChn);
+        if (HI_SUCCESS != s32Ret)
+        {
+            g_critical("HI_MPI_VENC_StopRecvPic vechn[%d] failed with %#x!\n", \
+                       VeChn, s32Ret);
+            return HI_FAILURE;
+        }
 
-    /******************************************
-     step 2:  UnRegist Venc Channel
-    ******************************************/
-    s32Ret = HI_MPI_VENC_UnRegisterChn(VeChn);
-    if (HI_SUCCESS != s32Ret)
-    {
-        g_critical("HI_MPI_VENC_UnRegisterChn vechn[%d] failed with %#x!\n", \
-                   VeChn, s32Ret);
-        return HI_FAILURE;
-    }
+        /******************************************
+         step 2:  UnRegist Venc Channel
+         ******************************************/
+        s32Ret = HI_MPI_VENC_UnRegisterChn(VeChn);
+        if (HI_SUCCESS != s32Ret)
+        {
+            g_critical("HI_MPI_VENC_UnRegisterChn vechn[%d] failed with %#x!\n", \
+                       VeChn, s32Ret);
+            return HI_FAILURE;
+        }
 
-    /******************************************
-     step 3:  Distroy Venc Channel
-    ******************************************/
-    s32Ret = HI_MPI_VENC_DestroyChn(VeChn);
-    if (HI_SUCCESS != s32Ret)
-    {
-        g_critical("HI_MPI_VENC_DestroyChn vechn[%d] failed with %#x!\n", \
-                   VeChn, s32Ret);
-        return HI_FAILURE;
-    }
+        /******************************************
+         step 3:  Distroy Venc Channel
+         ******************************************/
+        s32Ret = HI_MPI_VENC_DestroyChn(VeChn);
+        if (HI_SUCCESS != s32Ret)
+        {
+            g_critical("HI_MPI_VENC_DestroyChn vechn[%d] failed with %#x!\n", \
+                       VeChn, s32Ret);
+            return HI_FAILURE;
+        }
 
-    /******************************************
-     step 4:  Distroy Venc Group
-    ******************************************/
-    s32Ret = HI_MPI_VENC_DestroyGroup(VeGrp);
-    if (HI_SUCCESS != s32Ret)
-    {
-        g_critical("HI_MPI_VENC_DestroyGroup group[%d] failed with %#x!\n", \
-                   VeGrp, s32Ret);
-        return HI_FAILURE;
+        /******************************************
+         step 4:  Distroy Venc Group
+         ******************************************/
+        s32Ret = HI_MPI_VENC_DestroyGroup(VeGrp);
+        if (HI_SUCCESS != s32Ret)
+        {
+            g_critical("HI_MPI_VENC_DestroyGroup group[%d] failed with %#x!\n", \
+                       VeGrp, s32Ret);
+            return HI_FAILURE;
+        }
     }
 
     return HI_SUCCESS;
 }
+void ipcam_video_encode_param_change(IpcamVideoEncode *self, StreamDescriptor desc[])
+{
+    g_return_val_if_fail(IPCAM_IS_VIDEO_ENCODE(self), HI_FAILURE);
 
+    ipcam_video_encode_stop(self);
+    ipcam_video_encode_start(self, desc);
+}

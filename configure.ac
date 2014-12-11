@@ -113,6 +113,8 @@ dnl  fi
 dnl LIBS="$LIBS"
 if test $mpp_found = yes ; then
   if test $ac_cv_hisimpp_dir != "(system)"; then
+    MPPDIR="$ac_cv_hisimpp_dir"
+    AC_SUBST(MPPDIR)
     if test -d "$ac_cv_hisimpp_dir/lib" ; then
       dnl LDFLAGS="-L$ac_cv_hisimpp_dir/lib $LDFLAGS"
       MPPLIBDIR="$ac_cv_hisimpp_dir/lib"
@@ -147,5 +149,7 @@ AC_OUTPUT([
 Makefile
 src/Makefile
 src/config/Makefile
+src/sensor/Makefile
+src/sensor/sony_imx122/Makefile
 
 ])

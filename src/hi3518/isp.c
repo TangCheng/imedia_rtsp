@@ -8,6 +8,7 @@
 #include <mpi_awb.h>
 #include <mpi_af.h>
 #include <hi_sns_ctrl.h>
+#include <stdio.h>
 #include <stdlib.h>
 #include <string.h>
 #include <dlfcn.h>
@@ -16,9 +17,13 @@
 typedef struct _IpcamIspPrivate
 {
     gchar *sensor_type;
+    guint32 image_width;
+    guint32 image_height;
+    guint32 fps;
     void *sensor_lib_handle;
     gint32 (*sensor_register_callback)();
-    gint32 (*sensor_set_image_size)(const char *);
+    gint32 (*sensor_set_image_mode)(ISP_CMOS_SENSOR_IMAGE_MODE *);
+    gint32 (*sensor_unregister_callback)(void);
     pthread_t IspPid;
 } IpcamIspPrivate;
 
@@ -28,6 +33,9 @@ static void ipcam_isp_init(IpcamIsp *self)
 {
 	IpcamIspPrivate *priv = ipcam_isp_get_instance_private(self);
     priv->sensor_type = NULL;
+    priv->image_width = 1920;
+    priv->image_height = 1080;
+    priv->fps = 30;
     priv->sensor_lib_handle = NULL;
     priv->sensor_register_callback = NULL;
 }
@@ -60,7 +68,7 @@ static gint32 ipcam_isp_load_sensor_lib(IpcamIsp *self)
     }
     else if (g_str_equal(priv->sensor_type, "IMX222"))
     {
-        priv->sensor_lib_handle = dlopen("/usr/lib/libsns_imx122.so", RTLD_LAZY);
+        priv->sensor_lib_handle = dlopen("/usr/lib/libsns_imx122_uxga.so", RTLD_LAZY);
     }
     else
     {
@@ -75,18 +83,24 @@ static gint32 ipcam_isp_load_sensor_lib(IpcamIsp *self)
             g_critical("%s: get sensor_register_callback failed with %s!\n", __FUNCTION__, error);
             return HI_FAILURE;
         }
-#if 0
-        priv->sensor_set_image_size = dlsym(priv->sensor_lib_handle, "sensor_set_image_size");
+
+        priv->sensor_unregister_callback = dlsym(priv->sensor_lib_handle, "sensor_unregister_callback");
         error = dlerror();
         if (NULL != error)
         {
-            g_critical("%s: get sensor_set_image_size failed with %s!\n", __FUNCTION__, error);
-            return HI_FAILURE;
+            g_warning("%s: get sensor_unregister_callback failed with %s!\n", __FUNCTION__, error);
         }
-#endif
+
+        priv->sensor_set_image_mode = dlsym(priv->sensor_lib_handle, "sensor_set_image_mode");
+        error = dlerror();
+        if (NULL != error)
+        {
+            g_warning("%s: get sensor_set_image_size failed with %s!\n", __FUNCTION__, error);
+        }
     }
     return priv->sensor_lib_handle ? HI_SUCCESS : HI_FAILURE;
 }
+
 static void ipcam_isp_init_image_attr(IpcamIsp *self, ISP_IMAGE_ATTR_S *pstImageAttr)
 {
     IpcamIspPrivate *priv = ipcam_isp_get_instance_private(self);
@@ -109,9 +123,18 @@ static void ipcam_isp_init_image_attr(IpcamIsp *self, ISP_IMAGE_ATTR_S *pstImage
     else if (g_str_equal(priv->sensor_type, "IMX222"))
     {
         pstImageAttr->enBayer      = BAYER_RGGB;
-        pstImageAttr->u16FrameRate = 30;
-        pstImageAttr->u16Width     = 1920;
-        pstImageAttr->u16Height    = 1080;
+        if (priv->image_width == 1200)
+        {
+            pstImageAttr->u16FrameRate = 20;
+            pstImageAttr->u16Width     = 1920;
+            pstImageAttr->u16Height    = 1200;
+        }
+        else
+        {
+            pstImageAttr->u16FrameRate = 30;
+            pstImageAttr->u16Width     = 1920;
+            pstImageAttr->u16Height    = 1080;
+        }
     }
     else
     {
@@ -119,11 +142,114 @@ static void ipcam_isp_init_image_attr(IpcamIsp *self, ISP_IMAGE_ATTR_S *pstImage
         g_warn_if_reached();
     }
 }
-gint32 ipcam_isp_start(IpcamIsp *self)
+
+static void ipcam_isp_init_input_timing(IpcamIsp *self, ISP_INPUT_TIMING_S *stInputTiming)
 {
-    g_return_val_if_fail(IPCAM_IS_ISP(self), HI_FAILURE);
+    IpcamIspPrivate *priv = ipcam_isp_get_instance_private(self);
+
+    stInputTiming->enWndMode = ISP_WIND_NONE;
+    if (g_str_equal(priv->sensor_type, "IMX222"))
+    {
+        if (priv->image_height == 1200)
+        {
+            stInputTiming->enWndMode = ISP_WIND_ALL;
+            stInputTiming->u16HorWndStart = 138;
+            stInputTiming->u16HorWndLength = 1920;
+            stInputTiming->u16VerWndStart = 22;
+            stInputTiming->u16VerWndLength = 1200;
+        }
+        else
+        {
+            stInputTiming->enWndMode = ISP_WIND_ALL;
+            stInputTiming->u16HorWndStart = 200;
+            stInputTiming->u16HorWndLength = 1920;
+            stInputTiming->u16VerWndStart = 12;
+            stInputTiming->u16VerWndLength = 1080;
+        }
+    }
+}
+
+static void physical_address_writel(unsigned long phy_addr, int val)
+{
+    FILE *fp;
+    char buf[64];
+
+    sprintf(buf, "devmem 0x%08x 32 0x%02x", phy_addr, val);
+    fp = popen(buf, "r");
+    if (fp) {
+        pclose(fp);
+    }
+    else {
+        perror("popen fail: ");
+    }
+}
+
+static void ipcam_isp_set_pixel_clock(IpcamIsp *self)
+{
+    IpcamIspPrivate *priv = ipcam_isp_get_instance_private(self);
+
+    g_return_if_fail(IPCAM_IS_ISP(self));
+
+    usleep(400000);
+    /* Adjust the clock */
+    if (priv->image_height == 1200) {
+        /* 54M */
+        physical_address_writel(0x20030030, 0x03);
+    }
+    else {
+        /* 37.125 */
+        physical_address_writel(0x20030030, 0x06);
+    }
+    usleep(400000);
+}
+
+static void ipcam_isp_get_video_resolution(IpcamIsp *self, StreamDescriptor desc[])
+{
+    IpcamIspPrivate *priv = ipcam_isp_get_instance_private(self);
+    gchar *resolution;
+
+    resolution = desc[MASTER_CHN].v_desc.resolution;
+    if (g_str_equal(resolution, "UXGA") ||
+        g_str_equal(resolution, "960H"))
+    {
+        priv->image_width = 1920;
+        priv->image_height = 1200;
+        priv->fps = 20;
+    }
+    else
+    {
+        priv->image_width = 1920;
+        priv->image_height = 1080;
+        priv->fps = 30;
+    }
+}
+
+static void ipcam_isp_set_image_mode(IpcamIsp *self)
+{
+    IpcamIspPrivate *priv = ipcam_isp_get_instance_private(self);
+
+    if (priv->sensor_set_image_mode)
+    {
+        ISP_CMOS_SENSOR_IMAGE_MODE stSensorImageMode = {
+            .u16Width = priv->image_width,
+            .u16Height = priv->image_height,
+            .u16Fps = priv->fps
+        };
+        (*priv->sensor_set_image_mode)(&stSensorImageMode);
+    }
+}
+
+gint32 ipcam_isp_start(IpcamIsp *self, StreamDescriptor desc[])
+{
     HI_S32 s32Ret = HI_SUCCESS;
     IpcamIspPrivate *priv = ipcam_isp_get_instance_private(self);
+
+    g_return_val_if_fail(IPCAM_IS_ISP(self), HI_FAILURE);
+    g_return_val_if_fail(desc != NULL, HI_FAILURE);
+
+    ipcam_isp_get_video_resolution(self, desc);
+
+    ipcam_isp_set_pixel_clock(self);
 
     /******************************************
      step 1: configure sensor.
@@ -202,15 +328,7 @@ gint32 ipcam_isp_start(IpcamIsp *self)
         return s32Ret;
     }
 
-    stInputTiming.enWndMode = ISP_WIND_NONE;
-    if (g_str_equal(priv->sensor_type, "IMX222"))
-    {
-        stInputTiming.enWndMode = ISP_WIND_ALL;
-        stInputTiming.u16HorWndStart = 200;
-        stInputTiming.u16HorWndLength = 1920;
-        stInputTiming.u16VerWndStart = 12;
-        stInputTiming.u16VerWndLength = 1080;
-    }
+    ipcam_isp_init_input_timing(self, &stInputTiming);
     s32Ret = HI_MPI_ISP_SetInputTiming(&stInputTiming);
     if (s32Ret != HI_SUCCESS)
     {
@@ -224,27 +342,61 @@ gint32 ipcam_isp_start(IpcamIsp *self)
         return HI_FAILURE;
     }
 
-#if 0
-    if (priv->sensor_set_image_size)
-    {
-        (*priv->sensor_set_image_size)("UXGA"/*desc[MASTER].v_desc.resolution*/);
-    }
-#endif
+    ipcam_isp_set_image_mode(self);
+
     return HI_SUCCESS;
 }
 void ipcam_isp_stop(IpcamIsp *self)
 {
-    g_return_if_fail(IPCAM_IS_ISP(self));
     IpcamIspPrivate *priv = ipcam_isp_get_instance_private(self);
+
+    g_return_if_fail(IPCAM_IS_ISP(self));
+
     HI_MPI_ISP_Exit();
     pthread_join(priv->IspPid, 0);
 
     if (priv->sensor_lib_handle)
     {
+        if (priv->sensor_unregister_callback)
+            (*priv->sensor_unregister_callback)();
+
         dlclose(priv->sensor_lib_handle);
         priv->sensor_lib_handle = NULL;
     }
     priv->sensor_type = NULL;
 }
 
+void ipcam_isp_param_change(IpcamIsp *self, StreamDescriptor desc[])
+{
+	ISP_IMAGE_ATTR_S stImageAttr;
+    ISP_INPUT_TIMING_S stInputTiming;
+    HI_S32 s32Ret = HI_SUCCESS;
+    IpcamIspPrivate *priv = ipcam_isp_get_instance_private(self);
 
+    g_return_if_fail(IPCAM_IS_ISP(self));
+
+    ipcam_isp_get_video_resolution(self, desc);
+
+    HI_MPI_VI_DisableDev(0);
+    HI_MPI_VI_DisableDev(0);
+
+    ipcam_isp_set_pixel_clock(self);
+
+    ipcam_isp_init_image_attr(self, &stImageAttr);
+    s32Ret = HI_MPI_ISP_SetImageAttr(&stImageAttr);
+    if (s32Ret != HI_SUCCESS)
+    {
+        g_critical("%s: HI_MPI_ISP_SetImageAttr failed with %#x!\n", __FUNCTION__, s32Ret);
+        return s32Ret;
+    }
+
+    ipcam_isp_init_input_timing(self, &stInputTiming);
+    s32Ret = HI_MPI_ISP_SetInputTiming(&stInputTiming);
+    if (s32Ret != HI_SUCCESS)
+    {
+        g_critical("%s: HI_MPI_ISP_SetInputTiming failed with %#x!\n", __FUNCTION__, s32Ret);
+        return s32Ret;
+    }
+
+    ipcam_isp_set_image_mode(self);
+}

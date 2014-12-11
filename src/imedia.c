@@ -88,6 +88,7 @@ static void ipcam_imedia_init(IpcamIMedia *self)
     ipcam_base_app_register_notice_handler(IPCAM_BASE_APP(self), "set_base_info", IPCAM_VIDEO_PARAM_CHANGE_HANDLER_TYPE);
     ipcam_base_app_register_notice_handler(IPCAM_BASE_APP(self), "set_video", IPCAM_VIDEO_PARAM_CHANGE_HANDLER_TYPE);
     ipcam_base_app_register_notice_handler(IPCAM_BASE_APP(self), "set_osd", IPCAM_VIDEO_PARAM_CHANGE_HANDLER_TYPE);
+    ipcam_base_app_register_notice_handler(IPCAM_BASE_APP(self), "set_image", IPCAM_VIDEO_PARAM_CHANGE_HANDLER_TYPE);
     priv->osd_buffer = g_malloc(OSD_BUFFER_LENGTH);
 }
 static void ipcam_imedia_class_init(IpcamIMediaClass *klass)
@@ -375,6 +376,34 @@ void ipcam_imedia_got_osd_parameter(IpcamIMedia *imedia, JsonNode *body)
         }
     }
 }
+
+void ipcam_imedia_got_image_parameter(IpcamIMedia *imedia, JsonNode *body)
+{
+    IpcamIMediaPrivate *priv = ipcam_imedia_get_instance_private(imedia);
+    JsonObject *res_object;
+    gint32 brightness = -1;
+    gint32 chrominance = -1;
+    gint32 contrast = -1;
+    gint32 saturation = -1;
+    
+    res_object = json_object_get_object_member(json_node_get_object(body), "items");
+
+    if (json_object_has_member(res_object, "brightness")) {
+        brightness = (gint32)json_object_get_int_member(res_object, "brightness");
+    }
+    if (json_object_has_member(res_object, "chrominance")) {
+        chrominance = (gint32)json_object_get_int_member(res_object, "chrominance");
+    }
+    if (json_object_has_member(res_object, "contrast")) {
+        contrast = (gint32)json_object_get_int_member(res_object, "contrast");
+    }
+    if (json_object_has_member(res_object, "saturation")) {
+        saturation = (gint32)json_object_get_int_member(res_object, "saturation");
+    }
+
+    ipcam_media_video_set_image_parameter(priv->video, brightness, chrominance, contrast, saturation);
+}
+
 void ipcam_imedia_got_baseinfo_parameter(IpcamIMedia *imedia, JsonNode *body)
 {
     IpcamIMediaPrivate *priv = ipcam_imedia_get_instance_private(imedia);

@@ -29,5 +29,9 @@ GType ipcam_video_input_get_type(void);
 gint32 ipcam_video_input_start(IpcamVideoInput *self, StreamDescriptor desc[]);
 gint32 ipcam_video_input_stop(IpcamVideoInput *self);
 void ipcam_video_input_param_change(IpcamVideoInput *self, StreamDescriptor desc[]);
-
+void ipcam_video_input_set_image_parameter(IpcamVideoInput *self, 
+                                           gint32 brightness,
+                                           gint32 chrominance,
+                                           gint32 contrast,
+                                           gint32 saturation);
 #endif /* __VIDEO_INPUT_H__ */

@@ -240,7 +240,7 @@ static gint32 ipcam_media_video_venc_unbind_vpss(IpcamMediaVideo *self)
 static gint32 ipcam_media_video_start_livestream(IpcamMediaVideo *self, StreamDescriptor desc[])
 {
     IpcamMediaVideoPrivate *priv = IPCAM_MEDIA_VIDEO_GET_PRIVATE(self);
-    ipcam_isp_start(priv->isp);
+    ipcam_isp_start(priv->isp, desc);
     ipcam_video_input_start(priv->vi, desc);
     ipcam_video_process_subsystem_start(priv->vpss, desc);
     ipcam_video_encode_start(priv->venc, desc);
@@ -276,9 +276,23 @@ static void ipcam_media_video_param_change(IpcamMediaVideo *self, StreamDescript
 {
     IpcamMediaVideoPrivate *priv = IPCAM_MEDIA_VIDEO_GET_PRIVATE(self);
 
+    ipcam_isp_param_change(priv->isp, desc);
     ipcam_video_input_param_change(priv->vi, desc);
-    
+	ipcam_video_process_subsystem_param_change(priv->vpss, desc);
+	ipcam_video_encode_param_change(priv->venc, desc);
 }
+
+void ipcam_media_video_set_image_parameter(IpcamMediaVideo *self,
+                                           gint32 brightness,
+                                           gint32 chrominance,
+                                           gint32 contrast,
+                                           gint32 saturation)
+{
+    IpcamMediaVideoPrivate *priv = IPCAM_MEDIA_VIDEO_GET_PRIVATE(self);
+
+    ipcam_video_input_set_image_parameter(priv->vi, brightness, chrominance, contrast, saturation);
+}
+
 static gpointer ipcam_media_video_get_write_data(IpcamMediaVideo *self, StreamChannel chn)
 {
     IpcamMediaVideoPrivate *priv = IPCAM_MEDIA_VIDEO_GET_PRIVATE(self);

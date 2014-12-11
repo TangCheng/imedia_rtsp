@@ -46,6 +46,9 @@ static void ipcam_video_param_change_handler_run_impl(IpcamVideoParamChangeHandl
 	else if (g_str_equal (event, "set_video")) {
 		ipcam_imedia_got_video_param(IPCAM_IMEDIA(service), body, TRUE);
 	}
+    else if (g_str_equal (event, "set_image")) {
+        ipcam_imedia_got_image_parameter(IPCAM_IMEDIA(service), body);
+    }
 	else if (g_str_equal (event, "set_osd")) {
 		ipcam_imedia_got_osd_parameter(IPCAM_IMEDIA(service), body);
 	}

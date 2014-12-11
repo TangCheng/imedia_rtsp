@@ -26,7 +26,7 @@ struct _IpcamIspClass
 };
 
 GType ipcam_isp_get_type(void);
-gint32 ipcam_isp_start(IpcamIsp *self);
+gint32 ipcam_isp_start(IpcamIsp *self, StreamDescriptor desc[]);
 void ipcam_isp_stop(IpcamIsp *self);
 
 #endif /* __ISP_H__ */

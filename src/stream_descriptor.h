@@ -6,7 +6,7 @@
 
 #if defined(HI3516)
 #define IMAGE_MAX_WIDTH          1920
-#define IMAGE_MAX_HEIGHT         1080
+#define IMAGE_MAX_HEIGHT         1200
 #elif defined(HI3518)
 #define IMAGE_MAX_WIDTH          1280
 #define IMAGE_MAX_HEIGHT         960

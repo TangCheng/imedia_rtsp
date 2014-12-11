@@ -112,8 +112,21 @@ gint32 ipcam_video_process_subsystem_start(IpcamVideoProcessSubsystem *self, Str
     HI_S32 s32Ret;
     IpcamVideoProcessSubsystemPrivate *priv = ipcam_video_process_subsystem_get_instance_private(self);
 
-    priv->image_width = desc[MASTER].v_desc.image_width;
-    priv->image_height = desc[MASTER].v_desc.image_height;
+    gchar *resolution = desc[MASTER_CHN].v_desc.resolution;
+    if (g_str_equal(resolution, "UXGA") ||
+        g_str_equal(resolution, "960H"))
+    {
+        priv->image_width = 1600;
+        priv->image_height = 1200;
+    }
+    else
+    {
+        priv->image_width = 1920;
+        priv->image_height = 1080;
+    }
+
+//    priv->image_width = desc[MASTER].v_desc.image_width;
+//    priv->image_height = desc[MASTER].v_desc.image_height;
 
     /*** Set Vpss Grp Attr ***/
 
@@ -246,4 +259,11 @@ gint32 ipcam_video_process_subsystem_stop(IpcamVideoProcessSubsystem *self)
     }
 
     return s32Ret;
+}
+void ipcam_video_process_subsystem_param_change(IpcamVideoProcessSubsystem *self, StreamDescriptor desc[])
+{
+    g_return_val_if_fail(IPCAM_IS_VIDEO_PROCESS_SUBSYSTEM(self), HI_FAILURE);
+
+    ipcam_video_process_subsystem_stop(self);
+    ipcam_video_process_subsystem_start(self, desc);
 }

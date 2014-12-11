@@ -28,5 +28,6 @@ struct _IpcamVideoProcessSubsystemClass
 GType ipcam_video_process_subsystem_get_type(void);
 gint32 ipcam_video_process_subsystem_start(IpcamVideoProcessSubsystem *self, StreamDescriptor desc[]);
 gint32 ipcam_video_process_subsystem_stop(IpcamVideoProcessSubsystem *self);
+void ipcam_video_process_subsystem_param_change(IpcamVideoProcessSubsystem *self, StreamDescriptor desc[]);
 
 #endif /* __VIDEO_PROCESS_SUBSYSTEM_H__ */
