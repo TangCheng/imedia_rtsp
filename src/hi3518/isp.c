@@ -203,25 +203,38 @@ static void ipcam_isp_set_pixel_clock(IpcamIsp *self)
     usleep(400000);
 }
 
-static void ipcam_isp_get_video_resolution(IpcamIsp *self, StreamDescriptor desc[])
+static gboolean ipcam_isp_check_video_resolution(IpcamIsp *self, StreamDescriptor desc[])
 {
     IpcamIspPrivate *priv = ipcam_isp_get_instance_private(self);
     gchar *resolution;
+    guint32 image_width;
+    guint32 image_height;
+    guint32 fps;
 
     resolution = desc[MASTER_CHN].v_desc.resolution;
     if (g_str_equal(resolution, "UXGA") ||
         g_str_equal(resolution, "960H"))
     {
-        priv->image_width = 1920;
-        priv->image_height = 1200;
-        priv->fps = 20;
+        image_width = 1920;
+        image_height = 1200;
+        fps = 20;
     }
     else
     {
-        priv->image_width = 1920;
-        priv->image_height = 1080;
-        priv->fps = 30;
+        image_width = 1920;
+        image_height = 1080;
+        fps = 30;
     }
+
+    if (priv->image_height != image_height) {
+        priv->image_width = image_width;
+        priv->image_height = image_height;
+        priv->fps = fps;
+
+        return TRUE;
+    }
+
+    return FALSE;
 }
 
 static void ipcam_isp_set_image_mode(IpcamIsp *self)
@@ -247,7 +260,7 @@ gint32 ipcam_isp_start(IpcamIsp *self, StreamDescriptor desc[])
     g_return_val_if_fail(IPCAM_IS_ISP(self), HI_FAILURE);
     g_return_val_if_fail(desc != NULL, HI_FAILURE);
 
-    ipcam_isp_get_video_resolution(self, desc);
+    ipcam_isp_check_video_resolution(self, desc);
 
     ipcam_isp_set_pixel_clock(self);
 
@@ -375,7 +388,8 @@ void ipcam_isp_param_change(IpcamIsp *self, StreamDescriptor desc[])
 
     g_return_if_fail(IPCAM_IS_ISP(self));
 
-    ipcam_isp_get_video_resolution(self, desc);
+    if (!ipcam_isp_check_video_resolution(self, desc))
+        return;
 
     HI_MPI_VI_DisableDev(0);
     HI_MPI_VI_DisableDev(0);
