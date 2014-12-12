@@ -11,6 +11,14 @@
 #include "bitmap.h"
 #include "stream_descriptor.h"
 
+enum
+{
+    PROP_0,
+    PROP_RGN_HANDLE,
+    PROP_VENC_GROUP,
+    N_PROPERTIES
+};
+
 typedef struct _IpcamMediaOsdPrivate
 {
 	TTF_Font *ttf_font;
@@ -19,19 +27,67 @@ typedef struct _IpcamMediaOsdPrivate
     RGN_HANDLE RgnHandle;
     RGN_ATTR_S stRgnAttr;
     RGN_CHN_ATTR_S stChnAttr;
+    guint32 image_width;
+    guint32 image_height;
     guint32 font_size[IPCAM_OSD_TYPE_LAST];
     Color color[IPCAM_OSD_TYPE_LAST];
+    Point position[IPCAM_OSD_TYPE_LAST];
     RECT_S rect[IPCAM_OSD_TYPE_LAST];
     HI_BOOL bShow[IPCAM_OSD_TYPE_LAST];
     gchar *content[IPCAM_OSD_TYPE_LAST];
 } IpcamMediaOsdPrivate;
 
 static void ipcam_iosd_interface_init(IpcamIOSDInterface *iface);
+static gint32 ipcam_media_osd_draw_content(IpcamMediaOsd *self, IPCAM_OSD_TYPE type);
 static gint32 ipcam_media_osd_set_content(IpcamMediaOsd *self, IPCAM_OSD_TYPE type, const gchar *content);
 
 G_DEFINE_TYPE_WITH_CODE(IpcamMediaOsd, ipcam_media_osd, G_TYPE_OBJECT,
                         G_IMPLEMENT_INTERFACE(IPCAM_TYPE_IOSD,
                                               ipcam_iosd_interface_init));
+
+static GParamSpec *obj_properties[N_PROPERTIES] = { NULL, };
+
+static void ipcam_media_osd_get_property(GObject    *object,
+                                         guint       property_id,
+                                         GValue     *value,
+                                         GParamSpec *pspec)
+{
+    IpcamMediaOsd *self = IPCAM_MEDIA_OSD(object);
+    IpcamMediaOsdPrivate *priv = IPCAM_MEDIA_OSD_GET_PRIVATE(self);
+    switch(property_id)
+    {
+        case PROP_RGN_HANDLE:
+            g_value_set_uint(value, priv->RgnHandle);
+            break;
+        case PROP_VENC_GROUP:
+            g_value_set_uint(value, priv->VencGrp);
+            break;
+        default:
+            G_OBJECT_WARN_INVALID_PROPERTY_ID(object, property_id, pspec);
+            break;
+    }
+}
+
+static void ipcam_media_osd_set_property(GObject      *object,
+                                         guint         property_id,
+                                         const GValue *value,
+                                         GParamSpec   *pspec)
+{
+    IpcamMediaOsd *self = IPCAM_MEDIA_OSD(object);
+    IpcamMediaOsdPrivate *priv = IPCAM_MEDIA_OSD_GET_PRIVATE(self);
+    switch(property_id)
+    {
+        case PROP_RGN_HANDLE:
+            priv->RgnHandle = g_value_get_uint(value);
+            break;
+        case PROP_VENC_GROUP:
+            priv->VencGrp = g_value_get_uint(value);
+            break;
+        default:
+            G_OBJECT_WARN_INVALID_PROPERTY_ID(object, property_id, pspec);
+            break;
+    }
+}
 
 static void ipcam_media_osd_finalize(GObject *object)
 {
@@ -68,18 +124,35 @@ static void ipcam_media_osd_finalize(GObject *object)
     G_OBJECT_CLASS(ipcam_media_osd_parent_class)->finalize(object);
 }
 
-static void ipcam_media_osd_init(IpcamMediaOsd *self)
+static GObject *ipcam_media_osd_constructor (GType gtype,
+                                             guint n_properties,
+                                             GObjectConstructParam *properties)
 {
+    GObjectClass *klass;
+    GObject *object;
+    IpcamMediaOsd *osd;
+    IpcamMediaOsdPrivate *priv;
     HI_S32 s32Ret = HI_FAILURE;
     MPP_CHN_S stChn;
-    IpcamMediaOsdPrivate *priv = IPCAM_MEDIA_OSD_GET_PRIVATE(self);
     IPCAM_OSD_TYPE type;
+
+    /* Always chain up to the parent constructor */
+    klass = G_OBJECT_CLASS(ipcam_media_osd_parent_class);
+    object = klass->constructor(gtype, n_properties, properties);
+    osd = IPCAM_MEDIA_OSD(object);
+    priv = IPCAM_MEDIA_OSD_GET_PRIVATE(osd);
+
     for (type = IPCAM_OSD_TYPE_DATETIME; type < IPCAM_OSD_TYPE_LAST; type++)
     {
         priv->content[type] = NULL;
+        priv->bShow[type] = FALSE;
+
+        priv->rect[type].s32X = 0;
+        priv->rect[type].s32Y = 0;
+        priv->rect[type].u32Width = 0;
+        priv->rect[type].u32Height = 0;
     }
-    priv->RgnHandle = 0;
-    priv->VencGrp = 0;
+
     priv->bitmap = g_object_new(IPCAM_BITMAP_TYPE, NULL);
 
 	if (TTF_Init() < 0) {
@@ -138,12 +211,46 @@ static void ipcam_media_osd_init(IpcamMediaOsd *self)
             break;
         }
     } while (FALSE);
+
+    return object;
 }
+
 static void ipcam_media_osd_class_init(IpcamMediaOsdClass *klass)
 {
-    g_type_class_add_private(klass, sizeof(IpcamMediaOsdPrivate));
     GObjectClass *object_class = G_OBJECT_CLASS(klass);
-    object_class->finalize = &ipcam_media_osd_finalize;
+
+    object_class->get_property = ipcam_media_osd_get_property;
+    object_class->set_property = ipcam_media_osd_set_property;
+    object_class->constructor = ipcam_media_osd_constructor;
+    object_class->finalize = ipcam_media_osd_finalize;
+
+    g_type_class_add_private(klass, sizeof(IpcamMediaOsdPrivate));
+
+    obj_properties[PROP_RGN_HANDLE] = 
+        g_param_spec_uint ("RgnHandle",
+                           "Region Handle",
+                           "Region Handle",
+                           0, RGN_HANDLE_MAX - 1,
+                           0,
+                           G_PARAM_CONSTRUCT_ONLY | G_PARAM_READWRITE);
+    obj_properties[PROP_VENC_GROUP] = 
+        g_param_spec_uint ("VencGroup",
+                           "VENC Group Number",
+                           "VENC Group Number",
+                           0, VENC_MAX_GRP_NUM - 1,
+                           0,
+                           G_PARAM_CONSTRUCT_ONLY | G_PARAM_READWRITE);
+    g_object_class_install_properties (object_class,
+                                       N_PROPERTIES,
+                                       obj_properties);
+}
+
+static void ipcam_media_osd_init(IpcamMediaOsd *self)
+{
+    IpcamMediaOsdPrivate *priv = IPCAM_MEDIA_OSD_GET_PRIVATE(self);
+
+    priv->image_width = 1920;
+    priv->image_height = 1080;
 }
 
 static void ipcam_media_osd_bitmap_clear(IpcamBitmap *bitmap, RECT_S *rect)
@@ -174,14 +281,13 @@ static gint32 ipcam_media_osd_start(IpcamMediaOsd *self, IPCAM_OSD_TYPE type, Ip
 {
     IpcamMediaOsdPrivate *priv = IPCAM_MEDIA_OSD_GET_PRIVATE(self);
 
-	ipcam_media_osd_bitmap_clear(priv->bitmap, &priv->rect[type]);
     priv->bShow[type] = parameter->is_show;
     priv->font_size[type] = parameter->font_size;
     priv->color[type] = parameter->color;
-    priv->rect[type].s32X = parameter->position.x;
-    priv->rect[type].s32Y = parameter->position.y;
+    priv->position[type].x = parameter->position.x;
+    priv->position[type].y = parameter->position.y;
     
-    return ipcam_media_osd_set_content(self, type, priv->content[type]);
+    return ipcam_media_osd_draw_content(self, type);
 }
 static gint32 ipcam_media_osd_set_region_attr(IpcamMediaOsd *self, IPCAM_OSD_TYPE type)
 {
@@ -207,9 +313,8 @@ static gint32 ipcam_media_osd_show(IpcamMediaOsd *self, IPCAM_OSD_TYPE type, con
 static gint32 ipcam_media_osd_set_pos(IpcamMediaOsd *self, IPCAM_OSD_TYPE type,  const Point pos)
 {
     IpcamMediaOsdPrivate *priv = IPCAM_MEDIA_OSD_GET_PRIVATE(self);
-    ipcam_media_osd_bitmap_clear(priv->bitmap, &priv->rect[type]);
-    priv->rect[type].s32X = pos.x;
-    priv->rect[type].s32Y = pos.y;
+    priv->position[type].x = pos.x;
+    priv->position[type].y = pos.y;
     return ipcam_media_osd_set_region_attr(self, type);
 }
 static gint32 ipcam_media_osd_set_fontsize(IpcamMediaOsd *self, IPCAM_OSD_TYPE type, const guint fsize)
@@ -224,19 +329,15 @@ static gint32 ipcam_media_osd_set_color(IpcamMediaOsd *self, IPCAM_OSD_TYPE type
     priv->color[type] = color;
     return ipcam_media_osd_set_content(self, type, priv->content[type]);
 }
-static gint32 ipcam_media_osd_set_content(IpcamMediaOsd *self, IPCAM_OSD_TYPE type, const gchar *content)
+
+static gint32 ipcam_media_osd_draw_content(IpcamMediaOsd *self, IPCAM_OSD_TYPE type)
 {
 	SDL_Surface *text_sf, *scrn_sf;
     HI_S32 s32Ret = HI_FAILURE;
     IpcamMediaOsdPrivate *priv = IPCAM_MEDIA_OSD_GET_PRIVATE(self);
-        
-    g_return_val_if_fail((NULL != priv->ttf_font), s32Ret);
 
-    if (priv->content[type] != content && type != IPCAM_OSD_TYPE_DATETIME)
-    {
-        g_free(priv->content[type]);
-        priv->content[type] = g_strdup(content);
-    }
+    g_return_val_if_fail((type >= 0 && type < IPCAM_OSD_TYPE_LAST), s32Ret);
+    g_return_val_if_fail((NULL != priv->ttf_font), s32Ret);
 
 	SDL_Rect rect = {
 		priv->rect[type].s32X, priv->rect[type].s32Y,
@@ -253,7 +354,8 @@ static gint32 ipcam_media_osd_set_content(IpcamMediaOsd *self, IPCAM_OSD_TYPE ty
 	                                   0x1F << 0,
 	                                   0x1 << 15);
     SDL_FillRect(scrn_sf, &rect, 0);
-	if (priv->bShow[type] && content)
+
+    if (priv->bShow[type] && priv->content[type])
     {
 		SDL_Color foreclr= {
 			priv->color[type].red,
@@ -262,13 +364,21 @@ static gint32 ipcam_media_osd_set_content(IpcamMediaOsd *self, IPCAM_OSD_TYPE ty
 			priv->color[type].alpha
 		};
 		TTF_SetFontSize(priv->ttf_font, priv->font_size[type]);
-		text_sf = TTF_RenderUTF8_Solid(priv->ttf_font, content, foreclr);
-		SDL_BlitSurface(text_sf, NULL, scrn_sf, &rect);
+		text_sf = TTF_RenderUTF8_Solid(priv->ttf_font, priv->content[type], foreclr);
+        if (text_sf) {
+            rect.x = priv->position[type].x * priv->image_width / 1000;
+            rect.y = priv->position[type].y * priv->image_height / 1000;
+            rect.w = text_sf->w;
+            rect.h = text_sf->h;
+            SDL_BlitSurface(text_sf, NULL, scrn_sf, &rect);
 
-		priv->rect[type].u32Width = text_sf->w;
-		priv->rect[type].u32Height = text_sf->h;
+            priv->rect[type].s32X = rect.x;
+            priv->rect[type].s32Y = rect.y;
+            priv->rect[type].u32Width = rect.w;
+            priv->rect[type].u32Height = rect.h;
 
-		SDL_FreeSurface(text_sf);
+            SDL_FreeSurface(text_sf);
+        }
     }
     else
     {
@@ -279,6 +389,19 @@ static gint32 ipcam_media_osd_set_content(IpcamMediaOsd *self, IPCAM_OSD_TYPE ty
     
     return s32Ret;
 }
+
+static gint32 ipcam_media_osd_set_content(IpcamMediaOsd *self, IPCAM_OSD_TYPE type, const gchar *content)
+{
+    IpcamMediaOsdPrivate *priv = IPCAM_MEDIA_OSD_GET_PRIVATE(self);
+
+    if (priv->content[type])
+        g_free(priv->content[type]);
+
+    priv->content[type] = g_strdup(content);
+    
+    return ipcam_media_osd_draw_content(self, type);
+}
+
 static gint32 ipcam_media_osd_invalidate(IpcamMediaOsd *self)
 {
     HI_S32 s32Ret = HI_FAILURE;
@@ -296,6 +419,19 @@ static gint32 ipcam_media_osd_stop(IpcamMediaOsd *self)
     
     return s32Ret;
 }
+
+void ipcam_media_osd_set_image_size(IpcamMediaOsd *self, guint32 width, guint32 height)
+{
+    IpcamMediaOsdPrivate *priv = IPCAM_MEDIA_OSD_GET_PRIVATE(self);
+    int i;
+
+    priv->image_width = width;
+    priv->image_height = height;
+
+    for (i = 0; i < IPCAM_OSD_TYPE_LAST; i++)
+        ipcam_media_osd_draw_content(self, i);
+}
+
 static void ipcam_iosd_interface_init(IpcamIOSDInterface *iface)
 {
     iface->start = ipcam_media_osd_start;

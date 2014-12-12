@@ -23,7 +23,7 @@ typedef struct _IpcamIMediaPrivate
 {
     IpcamIMediaSysCtrl *sys_ctrl;
     IpcamIVideo *video;
-    IpcamIOSD *osd;
+    IpcamIOSD *osd[STREAM_CHN_LAST];
     gchar *osd_buffer;
     IpcamRtsp *rtsp;
     time_t last_time;
@@ -55,10 +55,13 @@ static void ipcam_imedia_osd_display_video_data(GObject *obj);
 static void ipcam_imedia_finalize(GObject *object)
 {
     IpcamIMediaPrivate *priv = ipcam_imedia_get_instance_private(IPCAM_IMEDIA(object));
+    int i;
+
     g_clear_object(&priv->rtsp);
     g_clear_object(&priv->sys_ctrl);
     g_clear_object(&priv->video);
-    g_clear_object(&priv->osd);
+    for (i = MASTER_CHN; i < STREAM_CHN_LAST; i++)
+        g_clear_object(&priv->osd[i]);
     regfree(&priv->reg);
     g_free(priv->bit_rate);
     g_free(priv->frame_rate);
@@ -116,15 +119,21 @@ static void ipcam_imedia_in_loop(IpcamIMedia *imedia)
 {
     IpcamIMediaPrivate *priv = ipcam_imedia_get_instance_private(imedia);
     time_t now;
+    int i;
     gchar timeBuf[24] = {0};
 
     time(&now);
-    if (priv->osd && priv->last_time != now)
+    if (priv->last_time != now)
     {
         priv->last_time = now;
         strftime(timeBuf, sizeof(timeBuf), "%Y-%m-%d %H:%M:%S ", localtime(&now));
-        ipcam_iosd_set_content(priv->osd, IPCAM_OSD_TYPE_DATETIME, timeBuf);
-        ipcam_iosd_invalidate(priv->osd);
+        for (i = MASTER_CHN; i < STREAM_CHN_LAST; i++)
+        {
+            if (!priv->osd[i])
+                continue;
+            ipcam_iosd_set_content(priv->osd[i], IPCAM_OSD_TYPE_DATETIME, timeBuf);
+            ipcam_iosd_invalidate(priv->osd[i]);
+        }
     }
 }
 static void message_handler(GObject *obj, IpcamMessage* msg, gboolean timeout)
@@ -338,7 +347,7 @@ void ipcam_imedia_got_osd_parameter(IpcamIMedia *imedia, JsonNode *body)
     JsonObject *color_object;
     GList *members, *item;
     IPCAM_OSD_TYPE type = IPCAM_OSD_TYPE_LAST;
-    const char *key[] = {"master"/*, "slave"*/};
+    const char *key[] = {"master", "slave"};
     gint i = 0;
 
     res_object = json_object_get_object_member(json_node_get_object(body), "items");
@@ -348,15 +357,16 @@ void ipcam_imedia_got_osd_parameter(IpcamIMedia *imedia, JsonNode *body)
         if (json_object_has_member(res_object, key[i]))
         {
             profile_object = json_object_get_object_member(res_object, key[i]);
-            members = json_object_get_members(profile_object);
+            members = json_object_get_members(profile_object);            
             for (item = g_list_first(members); item; item = g_list_next(item))
             {
                 const gchar *name = item->data;
+
                 osd_object = json_object_get_object_member(profile_object, name);
                 parameter.is_show = json_object_get_boolean_member(osd_object, "isshow");
                 parameter.font_size = json_object_get_int_member(osd_object, "size");
-                parameter.position.x = json_object_get_int_member(osd_object, "left") * IMAGE_MAX_WIDTH / 1000;
-                parameter.position.y = json_object_get_int_member(osd_object, "top") * IMAGE_MAX_HEIGHT / 1000;
+                parameter.position.x = json_object_get_int_member(osd_object, "left");
+                parameter.position.y = json_object_get_int_member(osd_object, "top");
                 color_object = json_object_get_object_member(osd_object, "color");
                 if (color_object)
                 {
@@ -367,9 +377,9 @@ void ipcam_imedia_got_osd_parameter(IpcamIMedia *imedia, JsonNode *body)
                 }
                 
                 type = ipcam_imedia_parse_osd_type(imedia, name);
-                if (type != IPCAM_OSD_TYPE_LAST)
+                if (type >= 0 && type < IPCAM_OSD_TYPE_LAST)
                 {
-                    ipcam_iosd_start(priv->osd, type, &parameter);
+                    ipcam_iosd_start(priv->osd[i], type, &parameter);
                 }
             }
             g_list_free(members);
@@ -416,14 +426,20 @@ void ipcam_imedia_got_baseinfo_parameter(IpcamIMedia *imedia, JsonNode *body)
 
     if (NULL != device_name && strlen(device_name) > 0)
     {
-        ipcam_iosd_set_content(priv->osd, IPCAM_OSD_TYPE_DEVICE_NAME, device_name);
+        int i;
+
+        for (i = MASTER_CHN; i < STREAM_CHN_LAST; i++)
+            ipcam_iosd_set_content(priv->osd[i], IPCAM_OSD_TYPE_DEVICE_NAME, device_name);
     }
 
     const gchar *comment = NULL;
     comment = json_object_get_string_member(res_object, "comment");
     if (NULL != comment && strlen(comment) > 0)
     {
-        ipcam_iosd_set_content(priv->osd, IPCAM_OSD_TYPE_COMMENT, comment);
+        int i;
+
+        for (i = MASTER_CHN; i < STREAM_CHN_LAST; i++)
+            ipcam_iosd_set_content(priv->osd[i], IPCAM_OSD_TYPE_COMMENT, comment);
     }
 }
 
@@ -590,8 +606,19 @@ void ipcam_imedia_got_video_param(IpcamIMedia *imedia, JsonNode *body, gboolean 
     }
     if (is_notice == FALSE)
     {
+        int i;
+
         ipcam_ivideo_start(priv->video, priv->stream_desc);
-        priv->osd = g_object_new(IPCAM_MEDIA_OSD_TYPE, NULL);
+        for (i = MASTER_CHN; i < STREAM_CHN_LAST; i++)
+        {
+            priv->osd[i] = g_object_new(IPCAM_MEDIA_OSD_TYPE,
+                                        "RgnHandle", i,
+                                        "VencGroup", i,
+                                        NULL);
+            ipcam_media_osd_set_image_size(priv->osd[i],
+                                           priv->stream_desc[i].v_desc.image_width,
+                                           priv->stream_desc[i].v_desc.image_height);
+        }
         ipcam_base_app_add_timer(IPCAM_BASE_APP(imedia), "osd_display_video_data", "1",
                                  ipcam_imedia_osd_display_video_data);
         ipcam_rtsp_set_video_iface(priv->rtsp, priv->video);
@@ -599,6 +626,13 @@ void ipcam_imedia_got_video_param(IpcamIMedia *imedia, JsonNode *body, gboolean 
     }
     else
     {
+        int i;
+
+        for (i = 0; i < STREAM_CHN_LAST; i++) {
+            ipcam_media_osd_set_image_size(priv->osd[i],
+                                           priv->stream_desc[i].v_desc.image_width,
+                                           priv->stream_desc[i].v_desc.image_height);
+        }
         ipcam_ivideo_param_change(priv->video, priv->stream_desc);
     }
 }
@@ -645,6 +679,7 @@ static void ipcam_imedia_osd_display_video_data(GObject *obj)
 {
     g_return_if_fail(IPCAM_IS_IMEDIA(obj));
     IpcamIMediaPrivate *priv = ipcam_imedia_get_instance_private(IPCAM_IMEDIA(obj));
+    int i;
 
     if (NULL != priv->osd_buffer)
     {
@@ -657,8 +692,11 @@ static void ipcam_imedia_osd_display_video_data(GObject *obj)
             }        
             fclose(rc_file);
 
-            ipcam_iosd_set_content(priv->osd, IPCAM_OSD_TYPE_FRAMERATE, priv->frame_rate);
-            ipcam_iosd_set_content(priv->osd, IPCAM_OSD_TYPE_BITRATE, priv->bit_rate);
+            for (i = MASTER_CHN; i < STREAM_CHN_LAST; i++)
+            {
+                ipcam_iosd_set_content(priv->osd[i], IPCAM_OSD_TYPE_FRAMERATE, priv->frame_rate);
+                ipcam_iosd_set_content(priv->osd[i], IPCAM_OSD_TYPE_BITRATE, priv->bit_rate);
+            }
         }
     }
 }
