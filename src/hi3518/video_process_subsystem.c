@@ -250,6 +250,13 @@ gint32 ipcam_video_process_subsystem_stop(IpcamVideoProcessSubsystem *self)
         g_critical("HI_MPI_VPSS_DisableChn failed with %#x!\n", s32Ret);
         return s32Ret;
     }
+    VpssChn = 1;
+    s32Ret = HI_MPI_VPSS_DisableChn(VpssGrp, VpssChn);
+    if (s32Ret != HI_SUCCESS)
+    {
+        g_critical("HI_MPI_VPSS_DisableChn failed with %#x!\n", s32Ret);
+        return s32Ret;
+    }
     
     s32Ret = HI_MPI_VPSS_DestroyGrp(VpssGrp);
     if (s32Ret != HI_SUCCESS)
