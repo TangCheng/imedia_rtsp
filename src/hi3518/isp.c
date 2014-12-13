@@ -190,7 +190,6 @@ static void ipcam_isp_set_pixel_clock(IpcamIsp *self)
 
     g_return_if_fail(IPCAM_IS_ISP(self));
 
-    usleep(400000);
     /* Adjust the clock */
     if (priv->image_height == 1200) {
         /* 54M */
@@ -200,7 +199,9 @@ static void ipcam_isp_set_pixel_clock(IpcamIsp *self)
         /* 37.125 */
         physical_address_writel(0x20030030, 0x06);
     }
-    usleep(400000);
+
+    /* delay 200ms for clock stable */
+    usleep(200000);
 }
 
 static gboolean ipcam_isp_check_video_resolution(IpcamIsp *self, StreamDescriptor desc[])
@@ -390,9 +391,6 @@ void ipcam_isp_param_change(IpcamIsp *self, StreamDescriptor desc[])
 
     if (!ipcam_isp_check_video_resolution(self, desc))
         return;
-
-    HI_MPI_VI_DisableDev(0);
-    HI_MPI_VI_DisableDev(0);
 
     ipcam_isp_set_pixel_clock(self);
 
