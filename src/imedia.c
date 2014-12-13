@@ -334,6 +334,18 @@ static IPCAM_OSD_TYPE ipcam_imedia_parse_osd_type(IpcamIMedia *imedia, const gch
     {
         type = IPCAM_OSD_TYPE_BITRATE;
     }
+    else if (g_str_equal(osd_name, "train_num"))
+    {
+        type = IPCAM_OSD_TYPE_TRAIN_NUM;
+    }
+    else if (g_str_equal(osd_name, "carriage_num"))
+    {
+        type = IPCAM_OSD_TYPE_CARRIAGE_NUM;
+    }
+    else if (g_str_equal(osd_name, "position_num"))
+    {
+        type = IPCAM_OSD_TYPE_POSITION_NUM;
+    }
     else
     {
         g_warn_if_reached();
@@ -392,6 +404,37 @@ void ipcam_imedia_got_osd_parameter(IpcamIMedia *imedia, JsonNode *body)
     }
 }
 
+void ipcam_imedia_got_szyc_parameter(IpcamIMedia *imedia, JsonNode *body)
+{
+    IpcamIMediaPrivate *priv = ipcam_imedia_get_instance_private(imedia);
+    JsonObject *items_obj;
+    gchar *train_num = NULL;
+    gchar *carriage_num = NULL;
+    gchar *position_num = NULL;
+    int i;
+
+    items_obj = json_object_get_object_member(json_node_get_object(body), "items");
+
+    if (json_object_has_member(items_obj, "train_num"))
+    {
+        train_num = json_object_get_string_member(items_obj, "train_num");
+        for (i = MASTER_CHN; i < STREAM_CHN_LAST; i++)
+            ipcam_iosd_set_content(priv->osd[i], IPCAM_OSD_TYPE_TRAIN_NUM, train_num);
+    }
+    if (json_object_has_member(items_obj, "carriage_num"))
+    {
+        carriage_num = json_object_get_string_member(items_obj, "carriage_num");
+        for (i = MASTER_CHN; i < STREAM_CHN_LAST; i++)
+            ipcam_iosd_set_content(priv->osd[i], IPCAM_OSD_TYPE_CARRIAGE_NUM, carriage_num);
+    }
+    if (json_object_has_member(items_obj, "position_num"))
+    {
+        position_num = json_object_get_string_member(items_obj, "position_num");
+        for (i = MASTER_CHN; i < STREAM_CHN_LAST; i++)
+            ipcam_iosd_set_content(priv->osd[i], IPCAM_OSD_TYPE_POSITION_NUM, position_num);
+    }
+}
+
 void ipcam_imedia_got_image_parameter(IpcamIMedia *imedia, JsonNode *body)
 {
     IpcamIMediaPrivate *priv = ipcam_imedia_get_instance_private(imedia);
@@ -423,6 +466,7 @@ void ipcam_imedia_got_baseinfo_parameter(IpcamIMedia *imedia, JsonNode *body)
 {
     IpcamIMediaPrivate *priv = ipcam_imedia_get_instance_private(imedia);
     JsonObject *res_object;
+    int i;
     
     res_object = json_object_get_object_member(json_node_get_object(body), "items");
 
@@ -431,8 +475,6 @@ void ipcam_imedia_got_baseinfo_parameter(IpcamIMedia *imedia, JsonNode *body)
 
     if (NULL != device_name && strlen(device_name) > 0)
     {
-        int i;
-
         for (i = MASTER_CHN; i < STREAM_CHN_LAST; i++)
             ipcam_iosd_set_content(priv->osd[i], IPCAM_OSD_TYPE_DEVICE_NAME, device_name);
     }
@@ -441,8 +483,6 @@ void ipcam_imedia_got_baseinfo_parameter(IpcamIMedia *imedia, JsonNode *body)
     comment = json_object_get_string_member(res_object, "comment");
     if (NULL != comment && strlen(comment) > 0)
     {
-        int i;
-
         for (i = MASTER_CHN; i < STREAM_CHN_LAST; i++)
             ipcam_iosd_set_content(priv->osd[i], IPCAM_OSD_TYPE_COMMENT, comment);
     }
