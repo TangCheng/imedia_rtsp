@@ -113,6 +113,7 @@ gint32 ipcam_video_encode_start(IpcamVideoEncode *self, StreamDescriptor desc[])
     IpcamVideoEncodePrivate *priv = ipcam_video_encode_get_instance_private(self);
     guint image_width, image_height;
     guint input_width, input_height;
+    guint input_fps;
 
     gchar *resolution = desc[MASTER_CHN].v_desc.resolution;
     if (g_str_equal(resolution, "UXGA") ||
@@ -120,11 +121,13 @@ gint32 ipcam_video_encode_start(IpcamVideoEncode *self, StreamDescriptor desc[])
     {
         input_width = 1600;
         input_height = 1200;
+        input_fps = 20;
     }
     else
     {
         input_width = 1920;
         input_height = 1080;
+        input_fps = 30;
     }
 
     for (chn = MASTER_CHN; chn < STREAM_CHN_LAST; chn++)
@@ -158,8 +161,8 @@ gint32 ipcam_video_encode_start(IpcamVideoEncode *self, StreamDescriptor desc[])
         {
             stAttr.stRcAttr.enRcMode = VENC_RC_MODE_H264CBR;
             stAttr.stRcAttr.stAttrH264Cbr.u32BitRate = desc[chn].v_desc.bit_rate;
-            stAttr.stRcAttr.stAttrH264Cbr.fr32TargetFrmRate = 30;//desc[chn].v_desc.frame_rate;
-            stAttr.stRcAttr.stAttrH264Cbr.u32ViFrmRate = 30;//desc[chn].v_desc.frame_rate;
+            stAttr.stRcAttr.stAttrH264Cbr.fr32TargetFrmRate = desc[chn].v_desc.frame_rate;
+            stAttr.stRcAttr.stAttrH264Cbr.u32ViFrmRate = 30;
             stAttr.stRcAttr.stAttrH264Cbr.u32Gop = 30;
             stAttr.stRcAttr.stAttrH264Cbr.u32FluctuateLevel = 0;
             stAttr.stRcAttr.stAttrH264Cbr.u32StatTime = 1;
@@ -168,8 +171,8 @@ gint32 ipcam_video_encode_start(IpcamVideoEncode *self, StreamDescriptor desc[])
         {
             stAttr.stRcAttr.enRcMode = VENC_RC_MODE_H264VBR;
             stAttr.stRcAttr.stAttrH264Vbr.u32MaxBitRate = desc[chn].v_desc.bit_rate;
-            stAttr.stRcAttr.stAttrH264Vbr.fr32TargetFrmRate = 30;//desc[chn].v_desc.frame_rate;
-            stAttr.stRcAttr.stAttrH264Vbr.u32ViFrmRate = 30;//desc[chn].v_desc.frame_rate;
+            stAttr.stRcAttr.stAttrH264Vbr.fr32TargetFrmRate = desc[chn].v_desc.frame_rate;
+            stAttr.stRcAttr.stAttrH264Vbr.u32ViFrmRate = 30;
             stAttr.stRcAttr.stAttrH264Vbr.u32Gop = 30;
             stAttr.stRcAttr.stAttrH264Vbr.u32MinQp = 0;
             stAttr.stRcAttr.stAttrH264Vbr.u32MaxQp = 51;
