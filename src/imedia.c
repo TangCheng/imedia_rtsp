@@ -574,7 +574,7 @@ static void ipcam_imedia_parse_resolution(IpcamIMedia *imedia, const gchar *reso
     }
     else if (g_str_equal(resolution_name, "D1"))
     {
-        priv->stream_desc[chn].v_desc.image_width = 720;
+        priv->stream_desc[chn].v_desc.image_width = 704;
         priv->stream_desc[chn].v_desc.image_height = 576;
     }
     else if (g_str_equal(resolution_name, "CIF"))
