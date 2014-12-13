@@ -28,8 +28,8 @@ typedef struct _IpcamIMediaPrivate
     IpcamRtsp *rtsp;
     time_t last_time;
     regex_t reg;
-    gchar *bit_rate;
-    gchar *frame_rate;
+    gchar *bit_rate[STREAM_CHN_LAST];
+    gchar *frame_rate[STREAM_CHN_LAST];
     StreamDescriptor stream_desc[STREAM_CHN_LAST];
 } IpcamIMediaPrivate;
 
@@ -60,11 +60,12 @@ static void ipcam_imedia_finalize(GObject *object)
     g_clear_object(&priv->rtsp);
     g_clear_object(&priv->sys_ctrl);
     g_clear_object(&priv->video);
-    for (i = MASTER_CHN; i < STREAM_CHN_LAST; i++)
+    for (i = MASTER_CHN; i < STREAM_CHN_LAST; i++) {
         g_clear_object(&priv->osd[i]);
+        g_free(priv->bit_rate[i]);
+        g_free(priv->frame_rate[i]);
+    }
     regfree(&priv->reg);
-    g_free(priv->bit_rate);
-    g_free(priv->frame_rate);
     gint chn = MASTER_CHN;
     for (chn = MASTER_CHN; chn < STREAM_CHN_LAST; chn++)
     {
@@ -77,12 +78,16 @@ static void ipcam_imedia_finalize(GObject *object)
 static void ipcam_imedia_init(IpcamIMedia *self)
 {
 	IpcamIMediaPrivate *priv = ipcam_imedia_get_instance_private(self);
-    const gchar *pattern = "InsBr.*InsFr.*[\n]+";
+    const gchar *pattern = "InsBr.*InsFr[^\n]*[\n]+([^\n]*)[\n]([^\n]*)[\n]";
+    int i;
+
     regcomp(&priv->reg, pattern, REG_EXTENDED | REG_NEWLINE);
     priv->sys_ctrl = g_object_new(IPCAM_MEDIA_SYS_CTRL_TYPE, NULL);
     priv->video = g_object_new(IPCAM_MEDIA_VIDEO_TYPE, NULL);
-    priv->bit_rate = g_malloc(BIT_RATE_BUF_SIZE);
-    priv->frame_rate = g_malloc(FRAME_RATE_BUF_SIZE);
+    for (i = 0; i < STREAM_CHN_LAST; i++) {
+        priv->bit_rate[i] = g_malloc(BIT_RATE_BUF_SIZE);
+        priv->frame_rate[i] = g_malloc(FRAME_RATE_BUF_SIZE);
+    }
     priv->stream_desc[MASTER].type = VIDEO_STREAM;
     priv->stream_desc[MASTER].v_desc.format = VIDEO_FORMAT_H264;
     priv->stream_desc[SLAVE].type = VIDEO_STREAM;
@@ -649,8 +654,8 @@ static void ipcam_imedia_osd_int_to_string(IpcamIMedia *imedia,
 static void ipcam_imedia_osd_lookup_video_run_info(IpcamIMedia *imedia,
                                                    gchar *buffer)
 {
-    const size_t nmatch = 1;
-    regmatch_t pmatch[1];
+    regmatch_t pmatch[4];
+    const size_t nmatch = sizeof(pmatch) / sizeof(pmatch[0]);
     gint status;
     gint i;
     IpcamIMediaPrivate *priv = ipcam_imedia_get_instance_private(imedia);
@@ -658,21 +663,23 @@ static void ipcam_imedia_osd_lookup_video_run_info(IpcamIMedia *imedia,
     status = regexec(&priv->reg, buffer, nmatch, pmatch, 0);
     if (REG_NOMATCH != status)
     {
-        gchar *p = buffer + pmatch[0].rm_eo;
+        gchar *p;
         gint id;
         gint bit_rate_val;
         gint frame_rate_val;
-        sscanf(p, "%d%d%d", &id, &bit_rate_val, &frame_rate_val);
-        /*
-        for (gint i = pmatch[0].rm_so; i < pmatch[0].rm_eo; i++)
-        {
-            g_print("%c", buffer[i]);
+        int i;
+
+        for (i = 1; i < nmatch; i++) {
+            if (pmatch[i].rm_so == -1 || pmatch[i].rm_eo == -1)
+                break;
+            p = &buffer[pmatch[i].rm_so];
+            if (sscanf(p, "%d%d%d", &id, &bit_rate_val, &frame_rate_val) == 3) {
+                if (id >= 0 && id < STREAM_CHN_LAST) {
+                    ipcam_imedia_osd_int_to_string(imedia, bit_rate_val, &priv->bit_rate[id], BIT_RATE_BUF_SIZE, "kbps");
+                    ipcam_imedia_osd_int_to_string(imedia, frame_rate_val, &priv->frame_rate[id], FRAME_RATE_BUF_SIZE, "fps");
+                }
+            }
         }
-        g_print("\n");
-        */
-        //g_print("%d %d %d\n", id, bit_rate_val, frame_rate_val);
-        ipcam_imedia_osd_int_to_string(imedia, bit_rate_val, &priv->bit_rate, BIT_RATE_BUF_SIZE, "kbps");
-        ipcam_imedia_osd_int_to_string(imedia, frame_rate_val, &priv->frame_rate, FRAME_RATE_BUF_SIZE, "fps");
     }
 }
 static void ipcam_imedia_osd_display_video_data(GObject *obj)
@@ -694,8 +701,8 @@ static void ipcam_imedia_osd_display_video_data(GObject *obj)
 
             for (i = MASTER_CHN; i < STREAM_CHN_LAST; i++)
             {
-                ipcam_iosd_set_content(priv->osd[i], IPCAM_OSD_TYPE_FRAMERATE, priv->frame_rate);
-                ipcam_iosd_set_content(priv->osd[i], IPCAM_OSD_TYPE_BITRATE, priv->bit_rate);
+                ipcam_iosd_set_content(priv->osd[i], IPCAM_OSD_TYPE_FRAMERATE, priv->frame_rate[i]);
+                ipcam_iosd_set_content(priv->osd[i], IPCAM_OSD_TYPE_BITRATE, priv->bit_rate[i]);
             }
         }
     }
