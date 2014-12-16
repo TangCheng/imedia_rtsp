@@ -1,8 +1,10 @@
 #include <hi_defines.h>
+#include <hi_comm_sys.h>
 #include <hi_comm_3a.h>
 #include <hi_ae_comm.h>
 #include <hi_awb_comm.h>
 #include <hi_af_comm.h>
+#include <mpi_sys.h>
 #include <mpi_isp.h>
 #include <mpi_ae.h>
 #include <mpi_awb.h>
@@ -169,18 +171,14 @@ static void ipcam_isp_init_input_timing(IpcamIsp *self, ISP_INPUT_TIMING_S *stIn
     }
 }
 
-static void physical_address_writel(unsigned long phy_addr, int val)
+static void physical_address_writel(unsigned long phy_addr, HI_U32 val)
 {
-    FILE *fp;
-    char buf[64];
+    volatile HI_VOID *base;
 
-    sprintf(buf, "devmem 0x%08x 32 0x%02x", phy_addr, val);
-    fp = popen(buf, "r");
-    if (fp) {
-        pclose(fp);
-    }
-    else {
-        perror("popen fail: ");
+    base = HI_MPI_SYS_Mmap(0x20030000, 0x1000);
+    if (base) {
+        *(HI_U32*)(base + 0x30) = val;
+        HI_MPI_SYS_Munmap((HI_VOID*)base, 0x1000);
     }
 }
 
@@ -199,7 +197,6 @@ static void ipcam_isp_set_pixel_clock(IpcamIsp *self)
         /* 37.125 */
         physical_address_writel(0x20030030, 0x06);
     }
-
     /* delay 200ms for clock stable */
     usleep(200000);
 }
