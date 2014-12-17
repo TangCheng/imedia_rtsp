@@ -54,6 +54,7 @@ protected:
     virtual ~H264LiveStreamSource();
 
 private:
+    int vencFd;
     // redefined virtual functions:
     virtual void doGetNextFrame();
     //virtual void doStopGettingFrames(); // optional
@@ -64,7 +65,6 @@ private:
     //static unsigned referenceCount; // used to count how many instances of this class currently exist
     bool firstDeliverFrame;
     H264LiveStreamParameters fParams;
-    //FILE *fTmpFile;
 };
 
 #endif

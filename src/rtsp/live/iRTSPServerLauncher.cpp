@@ -23,21 +23,6 @@ void launch_rtsp_server(void *video_engine,
     server->startServer(port, watchVariable);
 }
 
-void signalNewFrameData(void *clientData)
-{
-    TaskScheduler* ourScheduler = NULL; //%%% TO BE WRITTEN %%%
-    H264LiveStreamSource* ourDevice  = (H264LiveStreamSource *)clientData; //%%% TO BE WRITTEN %%%
-
-    if (ourDevice)
-    { // sanity check
-        ourScheduler = &(ourDevice->envir().taskScheduler());
-        if (ourScheduler != NULL)
-        {
-            ourScheduler->triggerEvent(ourDevice->eventTriggerId, ourDevice);
-        }
-    }
-}
-
 #ifdef __cplusplus
 }
 #endif

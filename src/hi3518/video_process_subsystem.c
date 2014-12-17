@@ -125,9 +125,6 @@ gint32 ipcam_video_process_subsystem_start(IpcamVideoProcessSubsystem *self, Str
         priv->image_height = 1080;
     }
 
-//    priv->image_width = desc[MASTER].v_desc.image_width;
-//    priv->image_height = desc[MASTER].v_desc.image_height;
-
     /*** Set Vpss Grp Attr ***/
 
     stGrpAttr.u32MaxW = priv->image_width;

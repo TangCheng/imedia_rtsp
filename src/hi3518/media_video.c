@@ -29,11 +29,6 @@ typedef struct _IpcamMediaVideoPrivate
     IpcamVideoInput *vi;
     IpcamVideoProcessSubsystem *vpss;
     IpcamVideoEncode *venc;
-    volatile gboolean livestream_flag;
-    GThread *livestream;
-    IpcamBufferManager *buffer_manager[STREAM_CHN_LAST];
-    GList *notify_source_list[STREAM_CHN_LAST];
-    GMutex mutex;
 } IpcamMediaVideoPrivate;
 
 extern void signalNewFrameData(void *clientData);
@@ -50,36 +45,23 @@ static void ipcam_media_video_finalize(GObject *object)
 {
     IpcamMediaVideo *self = IPCAM_MEDIA_VIDEO(object);
     IpcamMediaVideoPrivate *priv = IPCAM_MEDIA_VIDEO_GET_PRIVATE(self);
-	int i;
 
 	g_clear_object(&priv->isp);
     g_clear_object(&priv->vi);
     g_clear_object(&priv->vpss);
     g_clear_object(&priv->venc);
-	for (i = 0; i < STREAM_CHN_LAST; i++)
-		g_clear_object(&priv->buffer_manager[i]);
-    g_mutex_lock(&priv->mutex);
-	for (i = 0; i < STREAM_CHN_LAST; i++)
-		g_list_free(priv->notify_source_list[i]);
-    g_mutex_unlock(&priv->mutex);
-    g_mutex_clear(&priv->mutex);
     G_OBJECT_CLASS(ipcam_media_video_parent_class)->finalize(object);
 }
+
 static void ipcam_media_video_init(IpcamMediaVideo *self)
 {
-	int i;
-
 	IpcamMediaVideoPrivate *priv = IPCAM_MEDIA_VIDEO_GET_PRIVATE(self);
     priv->isp = g_object_new(IPCAM_ISP_TYPE, NULL);
     priv->vi = g_object_new(IPCAM_VIDEO_INPUT_TYPE, NULL);
     priv->vpss = g_object_new(IPCAM_VIDEO_PROCESS_SUBSYSTEM_TYPE, NULL);
     priv->venc = g_object_new(IPCAM_VIDEO_ENCODE_TYPE, NULL);
-	for (i = 0; i < STREAM_CHN_LAST; i++)
-		priv->buffer_manager[i] = g_object_new(IPCAM_BUFFER_MANAGER_TYPE, NULL);
-    g_mutex_init(&priv->mutex);
-	for (i = 0; i < STREAM_CHN_LAST; i++)
-		priv->notify_source_list[i] = NULL;
 }
+
 static void ipcam_media_video_get_property(GObject    *object,
                                            guint       property_id,
                                            GValue     *value,
@@ -97,34 +79,13 @@ static void ipcam_media_video_get_property(GObject    *object,
         break;
     }
 }
-/*
-static void ipcam_media_video_set_property(GObject      *object,
-                                           guint         property_id,
-                                           const GValue *value,
-                                           GParamSpec   *pspec)
-{
-    IpcamMediaVideo *self = IPCAM_MEDIA_VIDEO(object);
-    IpcamMediaVideoPrivate *priv = IPCAM_MEDIA_VIDEO_GET_PRIVATE(self);
-    switch(property_id)
-    {
-    case PROP_FD:
-        {
-            priv->venc_fd = g_value_get_int(value);
-        }
-        break;
-    default:
-        G_OBJECT_WARN_INVALID_PROPERTY_ID(object, property_id, pspec);
-        break;
-    }
-}
-*/
+
 static void ipcam_media_video_class_init(IpcamMediaVideoClass *klass)
 {
     g_type_class_add_private(klass, sizeof(IpcamMediaVideoPrivate));
     GObjectClass *object_class = G_OBJECT_CLASS(klass);
     object_class->finalize = &ipcam_media_video_finalize;
     object_class->get_property = &ipcam_media_video_get_property;
-    //object_class->set_property = &ipcam_media_video_set_property;
 
     obj_properties[PROP_FD] =
         g_param_spec_int("venc_fd",
@@ -137,6 +98,7 @@ static void ipcam_media_video_class_init(IpcamMediaVideoClass *klass)
 
     g_object_class_install_properties(object_class, N_PROPERTIES, obj_properties);
 }
+
 static gint32 ipcam_media_video_vpss_bind_vi(IpcamMediaVideo *self)
 {
     HI_S32 s32Ret = HI_SUCCESS;
@@ -159,6 +121,7 @@ static gint32 ipcam_media_video_vpss_bind_vi(IpcamMediaVideo *self)
 
     return s32Ret;
 }
+
 static gint32 ipcam_media_video_vpss_unbind_vi(IpcamMediaVideo *self)
 {
     HI_S32 s32Ret = HI_SUCCESS;
@@ -181,6 +144,7 @@ static gint32 ipcam_media_video_vpss_unbind_vi(IpcamMediaVideo *self)
 
     return s32Ret;
 }
+
 static gint32 ipcam_media_video_venc_bind_vpss(IpcamMediaVideo *self)
 {
     HI_S32 s32Ret = HI_SUCCESS;
@@ -215,6 +179,7 @@ static gint32 ipcam_media_video_venc_bind_vpss(IpcamMediaVideo *self)
 
     return s32Ret;
 }
+
 static gint32 ipcam_media_video_venc_unbind_vpss(IpcamMediaVideo *self)
 {
     HI_S32 s32Ret = HI_SUCCESS;
@@ -237,6 +202,7 @@ static gint32 ipcam_media_video_venc_unbind_vpss(IpcamMediaVideo *self)
 
     return s32Ret;
 }
+
 static gint32 ipcam_media_video_start_livestream(IpcamMediaVideo *self, StreamDescriptor desc[])
 {
     IpcamMediaVideoPrivate *priv = IPCAM_MEDIA_VIDEO_GET_PRIVATE(self);
@@ -249,19 +215,12 @@ static gint32 ipcam_media_video_start_livestream(IpcamMediaVideo *self, StreamDe
     ipcam_media_video_vpss_bind_vi(self);
     ipcam_media_video_venc_bind_vpss(self);
 
-    priv->livestream_flag = TRUE;
-    priv->livestream = g_thread_new("livestream",
-                                    ipcam_media_video_livestream,
-                                    self);
-
     return HI_SUCCESS;
 }
+
 static gint32 ipcam_media_video_stop_livestream(IpcamMediaVideo *self)
 {
     IpcamMediaVideoPrivate *priv = IPCAM_MEDIA_VIDEO_GET_PRIVATE(self);
-
-    priv->livestream_flag = FALSE;
-    g_thread_join(priv->livestream);
 
     ipcam_media_video_venc_unbind_vpss(self);
     ipcam_media_video_vpss_unbind_vi(self);
@@ -273,6 +232,7 @@ static gint32 ipcam_media_video_stop_livestream(IpcamMediaVideo *self)
 
     return HI_SUCCESS;
 }
+
 static void ipcam_media_video_param_change(IpcamMediaVideo *self, StreamDescriptor desc[])
 {
     IpcamMediaVideoPrivate *priv = IPCAM_MEDIA_VIDEO_GET_PRIVATE(self);
@@ -305,356 +265,9 @@ void ipcam_media_video_set_image_parameter(IpcamMediaVideo *self,
     ipcam_video_input_set_image_parameter(priv->vi, brightness, chrominance, contrast, saturation);
 }
 
-static gpointer ipcam_media_video_get_write_data(IpcamMediaVideo *self, StreamChannel chn)
-{
-    IpcamMediaVideoPrivate *priv = IPCAM_MEDIA_VIDEO_GET_PRIVATE(self);
-
-	g_return_val_if_fail(chn >= 0 && chn < STREAM_CHN_LAST, NULL);
-
-	return ipcam_buffer_manager_get_write_data(priv->buffer_manager[chn]);
-}
-static void ipcam_media_video_release_write_data(IpcamMediaVideo *self, StreamChannel chn, gpointer data)
-{
-    IpcamMediaVideoPrivate *priv = IPCAM_MEDIA_VIDEO_GET_PRIVATE(self);
-
-	g_return_if_fail(chn >= 0 && chn < STREAM_CHN_LAST);
-
-	ipcam_buffer_manager_release_write_data(priv->buffer_manager[chn], data);
-}
-static gpointer ipcam_media_video_get_read_data(IpcamMediaVideo *self, StreamChannel chn)
-{
-    IpcamMediaVideoPrivate *priv = IPCAM_MEDIA_VIDEO_GET_PRIVATE(self);
-
-	g_return_val_if_fail(chn >= 0 && chn < STREAM_CHN_LAST, NULL);
-
-	return ipcam_buffer_manager_get_read_data(priv->buffer_manager[chn]);
-}
-static void ipcam_media_video_release_read_data(IpcamMediaVideo *self, StreamChannel chn, gpointer data)
-{
-    IpcamMediaVideoPrivate *priv = IPCAM_MEDIA_VIDEO_GET_PRIVATE(self);
-
-	g_return_if_fail(chn >= 0 && chn < STREAM_CHN_LAST);
-
-	ipcam_buffer_manager_release_read_data(priv->buffer_manager[chn], data);
-}
-static gboolean ipcam_media_video_has_video_data(IpcamMediaVideo *self, StreamChannel chn)
-{
-    IpcamMediaVideoPrivate *priv = IPCAM_MEDIA_VIDEO_GET_PRIVATE(self);
-
-	g_return_val_if_fail(chn >= 0 && chn < STREAM_CHN_LAST, FALSE);
-
-	return ipcam_buffer_manager_has_data(priv->buffer_manager[chn]);
-}
-static void ipcam_media_video_register_rtsp_source(IpcamMediaVideo *self, StreamChannel chn, void *source)
-{
-    IpcamMediaVideoPrivate *priv = IPCAM_MEDIA_VIDEO_GET_PRIVATE(self);
-
-	g_return_if_fail(chn >= 0 && chn < STREAM_CHN_LAST);
-
-    g_mutex_lock(&priv->mutex);
-    priv->notify_source_list[chn] = g_list_append(priv->notify_source_list[chn], source);
-    g_mutex_unlock(&priv->mutex);
-}
-static void ipcam_media_video_unregister_rtsp_source(IpcamMediaVideo *self, StreamChannel chn, void *source)
-{
-    IpcamMediaVideoPrivate *priv = IPCAM_MEDIA_VIDEO_GET_PRIVATE(self);
-
-	g_return_if_fail(chn >= 0 && chn < STREAM_CHN_LAST);
-
-    g_mutex_lock(&priv->mutex);
-    priv->notify_source_list[chn] = g_list_remove(priv->notify_source_list[chn], source);
-    g_mutex_unlock(&priv->mutex);
-}
-static void ipcam_media_video_notify_rtsp_source(IpcamMediaVideo *self, StreamChannel chn)
-{
-    IpcamMediaVideoPrivate *priv = IPCAM_MEDIA_VIDEO_GET_PRIVATE(self);
-
-	g_return_if_fail(chn >= 0 && chn < STREAM_CHN_LAST);
-
-	g_mutex_lock(&priv->mutex);
-    GList *source = g_list_first(priv->notify_source_list[chn]);
-    for (; source; source = g_list_next(source))
-    {
-        if (source && source->data)
-        {
-            signalNewFrameData(source->data);
-        }
-    }
-    g_mutex_unlock(&priv->mutex);
-}
-
-static guint ipcam_media_video_get_framesize(VENC_STREAM_S *pstStream)
-{
-    guint newFrameSize = 0;
-    gint i = 0;
-    HI_U8 *p = NULL;
-    
-    for (i = 0; i < pstStream->u32PackCount; i++)
-    {
-        newFrameSize += (pstStream->pstPack[i].u32Len[0]);
-        p = pstStream->pstPack[i].pu8Addr[0];
-        if (p[0] == 0x00 && p[1] == 0x00 && p[2] == 0x00 && p[3] == 0x01)
-        {
-            newFrameSize -= 4;
-        }
-        if (pstStream->pstPack[i].u32Len[1] > 0)
-        {
-            newFrameSize += (pstStream->pstPack[i].u32Len[1]);
-        }
-    }
-    return newFrameSize;
-}
-
-static void ipcam_media_video_copy_data(IpcamMediaVideo *self, VENC_STREAM_S *pstStream,
-                                        StreamData *video_data, guint32 newFrameSize)
-{
-    HI_S32 i = 0;
-    HI_S32 j = 0;
-    HI_U32 pos = 0;
-    HI_U8 *p = NULL;
-    HI_U32 len;
-
-
-    video_data->magic = 0xDEADBEEF;
-    /*
-    video_data->pts.tv_sec = pstStream->pstPack[0].u64PTS / 1000000ULL;
-    video_data->pts.tv_usec = pstStream->pstPack[0].u64PTS % 1000000ULL;
-    */
-    gettimeofday(&video_data->pts, NULL);
-    // Deliver the data here:
-    video_data->len = newFrameSize;
-    video_data->isIFrame =
-        /* pstStream->pstPack[0].DataType.enH264EType == H264E_NALU_ISLICE || */
-        /* pstStream->pstPack[0].DataType.enH264EType == H264E_NALU_SEI || */
-        pstStream->pstPack[0].DataType.enH264EType == H264E_NALU_SPS ||
-        pstStream->pstPack[0].DataType.enH264EType == H264E_NALU_PPS;
-
-    for (i = 0; i < pstStream->u32PackCount; i++)
-    {
-        for (j = 0; j < ARRAY_SIZE(pstStream->pstPack[i].pu8Addr); j++)
-        {
-            p = pstStream->pstPack[i].pu8Addr[j];
-            len = pstStream->pstPack[i].u32Len[j];
-
-            if (len == 0)
-                continue;
-
-            if (len >= 3 && p[0] == 0x00 && p[1] == 0x00 && p[2] == 0x01)
-            {
-                memcpy(video_data->data + pos, p + 3, len - 3);
-                pos += len - 3;
-            }
-            else if (len >= 4 && p[0] == 0x00 && p[1] == 0x00 && p[2] == 0x00 && p[3] == 0x01)
-            {
-                memcpy(video_data->data + pos, p + 4, len - 4);
-                pos += len - 4;
-            }
-            else
-            {
-                memcpy(video_data->data + pos, p, len);
-                pos += len;
-            }
-        }
-    }
-}
-
-static void ipcam_media_video_process_data(IpcamMediaVideo *self, enum StreamChannel chn, VENC_STREAM_S *pstStream)
-{
-    guint newFrameSize = ipcam_media_video_get_framesize(pstStream);
-    
-    if (newFrameSize > 0)
-    {
-        StreamData *video_data = ipcam_media_video_get_write_data(self, chn);
-
-        if (video_data)
-        {
-            ipcam_media_video_copy_data(self, pstStream, video_data,
-                                        newFrameSize < ((1024 * 1024) - sizeof(StreamData)) ? newFrameSize : ((1024 * 1024) - sizeof(StreamData)));
-            ipcam_media_video_release_write_data(self, chn, video_data);
-            ipcam_media_video_notify_rtsp_source(self, chn);
-        }
-        else
-        {
-            g_warning("No more buffer for video frame.\n");
-        }
-    }
-}
-
-#define MAX_FRAME_PACK_NUM  4
-#define FD_MAX(fd1, fd2)	((fd1) > (fd2) ? (fd1) : (fd2))
-
-static gpointer ipcam_media_video_livestream(gpointer data)
-{
-    IpcamMediaVideo *media_video = IPCAM_MEDIA_VIDEO(data);
-    IpcamMediaVideoPrivate *priv = IPCAM_MEDIA_VIDEO_GET_PRIVATE(media_video);
-    struct timeval TimeoutVal;
-    fd_set read_fds;
-    HI_S32 VencMasterFd, VencSlaveFd;
-	VENC_CHN VeMasterChn = 0, VeSlaveChn = 1;
-    VENC_CHN_STAT_S stStat;
-    VENC_STREAM_S stStream;
-    HI_S32 s32Ret;
-    HI_U32 u32PackCount = MAX_FRAME_PACK_NUM;
-
-    memset(&stStream, 0, sizeof(stStream));
-    stStream.pstPack = g_new(VENC_PACK_S, u32PackCount);
-
-    /******************************************
-     step 1:  check & prepare save-file & venc-fd
-    ******************************************/
-    /* Set Venc Fd. */
-    VencMasterFd = HI_MPI_VENC_GetFd(VeMasterChn);
-    if (VencMasterFd < 0)
-    {
-        g_critical("HI_MPI_VENC_GetFd failed with %#x!\n", VencMasterFd);
-    }
-    VencSlaveFd = HI_MPI_VENC_GetFd(VeSlaveChn);
-    if (VencSlaveFd < 0)
-    {
-        g_critical("HI_MPI_VENC_GetFd failed with %#x!\n", VencSlaveFd);
-    }
-
-    /******************************************
-     step 2:  Start to get streams of each channel.
-    ******************************************/
-    while (TRUE == priv->livestream_flag)
-    {
-        FD_ZERO(&read_fds);
-        FD_SET(VencMasterFd, &read_fds);
-		FD_SET(VencSlaveFd, &read_fds);
-
-        TimeoutVal.tv_sec  = 1;
-        TimeoutVal.tv_usec = 0;
-        s32Ret = select(FD_MAX(VencMasterFd, VencSlaveFd) + 1,
-                        &read_fds, NULL, NULL, &TimeoutVal);
-        if (s32Ret < 0)
-        {
-            g_critical("select failed with %#x!\n", s32Ret);
-            break;
-        }
-        else if (s32Ret == 0)
-        {
-            //g_warning("get venc stream time out, continue!\n");
-            continue;
-        }
-        else
-        {
-			/* Master Channel */
-			if (FD_ISSET(VencMasterFd, &read_fds)) {
-				VENC_CHN VeChn = VeMasterChn;
-
-				/*******************************************************
-                 step 2.1 : query how many packs in one-frame stream.
-                *******************************************************/
-                s32Ret = HI_MPI_VENC_Query(VeChn, &stStat);
-                if (HI_SUCCESS != s32Ret)
-                {
-                    g_print("HI_MPI_VENC_Query chn[%d] failed with %#x!\n", 0, s32Ret);
-                    continue;
-                }
-
-                /*******************************************************
-                 step 2.3 : call mpi to get one-frame stream
-                *******************************************************/
-                if (stStat.u32CurPacks > u32PackCount)
-                {
-                    u32PackCount = stStat.u32CurPacks;
-                    stStream.pstPack = g_renew(VENC_PACK_S, stStream.pstPack, u32PackCount);
-                }
-                stStream.u32PackCount = stStat.u32CurPacks;
-                stStream.u32Seq = 0;
-                memset(&stStream.stH264Info, 0, sizeof(VENC_STREAM_INFO_H264_S));
-                s32Ret = HI_MPI_VENC_GetStream(VeChn, &stStream, HI_TRUE);
-                if (HI_SUCCESS != s32Ret)
-                {
-                    g_critical("HI_MPI_VENC_GetStream failed with %#x!\n", s32Ret);
-                    continue;
-                }
-
-                /*******************************************************
-                 step 2.4 : send frame to live stream
-                *******************************************************/
-                if (g_list_length(priv->notify_source_list[MASTER_CHN]) > 0)
-                {
-                    ipcam_media_video_process_data(media_video, MASTER_CHN, &stStream);
-                }
-                /*******************************************************
-                 step 2.5 : release stream
-                *******************************************************/
-                s32Ret = HI_MPI_VENC_ReleaseStream(VeChn, &stStream);
-                if (HI_SUCCESS != s32Ret)
-                {
-                    g_critical("HI_MPI_VENC_ReleaseStream failed with %#x!\n", s32Ret);
-                }
-            }
-
-			/* Slave Channel */
-			if (FD_ISSET(VencSlaveFd, &read_fds)) {
-				VENC_CHN VeChn = VeSlaveChn;
-
-				/*******************************************************
-                 step 2.1 : query how many packs in one-frame stream.
-                *******************************************************/
-                s32Ret = HI_MPI_VENC_Query(VeChn, &stStat);
-                if (HI_SUCCESS != s32Ret)
-                {
-                    g_print("HI_MPI_VENC_Query chn[%d] failed with %#x!\n", 0, s32Ret);
-                    continue;
-                }
-
-                /*******************************************************
-                 step 2.3 : call mpi to get one-frame stream
-                *******************************************************/
-                if (stStat.u32CurPacks > u32PackCount)
-                {
-                    u32PackCount = stStat.u32CurPacks;
-                    stStream.pstPack = g_renew(VENC_PACK_S, stStream.pstPack, u32PackCount);
-                }
-                stStream.u32PackCount = stStat.u32CurPacks;
-                stStream.u32Seq = 0;
-                memset(&stStream.stH264Info, 0, sizeof(VENC_STREAM_INFO_H264_S));
-                s32Ret = HI_MPI_VENC_GetStream(VeChn, &stStream, HI_TRUE);
-                if (HI_SUCCESS != s32Ret)
-                {
-                    g_critical("HI_MPI_VENC_GetStream failed with %#x!\n", s32Ret);
-                    continue;
-                }
-
-                /*******************************************************
-                 step 2.4 : send frame to live stream
-                *******************************************************/
-                if (g_list_length(priv->notify_source_list[SLAVE_CHN]) > 0)
-                {
-                    ipcam_media_video_process_data(media_video, SLAVE_CHN, &stStream);
-                }
-                /*******************************************************
-                 step 2.5 : release stream
-                *******************************************************/
-                s32Ret = HI_MPI_VENC_ReleaseStream(VeChn, &stStream);
-                if (HI_SUCCESS != s32Ret)
-                {
-                    g_critical("HI_MPI_VENC_ReleaseStream failed with %#x!\n", s32Ret);
-                }
-            }
-        }
-    }
-    g_free(stStream.pstPack);
-    stStream.pstPack = NULL;
-    /*******************************************************
-     * step 3 : close save-file
-     *******************************************************/
-    g_thread_exit(0);
-    return NULL;
-}
-
 static void ipcam_ivideo_interface_init(IpcamIVideoInterface *iface)
 {
     iface->start = ipcam_media_video_start_livestream;
     iface->stop = ipcam_media_video_stop_livestream;
     iface->param_change = ipcam_media_video_param_change;
-    iface->get_video_data = ipcam_media_video_get_read_data;
-    iface->release_video_data = ipcam_media_video_release_read_data;
-    iface->has_video_data = ipcam_media_video_has_video_data;
-    iface->register_rtsp_source = ipcam_media_video_register_rtsp_source;
-    iface->unregister_rtsp_source = ipcam_media_video_unregister_rtsp_source;
 }

@@ -19,8 +19,6 @@ void launch_rtsp_server(void *video_engine,
                         rtsp_user *users, size_t users_size,
                         char *path[], size_t path_size);
 
-void signalNewFrameData(void *clientData);
-     
 #ifdef __cplusplus
 }
 #endif
