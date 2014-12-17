@@ -15,8 +15,8 @@ enum
 typedef struct _IpcamVideoInputPrivate
 {
     gchar *sensor_type;
-    guint32 image_width[STREAM_CHN_LAST];
-    guint32 image_height[STREAM_CHN_LAST];
+    guint32 image_width;
+    guint32 image_height;
 } IpcamVideoInputPrivate;
 
 G_DEFINE_TYPE_WITH_PRIVATE(IpcamVideoInput, ipcam_video_input, G_TYPE_OBJECT)
@@ -27,8 +27,8 @@ static void ipcam_video_input_init(IpcamVideoInput *self)
 {
 	IpcamVideoInputPrivate *priv = ipcam_video_input_get_instance_private(self);
     priv->sensor_type = getenv("SENSOR_TYPE");
-    priv->image_width[MASTER] = IMAGE_MAX_WIDTH;
-    priv->image_height[MASTER] = IMAGE_MAX_HEIGHT;
+    priv->image_width = IMAGE_MAX_WIDTH;
+    priv->image_height = IMAGE_MAX_HEIGHT;
 }
 static void ipcam_video_input_get_property(GObject    *object,
                                            guint       property_id,
@@ -65,12 +65,12 @@ static void ipcam_video_input_set_property(GObject      *object,
     {
     case PROP_IMAGE_WIDTH:
         {
-            priv->image_width[MASTER] = g_value_get_uint(value);
+            priv->image_width = g_value_get_uint(value);
         }
         break;
     case PROP_IMAGE_HEIGHT:
         {
-            priv->image_height[MASTER] = g_value_get_uint(value);
+            priv->image_height = g_value_get_uint(value);
         }
         break;
     default:
@@ -106,13 +106,12 @@ static void ipcam_video_input_class_init(IpcamVideoInputClass *klass)
 
 gint32 ipcam_video_input_start(IpcamVideoInput *self, StreamDescriptor desc[])
 {
-    HI_S32 i, s32Ret = HI_SUCCESS;
+    HI_S32 s32Ret = HI_SUCCESS;
     VI_DEV ViDev;
     VI_CHN ViChn;
-    HI_U32 u32DevNum = 1;
-    HI_U32 u32ChnNum = 1;
     guint32 sensor_image_width, sensor_image_height;
     gchar *resolution;
+    guint32 input_fps;
     IpcamVideoInputPrivate *priv = ipcam_video_input_get_instance_private(self);
 
     g_return_val_if_fail(IPCAM_IS_VIDEO_INPUT(self), HI_FAILURE);
@@ -123,204 +122,157 @@ gint32 ipcam_video_input_start(IpcamVideoInput *self, StreamDescriptor desc[])
     {
         sensor_image_width = 1920;
         sensor_image_height = 1200;
-        priv->image_width[MASTER] = 1600;
-        priv->image_height[MASTER] = 1200;
+        priv->image_width = 1600;
+        priv->image_height = 1200;
+        input_fps = 20;
     }
     else
     {
         sensor_image_width = 1920;
         sensor_image_height = 1080;
-        priv->image_width[MASTER] = 1920;
-        priv->image_height[MASTER] = 1080;
+        priv->image_width = 1920;
+        priv->image_height = 1080;
+        input_fps = 30;
     }
-    
+
     /******************************************************
      step 3 : config & start vicap dev
-    ******************************************************/
-    for (i = 0; i < u32DevNum; i++)
+     ******************************************************/
+    ViDev = 0;
+    VI_DEV_ATTR_S stViDevAttr =
     {
-        ViDev = i;
-        #if 1
-        VI_DEV_ATTR_S stViDevAttr =
-            {
-                VI_MODE_DIGITAL_CAMERA,
-                VI_WORK_MODE_1Multiplex,
-                {0xFFF00000, 0x00},
-                VI_SCAN_PROGRESSIVE,
-                {-1, -1, -1, -1},
-                VI_INPUT_DATA_YUYV,
-                {
-                    VI_VSYNC_FIELD,
-                    VI_VSYNC_NEG_HIGH,
-                    VI_HSYNC_VALID_SINGNAL,
-                    VI_HSYNC_NEG_HIGH,
-                    VI_VSYNC_VALID_SINGAL,
-                    VI_VSYNC_VALID_NEG_HIGH,
-                    {
-                        0, sensor_image_width, 0,
-                        0, sensor_image_height, 0,
-                        0, 0, 0
-                    }
-                },
-                VI_PATH_ISP,
-                VI_DATA_TYPE_RGB,
-                HI_FALSE
-            };
-        /*
-        if (g_str_equal(priv->sensor_type, "AR0130") ||
-            g_str_equal(priv->sensor_type, "AR0331"))
-        {
-            // do nothing
-        }
-        */
-        if (g_str_equal(priv->sensor_type, "IMX222"))
-        {
-            stViDevAttr.stSynCfg.enVsync = VI_VSYNC_PULSE;
-            //stViDevAttr.stSynCfg.enVsyncValid = VI_VSYNC_NORM_PULSE;
-        }
-        else if (g_str_equal(priv->sensor_type, "NT99141"))
-        {
-            stViDevAttr.au32CompMask[0] = 0xFF000000;
-            stViDevAttr.stSynCfg.stTimingBlank.u32HsyncHfb = 4;
-            stViDevAttr.stSynCfg.stTimingBlank.u32HsyncHbb = 544;
-            stViDevAttr.stSynCfg.stTimingBlank.u32VsyncVfb = 4;
-            stViDevAttr.stSynCfg.stTimingBlank.u32VsyncVbb = 20;
-            stViDevAttr.enDataPath = VI_PATH_BYPASS;
-            stViDevAttr.enInputDataType = VI_DATA_TYPE_YUV;
-        }
-        
-        s32Ret = HI_MPI_VI_SetDevAttr(ViDev, &stViDevAttr);
-        #else
-        VI_DEV_ATTR_EX_S stViDevAttrEx =
-            {
-                VI_MODE_DIGITAL_CAMERA,
-                VI_WORK_MODE_1Multiplex,
-                VI_COMBINE_COMPOSITE,
-                VI_COMP_MODE_SINGLE,
-                VI_CLK_EDGE_SINGLE_DOWN,
-                {0xFFF00000, 0x00},
-                VI_SCAN_PROGRESSIVE,
-                {-1, -1, -1, -1},
-                VI_INPUT_DATA_YUYV,
-                {
-                    VI_VSYNC_PULSE,
-                    VI_VSYNC_NEG_HIGH,
-                    VI_HSYNC_VALID_SINGNAL,
-                    VI_HSYNC_NEG_HIGH,
-                    VI_VSYNC_VALID_SINGAL,
-                    VI_VSYNC_VALID_NEG_HIGH,
-                    {
-                        0, sensor_image_width, 0,
-                        0, sensor_image_height, 0,
-                        0, 0, 0
-                    }
-                },
-                {
-                    BT656_FIXCODE_1,
-                    BT656_FIELD_POLAR_STD
-                },
-                VI_PATH_ISP,
-                VI_DATA_TYPE_RGB,
-                HI_FALSE
-            };
-        HI_MPI_VI_DisableDev(ViDev);
-        s32Ret = HI_MPI_VI_SetDevAttrEx(ViDev, &stViDevAttrEx);
-        #endif
-        if (s32Ret != HI_SUCCESS)
-        {
-            g_critical("HI_MPI_VI_SetDevAttr [%d] failed with %#x!\n", ViDev, s32Ret);
-            return HI_FAILURE;
-        }
-
-        s32Ret = HI_MPI_VI_EnableDev(ViDev);
-        if (s32Ret != HI_SUCCESS)
-        {
-            g_critical("HI_MPI_VI_EnableDev [%d] failed with %#x!\n", ViDev, s32Ret);
-            return HI_FAILURE;
-        }
+        .enIntfMode = VI_MODE_DIGITAL_CAMERA,
+        .enWorkMode = VI_WORK_MODE_1Multiplex,
+        .au32CompMask = { 0xFFF00000, 0x00 },
+        .enScanMode = VI_SCAN_PROGRESSIVE,
+        .s32AdChnId = { -1, -1, -1, -1 },
+        .enDataSeq = VI_INPUT_DATA_YUYV,
+        .stSynCfg = {
+            .enVsync = VI_VSYNC_FIELD,
+            .enVsyncNeg = VI_VSYNC_NEG_HIGH,
+            .enHsync = VI_HSYNC_VALID_SINGNAL,
+            .enHsyncNeg = VI_HSYNC_NEG_HIGH,
+            .enVsyncValid = VI_VSYNC_VALID_SINGAL,
+            .enVsyncValidNeg = VI_VSYNC_VALID_NEG_HIGH,
+            .stTimingBlank = {
+                .u32HsyncHfb = 0,
+                .u32HsyncAct = sensor_image_width,
+                .u32HsyncHbb = 0,
+                .u32VsyncVfb = 0,
+                .u32VsyncVact = sensor_image_height,
+                .u32VsyncVbb = 0,
+                .u32VsyncVbfb = 0,
+                .u32VsyncVbact = 0,
+                .u32VsyncVbbb = 0
+            }
+        },
+        .enDataPath = VI_PATH_ISP,
+        .enInputDataType = VI_DATA_TYPE_RGB,
+        .bDataRev = HI_FALSE
+    };
+    if (g_str_equal(priv->sensor_type, "IMX222"))
+    {
+        stViDevAttr.stSynCfg.enVsync = VI_VSYNC_PULSE;
+        //stViDevAttr.stSynCfg.enVsyncValid = VI_VSYNC_NORM_PULSE;
     }
-    
+    else if (g_str_equal(priv->sensor_type, "NT99141"))
+    {
+        stViDevAttr.au32CompMask[0] = 0xFF000000;
+        stViDevAttr.stSynCfg.stTimingBlank.u32HsyncHfb = 4;
+        stViDevAttr.stSynCfg.stTimingBlank.u32HsyncHbb = 544;
+        stViDevAttr.stSynCfg.stTimingBlank.u32VsyncVfb = 4;
+        stViDevAttr.stSynCfg.stTimingBlank.u32VsyncVbb = 20;
+        stViDevAttr.enDataPath = VI_PATH_BYPASS;
+        stViDevAttr.enInputDataType = VI_DATA_TYPE_YUV;
+    }
+
+    s32Ret = HI_MPI_VI_SetDevAttr(ViDev, &stViDevAttr);
+    if (s32Ret != HI_SUCCESS)
+    {
+        g_critical("HI_MPI_VI_SetDevAttr [%d] failed with %#x!\n", ViDev, s32Ret);
+        return HI_FAILURE;
+    }
+
+    s32Ret = HI_MPI_VI_EnableDev(ViDev);
+    if (s32Ret != HI_SUCCESS)
+    {
+        g_critical("HI_MPI_VI_EnableDev [%d] failed with %#x!\n", ViDev, s32Ret);
+        return HI_FAILURE;
+    }
+
     /******************************************************
      * Step 4: config & start vicap chn (max 1) 
      ******************************************************/
-    for (i = 0; i < u32ChnNum; i++)
+    ViChn = 0;
+    VI_CHN_ATTR_S stChnAttr =
     {
-        ViChn = i;
-        VI_CHN_ATTR_S stChnAttr =
-            {
-                {
-                    (sensor_image_width - priv->image_width[MASTER]) / 2,
-                    (sensor_image_height - priv->image_height[MASTER]) / 2,
-                    priv->image_width[MASTER],
-                    priv->image_height[MASTER]
-                },
-                {priv->image_width[MASTER], priv->image_height[MASTER]},
-                VI_CAPSEL_BOTH,
-                PIXEL_FORMAT_YUV_SEMIPLANAR_422,
-                HI_FALSE,
-                HI_FALSE,
-                HI_FALSE,
-                -1,
-                -1
-            };
+        .stCapRect = {
+            .s32X = (sensor_image_width - priv->image_width) / 2,
+            .s32Y = (sensor_image_height - priv->image_height) / 2,
+            .u32Width = priv->image_width,
+            .u32Height = priv->image_height
+        },
+        .stDestSize = {
+            priv->image_width,
+            priv->image_height
+        },
+        .enCapSel = VI_CAPSEL_BOTH,
+        .enPixFormat = PIXEL_FORMAT_YUV_SEMIPLANAR_422,
+        .bMirror = HI_FALSE,
+        .bFlip = HI_FALSE,
+        .bChromaResample = HI_FALSE,
+        .s32SrcFrameRate = input_fps,
+        .s32FrameRate = input_fps
+    };
 
-        stChnAttr.bMirror = desc[MASTER].v_desc.mirror;
-        stChnAttr.bFlip = desc[MASTER].v_desc.flip;
-        
-        s32Ret = HI_MPI_VI_SetChnAttr(ViChn, &stChnAttr);
-        if (s32Ret != HI_SUCCESS)
-        {
-            g_critical("HI_MPI_VI_SetChnAttr [%d] failed with %#x!\n", ViChn, s32Ret);
-            return HI_FAILURE;
-        }
+    stChnAttr.bMirror = desc[MASTER].v_desc.mirror;
+    stChnAttr.bFlip = desc[MASTER].v_desc.flip;
 
-        s32Ret = HI_MPI_VI_EnableChn(ViChn);
-        if (s32Ret != HI_SUCCESS)
-        {
-            g_critical("HI_MPI_VI_Enable [%d] failed with %#x!\n", ViChn, s32Ret);
-            return HI_FAILURE;
-        }
+    s32Ret = HI_MPI_VI_SetChnAttr(ViChn, &stChnAttr);
+    if (s32Ret != HI_SUCCESS)
+    {
+        g_critical("HI_MPI_VI_SetChnAttr [%d] failed with %#x!\n", ViChn, s32Ret);
+        return HI_FAILURE;
+    }
+
+    s32Ret = HI_MPI_VI_EnableChn(ViChn);
+    if (s32Ret != HI_SUCCESS)
+    {
+        g_critical("HI_MPI_VI_Enable [%d] failed with %#x!\n", ViChn, s32Ret);
+        return HI_FAILURE;
     }
 
     return s32Ret;
 }
+
 gint32 ipcam_video_input_stop(IpcamVideoInput *self)
 {
     g_return_val_if_fail(IPCAM_IS_VIDEO_INPUT(self), HI_FAILURE);
     VI_DEV ViDev;
     VI_CHN ViChn;
-    HI_S32 i;
     HI_S32 s32Ret;
-    HI_U32 u32DevNum = 1;
-    HI_U32 u32ChnNum = 1;
 
-    /*** Stop VI Chn ***/
-    for(i = 0; i < u32ChnNum; i++)
+    /* Stop vi phy-chn */
+    ViChn = 0;
+    s32Ret = HI_MPI_VI_DisableChn(ViChn);
+    if (HI_SUCCESS != s32Ret)
     {
-        /* Stop vi phy-chn */
-        ViChn = i;
-        s32Ret = HI_MPI_VI_DisableChn(ViChn);
-        if (HI_SUCCESS != s32Ret)
-        {
-            g_critical("HI_MPI_VI_DisableChn [%d] failed with %#x\n", ViChn, s32Ret);
-            return HI_FAILURE;
-        }
+        g_critical("HI_MPI_VI_DisableChn [%d] failed with %#x\n", ViChn, s32Ret);
+        return HI_FAILURE;
     }
 
     /*** Stop VI Dev ***/
-    for(i = 0; i < u32DevNum; i++)
+    ViDev = 0;
+    s32Ret = HI_MPI_VI_DisableDev(ViDev);
+    if (HI_SUCCESS != s32Ret)
     {
-        ViDev = i;
-        s32Ret = HI_MPI_VI_DisableDev(ViDev);
-        if (HI_SUCCESS != s32Ret)
-        {
-            g_critical("HI_MPI_VI_DisableDev [%d] failed with %#x\n", ViDev, s32Ret);
-            return HI_FAILURE;
-        }
+        g_critical("HI_MPI_VI_DisableDev [%d] failed with %#x\n", ViDev, s32Ret);
+        return HI_FAILURE;
     }
 
     return HI_SUCCESS;
 }
+
 void ipcam_video_input_param_change(IpcamVideoInput *self, StreamDescriptor desc[])
 {
     g_return_if_fail(IPCAM_IS_VIDEO_INPUT(self));
@@ -328,6 +280,7 @@ void ipcam_video_input_param_change(IpcamVideoInput *self, StreamDescriptor desc
     ipcam_video_input_stop(self);
     ipcam_video_input_start(self, desc);
 }
+
 void ipcam_video_input_set_image_parameter(IpcamVideoInput *self, 
                                            gint32 brightness,
                                            gint32 chrominance,
