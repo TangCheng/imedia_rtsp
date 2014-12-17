@@ -114,6 +114,7 @@ gint32 ipcam_video_encode_start(IpcamVideoEncode *self, StreamDescriptor desc[])
     guint image_width, image_height;
     guint input_width, input_height;
     guint input_fps;
+    guint output_fps;
 
     gchar *resolution = desc[MASTER_CHN].v_desc.resolution;
     if (g_str_equal(resolution, "UXGA") ||
@@ -157,13 +158,16 @@ gint32 ipcam_video_encode_start(IpcamVideoEncode *self, StreamDescriptor desc[])
         stAttr.stVeAttr.stAttrH264e.bVIField = HI_FALSE;/*the sign of the VI picture is field or frame. Invalidate for hi3516*/
         // omit other video encode assignments here.
         /* set h264 chnnel rate control attribute */
+
+        output_fps = desc[chn].v_desc.frame_rate > input_fps ? input_fps : desc[chn].v_desc.frame_rate;
+
         if (desc[chn].v_desc.bit_rate_type == CONSTANT_BIT_RATE)
         {
             stAttr.stRcAttr.enRcMode = VENC_RC_MODE_H264CBR;
             stAttr.stRcAttr.stAttrH264Cbr.u32BitRate = desc[chn].v_desc.bit_rate;
-            stAttr.stRcAttr.stAttrH264Cbr.fr32TargetFrmRate = desc[chn].v_desc.frame_rate;
-            stAttr.stRcAttr.stAttrH264Cbr.u32ViFrmRate = 30;
-            stAttr.stRcAttr.stAttrH264Cbr.u32Gop = 30;
+            stAttr.stRcAttr.stAttrH264Cbr.u32ViFrmRate = input_fps;
+            stAttr.stRcAttr.stAttrH264Cbr.fr32TargetFrmRate = output_fps;
+            stAttr.stRcAttr.stAttrH264Cbr.u32Gop = output_fps;
             stAttr.stRcAttr.stAttrH264Cbr.u32FluctuateLevel = 0;
             stAttr.stRcAttr.stAttrH264Cbr.u32StatTime = 1;
         }
@@ -171,9 +175,9 @@ gint32 ipcam_video_encode_start(IpcamVideoEncode *self, StreamDescriptor desc[])
         {
             stAttr.stRcAttr.enRcMode = VENC_RC_MODE_H264VBR;
             stAttr.stRcAttr.stAttrH264Vbr.u32MaxBitRate = desc[chn].v_desc.bit_rate;
-            stAttr.stRcAttr.stAttrH264Vbr.fr32TargetFrmRate = desc[chn].v_desc.frame_rate;
-            stAttr.stRcAttr.stAttrH264Vbr.u32ViFrmRate = 30;
-            stAttr.stRcAttr.stAttrH264Vbr.u32Gop = 30;
+            stAttr.stRcAttr.stAttrH264Vbr.u32ViFrmRate = input_fps;
+            stAttr.stRcAttr.stAttrH264Vbr.fr32TargetFrmRate = output_fps;
+            stAttr.stRcAttr.stAttrH264Vbr.u32Gop = output_fps;
             stAttr.stRcAttr.stAttrH264Vbr.u32MinQp = 0;
             stAttr.stRcAttr.stAttrH264Vbr.u32MaxQp = 51;
             stAttr.stRcAttr.stAttrH264Vbr.u32StatTime = 1;
@@ -188,19 +192,19 @@ gint32 ipcam_video_encode_start(IpcamVideoEncode *self, StreamDescriptor desc[])
         s32Ret = HI_MPI_VENC_CreateGroup(VeGroup);
         if (HI_SUCCESS != s32Ret)
         {
-            g_critical("HI_MPI_VENC_CreateGroup err 0x%x\n",s32Ret);
+            g_critical("HI_MPI_VENC_CreateGroup(%d) err 0x%x\n", VeGroup,s32Ret);
             return HI_FAILURE;
         }
         s32Ret = HI_MPI_VENC_CreateChn(VeChn, &stAttr);
         if (HI_SUCCESS != s32Ret)
         {
-            g_critical("HI_MPI_VENC_CreateChn err 0x%x\n",s32Ret);
+            g_critical("HI_MPI_VENC_CreateChn(%d) err 0x%x\n", VeChn, s32Ret);
             return HI_FAILURE;
         }
         s32Ret = HI_MPI_VENC_RegisterChn(VeGroup, VeChn);
         if (HI_SUCCESS != s32Ret)
         {
-            g_critical("HI_MPI_VENC_RegisterChn err 0x%x\n",s32Ret);
+            g_critical("HI_MPI_VENC_RegisterChn(%d,%d) err 0x%x\n", VeGroup, VeChn, s32Ret);
             return HI_FAILURE;
         }
         if (VeGroup != MASTER_CHN)
@@ -230,14 +234,14 @@ gint32 ipcam_video_encode_start(IpcamVideoEncode *self, StreamDescriptor desc[])
 
             s32Ret = HI_MPI_VENC_SetGrpCrop(VeGroup, &stGrpCropCfg);
             if (HI_SUCCESS != s32Ret) {
-                g_critical("HI_MPI_VENC_SetGrpCrop err 0x%x\n",s32Ret);
+                g_critical("HI_MPI_VENC_SetGrpCrop(%d) err 0x%x\n", VeGroup, s32Ret);
             }
         }
 
         s32Ret = HI_MPI_VENC_StartRecvPic(VeChn);
         if (s32Ret != HI_SUCCESS)
         {
-            g_critical("HI_MPI_VENC_StartRecvPic err 0x%x\n",s32Ret);
+            g_critical("HI_MPI_VENC_StartRecvPic(%d) err 0x%x\n", VeChn, s32Ret);
             return HI_FAILURE;
         }
     }
@@ -263,9 +267,8 @@ gint32 ipcam_video_encode_stop(IpcamVideoEncode *self)
         s32Ret = HI_MPI_VENC_StopRecvPic(VeChn);
         if (HI_SUCCESS != s32Ret)
         {
-            g_critical("HI_MPI_VENC_StopRecvPic vechn[%d] failed with %#x!\n", \
+            g_critical("HI_MPI_VENC_StopRecvPic(%d) failed with %#x!\n", \
                        VeChn, s32Ret);
-            return HI_FAILURE;
         }
 
         /******************************************
@@ -283,7 +286,7 @@ gint32 ipcam_video_encode_stop(IpcamVideoEncode *self)
             };
             s32Ret = HI_MPI_VENC_SetGrpCrop(VeGrp, &stGrpCropCfg);
             if (HI_SUCCESS != s32Ret) {
-                g_critical("HI_MPI_VENC_SetGrpCrop err 0x%x\n",s32Ret);
+                g_critical("HI_MPI_VENC_SetGrpCrop(%d) err 0x%x\n", VeGrp, s32Ret);
             }
         }
         /******************************************
@@ -292,9 +295,8 @@ gint32 ipcam_video_encode_stop(IpcamVideoEncode *self)
         s32Ret = HI_MPI_VENC_UnRegisterChn(VeChn);
         if (HI_SUCCESS != s32Ret)
         {
-            g_critical("HI_MPI_VENC_UnRegisterChn vechn[%d] failed with %#x!\n", \
+            g_critical("HI_MPI_VENC_UnRegisterChn(%d) failed with %#x!\n", \
                        VeChn, s32Ret);
-            return HI_FAILURE;
         }
 
         /******************************************
@@ -303,9 +305,8 @@ gint32 ipcam_video_encode_stop(IpcamVideoEncode *self)
         s32Ret = HI_MPI_VENC_DestroyChn(VeChn);
         if (HI_SUCCESS != s32Ret)
         {
-            g_critical("HI_MPI_VENC_DestroyChn vechn[%d] failed with %#x!\n", \
+            g_critical("HI_MPI_VENC_DestroyChn(%d) failed with %#x!\n", \
                        VeChn, s32Ret);
-            return HI_FAILURE;
         }
 
         /******************************************
@@ -314,9 +315,8 @@ gint32 ipcam_video_encode_stop(IpcamVideoEncode *self)
         s32Ret = HI_MPI_VENC_DestroyGroup(VeGrp);
         if (HI_SUCCESS != s32Ret)
         {
-            g_critical("HI_MPI_VENC_DestroyGroup group[%d] failed with %#x!\n", \
+            g_critical("HI_MPI_VENC_DestroyGroup(%d) failed with %#x!\n", \
                        VeGrp, s32Ret);
-            return HI_FAILURE;
         }
     }
 
