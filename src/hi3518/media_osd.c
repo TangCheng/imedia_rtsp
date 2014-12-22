@@ -370,6 +370,10 @@ static gint32 ipcam_media_osd_draw_content(IpcamMediaOsd *self, IPCAM_OSD_TYPE t
             rect.y = priv->position[type].y * priv->image_height / 1000;
             rect.w = text_sf->w;
             rect.h = text_sf->h;
+            if (rect.x + rect.w > priv->image_width)
+                rect.x = priv->image_width - rect.w;
+            if (rect.y + rect.h > priv->image_height)
+                rect.y = priv->image_height - rect.h;
             SDL_BlitSurface(text_sf, NULL, scrn_sf, &rect);
 
             priv->rect[type].s32X = rect.x;
