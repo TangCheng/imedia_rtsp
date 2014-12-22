@@ -254,15 +254,11 @@ static void ipcam_media_video_param_change(IpcamMediaVideo *self, StreamDescript
     ipcam_video_encode_start(priv->venc, desc);
 }
 
-void ipcam_media_video_set_image_parameter(IpcamMediaVideo *self,
-                                           gint32 brightness,
-                                           gint32 chrominance,
-                                           gint32 contrast,
-                                           gint32 saturation)
+void ipcam_media_video_set_image_parameter(IpcamMediaVideo *self, IpcamMediaImageAttr *attr)
 {
     IpcamMediaVideoPrivate *priv = IPCAM_MEDIA_VIDEO_GET_PRIVATE(self);
 
-    ipcam_video_input_set_image_parameter(priv->vi, brightness, chrominance, contrast, saturation);
+    ipcam_video_input_set_image_parameter(priv->vi, attr);
 }
 
 static void ipcam_ivideo_interface_init(IpcamIVideoInterface *iface)

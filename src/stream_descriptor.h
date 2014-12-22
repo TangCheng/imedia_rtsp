@@ -16,6 +16,16 @@
 
 #define ARRAY_SIZE(array)    (sizeof(array) / sizeof(array[0]))
 
+typedef struct _IpcamMediaImageAttr
+{
+    gint32 brightness;
+    gint32 chrominance;
+    gint32 contrast;
+    gint32 saturation;
+    gint32 b3ddnr;
+    guint32 watermark;
+} IpcamMediaImageAttr;
+
 enum StreamChannel
 {
     MASTER_CHN = 0,
@@ -70,6 +80,7 @@ typedef struct _VideoStreamDescriptor
     guint bit_rate;
     gboolean flip;
     gboolean mirror;
+    IpcamMediaImageAttr img_attr;
     const gchar *path;
 } VideoStreamDescriptor;
 

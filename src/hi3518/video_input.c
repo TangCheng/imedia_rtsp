@@ -281,11 +281,7 @@ void ipcam_video_input_param_change(IpcamVideoInput *self, StreamDescriptor desc
     ipcam_video_input_start(self, desc);
 }
 
-void ipcam_video_input_set_image_parameter(IpcamVideoInput *self, 
-                                           gint32 brightness,
-                                           gint32 chrominance,
-                                           gint32 contrast,
-                                           gint32 saturation)
+void ipcam_video_input_set_image_parameter(IpcamVideoInput *self, IpcamMediaImageAttr *attr)
 {
     VI_DEV ViDev = 0;
     VI_CSC_ATTR_S csc_attr;
@@ -300,14 +296,14 @@ void ipcam_video_input_set_image_parameter(IpcamVideoInput *self,
     }
 
 #define MIN(a, b)   ((a) < (b) ? (a) : (b))
-    if (brightness >= 0)
-        csc_attr.u32LumaVal = MIN(brightness, 100);
-    if (chrominance >= 0)
-        csc_attr.u32HueVal = MIN(chrominance, 100);
-    if (contrast >= 0)
-        csc_attr.u32ContrVal = MIN(contrast, 100);
-    if (saturation >= 0)
-        csc_attr.u32SatuVal = MIN(saturation, 100);
+    if (attr->brightness >= 0)
+        csc_attr.u32LumaVal = MIN(attr->brightness, 100);
+    if (attr->chrominance >= 0)
+        csc_attr.u32HueVal = MIN(attr->chrominance, 100);
+    if (attr->contrast >= 0)
+        csc_attr.u32ContrVal = MIN(attr->contrast, 100);
+    if (attr->saturation >= 0)
+        csc_attr.u32SatuVal = MIN(attr->saturation, 100);
     s32Ret = HI_MPI_VI_SetCSCAttr(ViDev, &csc_attr);
     if (HI_SUCCESS != s32Ret) {
         g_critical("HI_MPI_VI_SetCSCAttr [%d] failed with %#x\n", ViDev, s32Ret);

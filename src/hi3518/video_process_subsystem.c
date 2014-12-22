@@ -133,6 +133,8 @@ gint32 ipcam_video_process_subsystem_start(IpcamVideoProcessSubsystem *self, Str
     stGrpAttr.bDbEn = HI_FALSE;
     stGrpAttr.bIeEn = HI_FALSE;
     stGrpAttr.bNrEn = HI_TRUE;
+    if (desc[MASTER].v_desc.img_attr.b3ddnr >= 0)
+        stGrpAttr.bNrEn = desc[MASTER].v_desc.img_attr.b3ddnr;
     stGrpAttr.bHistEn = HI_FALSE;
     stGrpAttr.enDieMode = VPSS_DIE_MODE_AUTO;
     stGrpAttr.enPixFmt = PIXEL_FORMAT_YUV_SEMIPLANAR_422;

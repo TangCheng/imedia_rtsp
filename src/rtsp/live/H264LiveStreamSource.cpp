@@ -193,11 +193,12 @@ void H264LiveStreamSource::deliverFrame() {
         return;
     }
 
-#if 0
-    fPresentationTime.tv_sec = stStream.pstPack[0].u64PTS / 100000ULL;
-    fPresentationTime.tv_usec = stStream.pstPack[0].u64PTS % 100000ULL;
-#endif
+#if 1
+    fPresentationTime.tv_sec = stStream.pstPack[0].u64PTS / 1000000UL;
+    fPresentationTime.tv_usec = stStream.pstPack[0].u64PTS % 1000000UL;
+#else
     gettimeofday(&fPresentationTime, NULL);
+#endif
 
     fFrameSize = 0;
     for (int i = 0; i < stStream.u32PackCount; i++) {

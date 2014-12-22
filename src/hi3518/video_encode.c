@@ -167,7 +167,7 @@ gint32 ipcam_video_encode_start(IpcamVideoEncode *self, StreamDescriptor desc[])
             stAttr.stRcAttr.stAttrH264Cbr.u32BitRate = desc[chn].v_desc.bit_rate;
             stAttr.stRcAttr.stAttrH264Cbr.u32ViFrmRate = input_fps;
             stAttr.stRcAttr.stAttrH264Cbr.fr32TargetFrmRate = output_fps;
-            stAttr.stRcAttr.stAttrH264Cbr.u32Gop = output_fps;
+            stAttr.stRcAttr.stAttrH264Cbr.u32Gop = 30;
             stAttr.stRcAttr.stAttrH264Cbr.u32FluctuateLevel = 0;
             stAttr.stRcAttr.stAttrH264Cbr.u32StatTime = 1;
         }
@@ -177,7 +177,7 @@ gint32 ipcam_video_encode_start(IpcamVideoEncode *self, StreamDescriptor desc[])
             stAttr.stRcAttr.stAttrH264Vbr.u32MaxBitRate = desc[chn].v_desc.bit_rate;
             stAttr.stRcAttr.stAttrH264Vbr.u32ViFrmRate = input_fps;
             stAttr.stRcAttr.stAttrH264Vbr.fr32TargetFrmRate = output_fps;
-            stAttr.stRcAttr.stAttrH264Vbr.u32Gop = output_fps;
+            stAttr.stRcAttr.stAttrH264Vbr.u32Gop = 30;
             stAttr.stRcAttr.stAttrH264Vbr.u32MinQp = 0;
             stAttr.stRcAttr.stAttrH264Vbr.u32MaxQp = 51;
             stAttr.stRcAttr.stAttrH264Vbr.u32StatTime = 1;

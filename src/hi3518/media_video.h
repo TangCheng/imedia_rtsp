@@ -27,10 +27,6 @@ struct _IpcamMediaVideoClass
 
 GType ipcam_media_video_get_type(void);
 
-void ipcam_media_video_set_image_parameter(IpcamMediaVideo *self,
-                                           gint32 brightness,
-                                           gint32 chrominance,
-                                           gint32 contrast,
-                                           gint32 saturation);
+void ipcam_media_video_set_image_parameter(IpcamMediaVideo *self, IpcamMediaImageAttr *attr);
 
 #endif /* __MEDIA_VIDEO_H__ */

@@ -30,6 +30,9 @@ typedef struct _IpcamIMediaPrivate
     regex_t reg;
     gchar *bit_rate[STREAM_CHN_LAST];
     gchar *frame_rate[STREAM_CHN_LAST];
+    gchar *train_num;
+    gchar *carriage_num;
+    gchar *position_num;
     StreamDescriptor stream_desc[STREAM_CHN_LAST];
 } IpcamIMediaPrivate;
 
@@ -42,6 +45,7 @@ static void ipcam_imedia_before(IpcamIMedia *imedia);
 static void ipcam_imedia_in_loop(IpcamIMedia *imedia);
 static void message_handler(GObject *obj, IpcamMessage* msg, gboolean timeout);
 static void ipcam_imedia_query_osd_parameter(IpcamIMedia *imedia);
+static void ipcam_imedia_query_szyc_parameter(IpcamIMedia *imedia);
 static void ipcam_imedia_query_baseinfo_parameter(IpcamIMedia *imedia);
 static void ipcam_imedia_request_users(IpcamIMedia *imedia);
 static void ipcam_imedia_request_rtsp_port(IpcamIMedia *imedia);
@@ -65,6 +69,9 @@ static void ipcam_imedia_finalize(GObject *object)
         g_free(priv->bit_rate[i]);
         g_free(priv->frame_rate[i]);
     }
+    g_free(priv->train_num);
+    g_free(priv->carriage_num);
+    g_free(priv->position_num);
     regfree(&priv->reg);
     gint chn = MASTER_CHN;
     for (chn = MASTER_CHN; chn < STREAM_CHN_LAST; chn++)
@@ -88,8 +95,18 @@ static void ipcam_imedia_init(IpcamIMedia *self)
         priv->bit_rate[i] = g_malloc(BIT_RATE_BUF_SIZE);
         priv->frame_rate[i] = g_malloc(FRAME_RATE_BUF_SIZE);
     }
+    priv->train_num = NULL;
+    priv->carriage_num = NULL;
+    priv->position_num = NULL;
     priv->stream_desc[MASTER].type = VIDEO_STREAM;
     priv->stream_desc[MASTER].v_desc.format = VIDEO_FORMAT_H264;
+    priv->stream_desc[MASTER].v_desc.img_attr.brightness = -1;
+    priv->stream_desc[MASTER].v_desc.img_attr.chrominance = -1;
+    priv->stream_desc[MASTER].v_desc.img_attr.contrast = -1;
+    priv->stream_desc[MASTER].v_desc.img_attr.saturation = -1;
+    priv->stream_desc[MASTER].v_desc.img_attr.b3ddnr = -1;
+    priv->stream_desc[MASTER].v_desc.img_attr.watermark = -1;
+    
     priv->stream_desc[SLAVE].type = VIDEO_STREAM;
     priv->stream_desc[SLAVE].v_desc.format = VIDEO_FORMAT_H264;
     time(&priv->last_time);
@@ -97,6 +114,7 @@ static void ipcam_imedia_init(IpcamIMedia *self)
     ipcam_base_app_register_notice_handler(IPCAM_BASE_APP(self), "set_video", IPCAM_VIDEO_PARAM_CHANGE_HANDLER_TYPE);
     ipcam_base_app_register_notice_handler(IPCAM_BASE_APP(self), "set_osd", IPCAM_VIDEO_PARAM_CHANGE_HANDLER_TYPE);
     ipcam_base_app_register_notice_handler(IPCAM_BASE_APP(self), "set_image", IPCAM_VIDEO_PARAM_CHANGE_HANDLER_TYPE);
+    ipcam_base_app_register_notice_handler(IPCAM_BASE_APP(self), "set_szyc", IPCAM_VIDEO_PARAM_CHANGE_HANDLER_TYPE);
     priv->osd_buffer = g_malloc(OSD_BUFFER_LENGTH);
 }
 static void ipcam_imedia_class_init(IpcamIMediaClass *klass)
@@ -117,6 +135,7 @@ static void ipcam_imedia_before(IpcamIMedia *imedia)
     ipcam_imedia_request_rtsp_port(imedia);
     ipcam_imedia_query_video_param(imedia);
     priv->rtsp = g_object_new(IPCAM_TYPE_RTSP, NULL);
+    ipcam_imedia_query_szyc_parameter(imedia);
     ipcam_imedia_query_osd_parameter(imedia);
     ipcam_imedia_query_baseinfo_parameter(imedia);
 }
@@ -125,13 +144,27 @@ static void ipcam_imedia_in_loop(IpcamIMedia *imedia)
     IpcamIMediaPrivate *priv = ipcam_imedia_get_instance_private(imedia);
     time_t now;
     int i;
-    gchar timeBuf[24] = {0};
+    gchar timeBuf[64] = {0};
 
     time(&now);
     if (priv->last_time != now)
     {
         priv->last_time = now;
         strftime(timeBuf, sizeof(timeBuf), "%Y-%m-%d %H:%M:%S ", localtime(&now));
+
+        if (priv->train_num) {
+            g_strlcat(timeBuf, "  ", sizeof(timeBuf));
+            g_strlcat(timeBuf, priv->train_num, sizeof(timeBuf));
+        }
+        if (priv->carriage_num) {
+            g_strlcat(timeBuf, "  ", sizeof(timeBuf));
+            g_strlcat(timeBuf, priv->carriage_num, sizeof(timeBuf));
+        }
+        if (priv->position_num) {
+            g_strlcat(timeBuf, "-", sizeof(timeBuf));
+            g_strlcat(timeBuf, priv->position_num, sizeof(timeBuf));
+        }
+
         for (i = MASTER_CHN; i < STREAM_CHN_LAST; i++)
         {
             if (!priv->osd[i])
@@ -160,7 +193,11 @@ static void message_handler(GObject *obj, IpcamMessage* msg, gboolean timeout)
         g_object_get(res_msg, "body", &body, NULL);
         g_return_if_fail((NULL != body));
 
-        if (g_str_equal(action, "get_osd"))
+        if (g_str_equal(action, "get_szyc"))
+        {
+            ipcam_imedia_got_szyc_parameter(IPCAM_IMEDIA(obj), body);
+        }
+        else if (g_str_equal(action, "get_osd"))
         {
             ipcam_imedia_got_osd_parameter(IPCAM_IMEDIA(obj), body);
         }
@@ -186,7 +223,7 @@ static void message_handler(GObject *obj, IpcamMessage* msg, gboolean timeout)
         }
         else
         {
-            g_warn_if_reached();
+            g_warning("Unhandled message: %s\n", action);
         }
     }
 }
@@ -197,6 +234,25 @@ static void ipcam_imedia_query_param(IpcamIMedia *imedia, IpcamRequestMessage *r
     g_object_set(G_OBJECT(rq_msg), "body", body, NULL);
     ipcam_base_app_send_message(IPCAM_BASE_APP(imedia), IPCAM_MESSAGE(rq_msg), "iconfig", token,
                                 message_handler, 10);
+}
+static void ipcam_imedia_query_szyc_parameter(IpcamIMedia *imedia)
+{
+    IpcamRequestMessage *rq_msg = g_object_new(IPCAM_REQUEST_MESSAGE_TYPE,
+                                               "action", "get_szyc", NULL);
+    
+    JsonBuilder *builder = json_builder_new();
+    json_builder_begin_object(builder);
+    json_builder_set_member_name(builder, "items");
+    json_builder_begin_array(builder);
+    json_builder_add_string_value(builder, "train_num");
+    json_builder_add_string_value(builder, "carriage_num");
+    json_builder_add_string_value(builder, "position_num");
+    json_builder_end_array(builder);
+    json_builder_end_object(builder);
+    
+    ipcam_imedia_query_param(imedia, rq_msg, builder);
+    g_object_unref(rq_msg);
+    g_object_unref(builder);
 }
 static void ipcam_imedia_query_osd_parameter(IpcamIMedia *imedia)
 {
@@ -433,33 +489,45 @@ void ipcam_imedia_got_szyc_parameter(IpcamIMedia *imedia, JsonNode *body)
         for (i = MASTER_CHN; i < STREAM_CHN_LAST; i++)
             ipcam_iosd_set_content(priv->osd[i], IPCAM_OSD_TYPE_POSITION_NUM, position_num);
     }
+
+    g_free(priv->train_num);
+    g_free(priv->carriage_num);
+    g_free(priv->position_num);
+
+    priv->train_num = g_strdup(train_num);
+    priv->carriage_num = g_strdup(carriage_num);
+    priv->position_num = g_strdup(position_num);
 }
 
 void ipcam_imedia_got_image_parameter(IpcamIMedia *imedia, JsonNode *body)
 {
     IpcamIMediaPrivate *priv = ipcam_imedia_get_instance_private(imedia);
     JsonObject *res_object;
-    gint32 brightness = -1;
-    gint32 chrominance = -1;
-    gint32 contrast = -1;
-    gint32 saturation = -1;
+    IpcamMediaImageAttr *imgattr = &priv->stream_desc[MASTER].v_desc.img_attr;
     
     res_object = json_object_get_object_member(json_node_get_object(body), "items");
 
     if (json_object_has_member(res_object, "brightness")) {
-        brightness = (gint32)json_object_get_int_member(res_object, "brightness");
+        imgattr->brightness = (gint32)json_object_get_int_member(res_object, "brightness");
     }
     if (json_object_has_member(res_object, "chrominance")) {
-        chrominance = (gint32)json_object_get_int_member(res_object, "chrominance");
+        imgattr->chrominance = (gint32)json_object_get_int_member(res_object, "chrominance");
     }
     if (json_object_has_member(res_object, "contrast")) {
-        contrast = (gint32)json_object_get_int_member(res_object, "contrast");
+        imgattr->contrast = (gint32)json_object_get_int_member(res_object, "contrast");
     }
     if (json_object_has_member(res_object, "saturation")) {
-        saturation = (gint32)json_object_get_int_member(res_object, "saturation");
+        imgattr->saturation = (gint32)json_object_get_int_member(res_object, "saturation");
+    }
+    if (json_object_has_member(res_object, "3ddnr")) {
+        imgattr->b3ddnr = json_object_get_boolean_member(res_object, "3ddnr");
+        ipcam_ivideo_param_change(priv->video, priv->stream_desc);
+    }
+    if (json_object_has_member(res_object, "watermark")) {
+        imgattr->watermark = json_object_get_boolean_member(res_object, "watermark");
     }
 
-    ipcam_media_video_set_image_parameter(priv->video, brightness, chrominance, contrast, saturation);
+    ipcam_media_video_set_image_parameter(priv->video, imgattr);
 }
 
 void ipcam_imedia_got_baseinfo_parameter(IpcamIMedia *imedia, JsonNode *body)
