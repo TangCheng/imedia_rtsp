@@ -164,6 +164,7 @@ static void ipcam_imedia_in_loop(IpcamIMedia *imedia)
             g_strlcat(timeBuf, "-", sizeof(timeBuf));
             g_strlcat(timeBuf, priv->position_num, sizeof(timeBuf));
         }
+        g_strlcat(timeBuf, "  ", sizeof(timeBuf));
 
         for (i = MASTER_CHN; i < STREAM_CHN_LAST; i++)
         {
@@ -691,9 +692,12 @@ void ipcam_imedia_got_video_param(IpcamIMedia *imedia, JsonNode *body, gboolean 
 {
     JsonObject *res_obj = json_object_get_object_member(json_node_get_object(body), "items");
     IpcamIMediaPrivate *priv = ipcam_imedia_get_instance_private(imedia);
-    gchar *profile = json_object_get_string_member(res_obj, "profile");
 
-    ipcam_imedia_parse_profile(imedia, profile);
+    if (json_object_has_member(res_obj, "profile"))
+    {
+        gchar *profile = json_object_get_string_member(res_obj, "profile");
+        ipcam_imedia_parse_profile(imedia, profile);
+    }
     if (json_object_has_member(res_obj, "flip"))
     {
         gboolean bValue = json_object_get_boolean_member(res_obj, "flip");
