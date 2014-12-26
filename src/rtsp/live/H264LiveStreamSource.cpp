@@ -79,9 +79,6 @@ H264LiveStreamSource::H264LiveStreamSource(UsageEnvironment& env, H264LiveStream
 {
     TaskScheduler &scheduler = envir().taskScheduler();
 
-    //ipcam_ivideo_register_rtsp_source((IpcamIVideo *)fParams.fVideoEngine,
-    //                                  fParams.fChannelNo, (void *)this);
-
     // Any instance-specific initialization of the device would be done here:
     ClearVideoStreamBuffer(fParams.fChannelNo);
 
@@ -106,11 +103,6 @@ H264LiveStreamSource::H264LiveStreamSource(UsageEnvironment& env, H264LiveStream
 
 H264LiveStreamSource::~H264LiveStreamSource() {
     // Any instance-specific 'destruction' (i.e., resetting) of the device would be done here:
-    //%%% TO BE WRITTEN %%%
-    //ipcam_ivideo_unregister_rtsp_source((IpcamIVideo *)fParams.fVideoEngine,
-    //                                    fParams.fChannelNo, (void *)this);
-        // Any global 'destruction' (i.e., resetting) of the device would be done here:
-        //%%% TO BE WRITTEN %%%
 
     envir().taskScheduler().disableBackgroundHandling(vencFd);
          
@@ -192,6 +184,18 @@ void H264LiveStreamSource::deliverFrame() {
         g_critical("HI_MPI_VENC_GetStream failed with %#x!\n", s32Ret);
         return;
     }
+
+    /* Drop the first Non-IDR frames */
+    if (firstDeliverFrame && stStream.stH264Info.enRefType != BASE_IDRSLICE) {
+        s32Ret = HI_MPI_VENC_ReleaseStream(fParams.fChannelNo, &stStream);
+        if (HI_SUCCESS != s32Ret)
+        {
+            g_critical("HI_MPI_VENC_ReleaseStream failed with %#x!\n", s32Ret);
+        }
+        return;
+    }
+
+    firstDeliverFrame = False;
 
 #if 1
     fPresentationTime.tv_sec = stStream.pstPack[0].u64PTS / 1000000UL;

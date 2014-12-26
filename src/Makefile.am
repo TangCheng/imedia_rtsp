@@ -40,12 +40,10 @@ imedia_rtsp_SOURCES = \
 	rtsp/live/H264LiveStreamServerMediaSubsession.cpp \
 	rtsp/live/iRTSPServer.cpp \
 	rtsp/live/iRTSPServerLauncher.cpp \
-	osd_font/osd_font.c \
 	interface/media_sys_ctrl_interface.c \
 	interface/media_video_interface.c \
 	interface/media_osd_interface.c \
 	video_param_change_handler.c \
-	buffer_manager.c \
 	imedia.c \
 	main.c
 
@@ -58,7 +56,8 @@ imedia_rtsp_SOURCES += \
 	hi3518/video_encode.c \
 	hi3518/video_input.c \
 	hi3518/video_process_subsystem.c \
-	hi3518/bitmap.c
+	hi3518/bitmap.c \
+	hi3518/video_detect.c
 endif
 
 if HI3516
@@ -70,7 +69,8 @@ imedia_rtsp_SOURCES += \
 	hi3518/video_encode.c \
 	hi3518/video_input.c \
 	hi3518/video_process_subsystem.c \
-	hi3518/bitmap.c
+	hi3518/bitmap.c \
+	hi3518/video_detect.c
 endif
 
 imedia_rtsp_LDFLAGS = 
