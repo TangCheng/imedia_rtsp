@@ -77,4 +77,4 @@ imedia_rtsp_LDADD = $(IMEDIA_RTSP_LIBS) -ldl -L$(MPP_LIBDIR) -lmpi -lmem -lisp -
 
 SUBDIRS = \
 	config \
-	sensor
+	hi3518/sensor

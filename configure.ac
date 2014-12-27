@@ -149,7 +149,7 @@ AC_OUTPUT([
 Makefile
 src/Makefile
 src/config/Makefile
-src/sensor/Makefile
-src/sensor/sony_imx122/Makefile
+src/hi3518/sensor/Makefile
+src/hi3518/sensor/sony_imx122/Makefile
 
 ])

@@ -396,6 +396,22 @@ static HI_S32 cmos_get_ae_default(AE_SENSOR_DEFAULT_S *pstAeSnsDft)
 /* the function of sensor set fps */
 static HI_VOID cmos_fps_set(HI_U8 u8Fps, AE_SENSOR_DEFAULT_S *pstAeSnsDft)
 {
+    if(gu8SensorImageMode == 4)
+    {
+        switch (u8Fps)
+        {
+            case 20:
+                // Change the frame rate via changing the vertical blanking
+                gu32FullLinesStd = 1225;
+                pstAeSnsDft->u32MaxIntTime = 1222;
+                pstAeSnsDft->u32LinesPer500ms = 1225 * 20 / 2;
+                sensor_write_register(VMAX_ADDR, 0x65);
+                sensor_write_register(VMAX_ADDR+1, 0x04);
+                break;
+            default:
+                break;
+        }
+    }
     if(gu8SensorImageMode == 3)
     {
         switch(u8Fps)
@@ -415,14 +431,6 @@ static HI_VOID cmos_fps_set(HI_U8 u8Fps, AE_SENSOR_DEFAULT_S *pstAeSnsDft)
                 pstAeSnsDft->u32LinesPer500ms = 1350 * 25 / 2;
                 sensor_write_register(VMAX_ADDR, 0x46);
                 sensor_write_register(VMAX_ADDR+1, 0x05);
-                break;
-            case 20:
-                // Change the frame rate via changing the vertical blanking
-                gu32FullLinesStd = 1225;
-                pstAeSnsDft->u32MaxIntTime = 1222;
-                pstAeSnsDft->u32LinesPer500ms = 1225 * 30 / 2;
-                sensor_write_register(VMAX_ADDR, 0x65);
-                sensor_write_register(VMAX_ADDR+1, 0x04);
                 break;
             default:
                 break;
