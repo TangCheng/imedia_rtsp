@@ -1,6 +1,11 @@
 #ifndef __RTSP_H__
 #define __RTSP_H__
 
+#ifdef __cplusplus
+extern "C"
+{
+#endif
+
 #include <base_app.h>
 #include "stream_descriptor.h"
 #include "interface/media_video_interface.h"
@@ -33,5 +38,9 @@ void ipcam_rtsp_set_stream_path(IpcamRtsp *rtsp, enum StreamChannel chn, const g
 void ipcam_rtsp_set_video_iface(IpcamRtsp *rtsp, IpcamIVideo *video);
 void ipcam_rtsp_start_server(IpcamRtsp *rtsp);
 void ipcam_rtsp_stop_server(IpcamRtsp *rtsp);
+
+#ifdef __cplusplus
+}
+#endif
 
 #endif /* __RTSP_H__ */

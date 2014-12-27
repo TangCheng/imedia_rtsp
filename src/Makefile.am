@@ -34,12 +34,10 @@ bindir = $(prefix)/imedia_rtsp
 bin_PROGRAMS = imedia_rtsp
 
 imedia_rtsp_SOURCES = \
-	rtsp/rtsp.c \
+	rtsp/rtsp.cpp \
 	rtsp/live/H264LiveStreamSource.cpp \
 	rtsp/live/H264LiveStreamInput.cpp \
 	rtsp/live/H264LiveStreamServerMediaSubsession.cpp \
-	rtsp/live/iRTSPServer.cpp \
-	rtsp/live/iRTSPServerLauncher.cpp \
 	interface/media_sys_ctrl_interface.c \
 	interface/media_video_interface.c \
 	interface/media_osd_interface.c \

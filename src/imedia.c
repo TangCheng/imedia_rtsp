@@ -111,6 +111,7 @@ static void ipcam_imedia_init(IpcamIMedia *self)
     priv->stream_desc[SLAVE].v_desc.format = VIDEO_FORMAT_H264;
     time(&priv->last_time);
     ipcam_base_app_register_notice_handler(IPCAM_BASE_APP(self), "set_base_info", IPCAM_VIDEO_PARAM_CHANGE_HANDLER_TYPE);
+    ipcam_base_app_register_notice_handler(IPCAM_BASE_APP(self), "set_misc", IPCAM_VIDEO_PARAM_CHANGE_HANDLER_TYPE);
     ipcam_base_app_register_notice_handler(IPCAM_BASE_APP(self), "set_video", IPCAM_VIDEO_PARAM_CHANGE_HANDLER_TYPE);
     ipcam_base_app_register_notice_handler(IPCAM_BASE_APP(self), "set_osd", IPCAM_VIDEO_PARAM_CHANGE_HANDLER_TYPE);
     ipcam_base_app_register_notice_handler(IPCAM_BASE_APP(self), "set_image", IPCAM_VIDEO_PARAM_CHANGE_HANDLER_TYPE);
@@ -554,6 +555,18 @@ void ipcam_imedia_got_baseinfo_parameter(IpcamIMedia *imedia, JsonNode *body)
     {
         for (i = MASTER_CHN; i < STREAM_CHN_LAST; i++)
             ipcam_iosd_set_content(priv->osd[i], IPCAM_OSD_TYPE_COMMENT, comment);
+    }
+}
+
+void ipcam_imedia_got_misc_parameter(IpcamIMedia *imedia, JsonNode *body)
+{
+    IpcamIMediaPrivate *priv = ipcam_imedia_get_instance_private(imedia);
+    JsonObject *res_object;
+
+    res_object = json_object_get_object_member(json_node_get_object(body), "items");
+
+    if (json_object_has_member(res_object, "rtsp_auth")) {
+        ipcam_imedia_set_rtsp_auth(imedia, body);
     }
 }
 

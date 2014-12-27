@@ -43,6 +43,9 @@ static void ipcam_video_param_change_handler_run_impl(IpcamVideoParamChangeHandl
 	if (g_str_equal (event, "set_base_info")) {
 		ipcam_imedia_got_baseinfo_parameter(IPCAM_IMEDIA(service), body);
 	}
+	else if (g_str_equal (event, "set_misc")) {
+		ipcam_imedia_got_misc_parameter(IPCAM_IMEDIA(service), body);
+	}
 	else if (g_str_equal (event, "set_video")) {
 		ipcam_imedia_got_video_param(IPCAM_IMEDIA(service), body, TRUE);
 	}
