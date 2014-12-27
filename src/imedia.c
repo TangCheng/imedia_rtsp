@@ -112,6 +112,9 @@ static void ipcam_imedia_init(IpcamIMedia *self)
     time(&priv->last_time);
     ipcam_base_app_register_notice_handler(IPCAM_BASE_APP(self), "set_base_info", IPCAM_VIDEO_PARAM_CHANGE_HANDLER_TYPE);
     ipcam_base_app_register_notice_handler(IPCAM_BASE_APP(self), "set_misc", IPCAM_VIDEO_PARAM_CHANGE_HANDLER_TYPE);
+    ipcam_base_app_register_notice_handler(IPCAM_BASE_APP(self), "add_users", IPCAM_VIDEO_PARAM_CHANGE_HANDLER_TYPE);
+    ipcam_base_app_register_notice_handler(IPCAM_BASE_APP(self), "set_users", IPCAM_VIDEO_PARAM_CHANGE_HANDLER_TYPE);
+    ipcam_base_app_register_notice_handler(IPCAM_BASE_APP(self), "del_users", IPCAM_VIDEO_PARAM_CHANGE_HANDLER_TYPE);
     ipcam_base_app_register_notice_handler(IPCAM_BASE_APP(self), "set_video", IPCAM_VIDEO_PARAM_CHANGE_HANDLER_TYPE);
     ipcam_base_app_register_notice_handler(IPCAM_BASE_APP(self), "set_osd", IPCAM_VIDEO_PARAM_CHANGE_HANDLER_TYPE);
     ipcam_base_app_register_notice_handler(IPCAM_BASE_APP(self), "set_image", IPCAM_VIDEO_PARAM_CHANGE_HANDLER_TYPE);
@@ -570,6 +573,45 @@ void ipcam_imedia_got_misc_parameter(IpcamIMedia *imedia, JsonNode *body)
     }
 }
 
+void ipcam_imedia_got_set_users_parameter(IpcamIMedia *imedia, JsonNode *body)
+{
+    IpcamIMediaPrivate *priv = ipcam_imedia_get_instance_private(imedia);
+    JsonArray *item_arr;
+    JsonObject *obj;
+    int i;
+
+    item_arr = json_object_get_array_member(json_node_get_object(body), "items");
+
+    for (i = 0; i < json_array_get_length (item_arr); i++) {
+        char *username;
+        char *password;
+
+        obj = json_array_get_object_element (item_arr, i);
+        username = json_object_get_string_member(obj, "username");
+        password = json_object_get_string_member(obj, "password");
+
+        ipcam_rtsp_insert_user(priv->rtsp, username, password);
+    }
+}
+
+void ipcam_imedia_got_del_users_parameter(IpcamIMedia *imedia, JsonNode *body)
+{
+    IpcamIMediaPrivate *priv = ipcam_imedia_get_instance_private(imedia);
+    JsonArray *item_arr;
+    JsonObject *obj;
+    int i;
+
+    item_arr = json_object_get_array_member(json_node_get_object(body), "items");
+
+    for (i = 0; i < json_array_get_length (item_arr); i++) {
+        char *username;
+
+        obj = json_array_get_object_element (item_arr, i);
+        username = json_object_get_string_member(obj, "username");
+
+        ipcam_rtsp_delete_user(priv->rtsp, username);
+    }
+}
 
 static void ipcam_imedia_set_rtsp_port(IpcamIMedia *imedia, JsonNode *body)
 {

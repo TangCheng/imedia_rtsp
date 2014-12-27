@@ -33,6 +33,7 @@ struct _IpcamRtspClass
 GType ipcam_rtsp_get_type(void);
 void ipcam_rtsp_set_port(IpcamRtsp *rtsp, guint port);
 void ipcam_rtsp_insert_user(IpcamRtsp *rtsp, const gchar *username, const gchar *password);
+void ipcam_rtsp_delete_user(IpcamRtsp *rtsp, const gchar *username);
 void ipcam_rtsp_set_auth(IpcamRtsp *rtsp, gboolean auth);
 void ipcam_rtsp_set_stream_path(IpcamRtsp *rtsp, enum StreamChannel chn, const gchar *path);
 void ipcam_rtsp_set_video_iface(IpcamRtsp *rtsp, IpcamIVideo *video);

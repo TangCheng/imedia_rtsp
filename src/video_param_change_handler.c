@@ -46,6 +46,15 @@ static void ipcam_video_param_change_handler_run_impl(IpcamVideoParamChangeHandl
 	else if (g_str_equal (event, "set_misc")) {
 		ipcam_imedia_got_misc_parameter(IPCAM_IMEDIA(service), body);
 	}
+	else if (g_str_equal (event, "add_users")) {
+		ipcam_imedia_got_set_users_parameter(IPCAM_IMEDIA(service), body);
+	}
+	else if (g_str_equal (event, "set_users")) {
+		ipcam_imedia_got_set_users_parameter(IPCAM_IMEDIA(service), body);
+	}
+	else if (g_str_equal (event, "del_users")) {
+		ipcam_imedia_got_del_users_parameter(IPCAM_IMEDIA(service), body);
+	}
 	else if (g_str_equal (event, "set_video")) {
 		ipcam_imedia_got_video_param(IPCAM_IMEDIA(service), body, TRUE);
 	}

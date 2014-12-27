@@ -121,6 +121,9 @@ void ipcam_rtsp_insert_user(IpcamRtsp *rtsp, const gchar *username, const gchar 
 {
     IpcamRtspPrivate *priv = (IpcamRtspPrivate *)ipcam_rtsp_get_instance_private(rtsp);
 
+    if (priv->auth_db->lookupPassword(username))
+        priv->auth_db->removeUserRecord(username);
+
     priv->auth_db->addUserRecord(username, password);
 }
 
