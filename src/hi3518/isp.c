@@ -125,9 +125,9 @@ static void ipcam_isp_init_image_attr(IpcamIsp *self, ISP_IMAGE_ATTR_S *pstImage
     else if (g_str_equal(priv->sensor_type, "IMX222"))
     {
         pstImageAttr->enBayer      = BAYER_RGGB;
-        if (priv->image_width == 1200)
+        if (priv->image_height == 1200)
         {
-            pstImageAttr->u16FrameRate = 20;
+            pstImageAttr->u16FrameRate = 30;
             pstImageAttr->u16Width     = 1920;
             pstImageAttr->u16Height    = 1200;
         }
@@ -281,6 +281,8 @@ gint32 ipcam_isp_start(IpcamIsp *self, StreamDescriptor desc[])
             g_critical("%s: sensor_register_callback failed with %#x!\n", __FUNCTION__, s32Ret);
             return s32Ret;
         }
+
+        ipcam_isp_set_image_mode(self);
     }
 
 	ISP_IMAGE_ATTR_S stImageAttr;
@@ -331,7 +333,6 @@ gint32 ipcam_isp_start(IpcamIsp *self, StreamDescriptor desc[])
               if the sensor you used is different, you can change
               ISP_IMAGE_ATTR_S definition */
     ipcam_isp_init_image_attr(self, &stImageAttr);
-
     s32Ret = HI_MPI_ISP_SetImageAttr(&stImageAttr);
     if (s32Ret != HI_SUCCESS)
     {
@@ -353,10 +354,9 @@ gint32 ipcam_isp_start(IpcamIsp *self, StreamDescriptor desc[])
         return HI_FAILURE;
     }
 
-    ipcam_isp_set_image_mode(self);
-
     return HI_SUCCESS;
 }
+
 void ipcam_isp_stop(IpcamIsp *self)
 {
     IpcamIspPrivate *priv = ipcam_isp_get_instance_private(self);
@@ -391,6 +391,8 @@ void ipcam_isp_param_change(IpcamIsp *self, StreamDescriptor desc[])
 
     ipcam_isp_set_pixel_clock(self);
 
+    ipcam_isp_set_image_mode(self);
+
     ipcam_isp_init_image_attr(self, &stImageAttr);
     s32Ret = HI_MPI_ISP_SetImageAttr(&stImageAttr);
     if (s32Ret != HI_SUCCESS)
@@ -406,6 +408,4 @@ void ipcam_isp_param_change(IpcamIsp *self, StreamDescriptor desc[])
         g_critical("%s: HI_MPI_ISP_SetInputTiming failed with %#x!\n", __FUNCTION__, s32Ret);
         return s32Ret;
     }
-
-    ipcam_isp_set_image_mode(self);
 }
