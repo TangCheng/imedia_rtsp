@@ -281,8 +281,6 @@ gint32 ipcam_isp_start(IpcamIsp *self, StreamDescriptor desc[])
             g_critical("%s: sensor_register_callback failed with %#x!\n", __FUNCTION__, s32Ret);
             return s32Ret;
         }
-
-        ipcam_isp_set_image_mode(self);
     }
 
 	ISP_IMAGE_ATTR_S stImageAttr;
@@ -327,6 +325,8 @@ gint32 ipcam_isp_start(IpcamIsp *self, StreamDescriptor desc[])
         g_critical("%s: HI_MPI_ISP_Init failed with %#x!\n", __FUNCTION__, s32Ret);
         return s32Ret;
     }
+
+    ipcam_isp_set_image_mode(self);
 
     /* 5. isp set image attributes */
     /* note : different sensor, different ISP_IMAGE_ATTR_S define.
