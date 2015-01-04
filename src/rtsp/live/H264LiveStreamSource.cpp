@@ -82,6 +82,8 @@ H264LiveStreamSource::H264LiveStreamSource(UsageEnvironment& env, H264LiveStream
     // Any instance-specific initialization of the device would be done here:
     ClearVideoStreamBuffer(fParams.fChannelNo);
 
+    HI_MPI_VENC_RequestIDRInst(fParams.fChannelNo);
+
     vencFd = HI_MPI_VENC_GetFd(fParams.fChannelNo);
 
     scheduler.setBackgroundHandling(vencFd, SOCKET_READABLE,
@@ -197,12 +199,8 @@ void H264LiveStreamSource::deliverFrame() {
 
     firstDeliverFrame = False;
 
-#if 1
     fPresentationTime.tv_sec = stStream.pstPack[0].u64PTS / 1000000UL;
     fPresentationTime.tv_usec = stStream.pstPack[0].u64PTS % 1000000UL;
-#else
-    gettimeofday(&fPresentationTime, NULL);
-#endif
 
     fFrameSize = 0;
     for (int i = 0; i < stStream.u32PackCount; i++) {
