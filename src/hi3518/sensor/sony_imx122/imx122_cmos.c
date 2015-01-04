@@ -348,7 +348,7 @@ static HI_S32 cmos_get_ae_default(AE_SENSOR_DEFAULT_S *pstAeSnsDft)
             break;
         case SENSOR_UXGA_20FPS_MODE:
             pstAeSnsDft->u32MaxIntTime = 1223;
-            pstAeSnsDft->u32LinesPer500ms = 1225*30/2;
+            pstAeSnsDft->u32LinesPer500ms = 1225*20/2;
             gu32FullLinesStd = 1225;
             break;
         default:
