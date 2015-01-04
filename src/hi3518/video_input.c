@@ -109,6 +109,7 @@ gint32 ipcam_video_input_start(IpcamVideoInput *self, StreamDescriptor desc[])
     HI_S32 s32Ret = HI_SUCCESS;
     VI_DEV ViDev;
     VI_CHN ViChn;
+    VI_CHN ViExtChn;
     guint32 sensor_image_width, sensor_image_height;
     gchar *resolution;
     guint32 input_fps;
@@ -242,6 +243,28 @@ gint32 ipcam_video_input_start(IpcamVideoInput *self, StreamDescriptor desc[])
         return HI_FAILURE;
     }
 
+    VI_EXT_CHN_ATTR_S stViExtChnAttr;
+    stViExtChnAttr.s32BindChn = 0;
+    stViExtChnAttr.stDestSize.u32Width = 320;
+    stViExtChnAttr.stDestSize.u32Height = 240;
+    stViExtChnAttr.s32SrcFrameRate = input_fps;
+    stViExtChnAttr.s32FrameRate = input_fps;
+    stViExtChnAttr.enPixFormat = PIXEL_FORMAT_YUV_SEMIPLANAR_422;
+
+    ViExtChn = 1;
+    s32Ret = HI_MPI_VI_SetExtChnAttr(ViExtChn, &stViExtChnAttr);
+    if (s32Ret != HI_SUCCESS) {
+        g_critical("HI_MPI_VI_SetExtChnAttr [%d] failed with %#x!\n", ViChn, s32Ret);
+        return HI_FAILURE;
+    }
+
+    s32Ret = HI_MPI_VI_EnableChn(ViExtChn);
+    if (s32Ret != HI_SUCCESS)
+    {
+        g_critical("HI_MPI_VI_Enable [%d] failed with %#x!\n", ViExtChn, s32Ret);
+        return HI_FAILURE;
+    }
+
     return s32Ret;
 }
 
@@ -250,7 +273,16 @@ gint32 ipcam_video_input_stop(IpcamVideoInput *self)
     g_return_val_if_fail(IPCAM_IS_VIDEO_INPUT(self), HI_FAILURE);
     VI_DEV ViDev;
     VI_CHN ViChn;
+    VI_CHN ViExtChn;
     HI_S32 s32Ret;
+
+    /* Stop vi ext-chn */
+    ViExtChn = 1;
+    s32Ret = HI_MPI_VI_DisableChn(ViExtChn);
+    if (HI_SUCCESS != s32Ret)
+    {
+        g_critical("HI_MPI_VI_DisableChn [%d] failed with %#x\n", ViExtChn, s32Ret);
+    }
 
     /* Stop vi phy-chn */
     ViChn = 0;
@@ -258,7 +290,6 @@ gint32 ipcam_video_input_stop(IpcamVideoInput *self)
     if (HI_SUCCESS != s32Ret)
     {
         g_critical("HI_MPI_VI_DisableChn [%d] failed with %#x\n", ViChn, s32Ret);
-        return HI_FAILURE;
     }
 
     /*** Stop VI Dev ***/
@@ -267,7 +298,6 @@ gint32 ipcam_video_input_stop(IpcamVideoInput *self)
     if (HI_SUCCESS != s32Ret)
     {
         g_critical("HI_MPI_VI_DisableDev [%d] failed with %#x\n", ViDev, s32Ret);
-        return HI_FAILURE;
     }
 
     return HI_SUCCESS;
