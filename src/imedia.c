@@ -544,7 +544,10 @@ void ipcam_imedia_got_baseinfo_parameter(IpcamIMedia *imedia, JsonNode *body)
     res_object = json_object_get_object_member(json_node_get_object(body), "items");
 
     const gchar *device_name = NULL;
-    device_name = json_object_get_string_member(res_object, "device_name");
+    if (json_object_has_member(res_object, "device_name"))
+    {
+        device_name = json_object_get_string_member(res_object, "device_name");
+    }
 
     if (NULL != device_name && strlen(device_name) > 0)
     {
@@ -583,12 +586,17 @@ void ipcam_imedia_got_set_users_parameter(IpcamIMedia *imedia, JsonNode *body)
     item_arr = json_object_get_array_member(json_node_get_object(body), "items");
 
     for (i = 0; i < json_array_get_length (item_arr); i++) {
-        char *username;
-        char *password;
+        char *username = NULL;
+        char *password = NULL;
 
         obj = json_array_get_object_element (item_arr, i);
-        username = json_object_get_string_member(obj, "username");
-        password = json_object_get_string_member(obj, "password");
+        if (obj && json_object_has_member(obj, "username")) {
+            username = json_object_get_string_member(obj, "username");
+            if (json_object_has_member(obj, "username"))
+            {
+                password = json_object_get_string_member(obj, "password");
+            }
+        }
 
         ipcam_rtsp_insert_user(priv->rtsp, username, password);
     }
@@ -615,9 +623,19 @@ void ipcam_imedia_got_del_users_parameter(IpcamIMedia *imedia, JsonNode *body)
 
 static void ipcam_imedia_set_rtsp_port(IpcamIMedia *imedia, JsonNode *body)
 {
-    JsonObject *items = json_object_get_object_member(json_node_get_object(body), "items");
-    JsonObject *server_port = json_object_get_object_member(items, "port");
-    const guint rtsp_port = json_object_get_int_member(server_port, "rtsp");
+    JsonObject *items;
+    JsonObject *server_port;
+    guint rtsp_port;
+
+    items = json_object_get_object_member(json_node_get_object(body), "items");
+
+    g_return_if_fail(items);
+
+    server_port = json_object_get_object_member(items, "port");
+
+    g_return_if_fail(server_port && json_object_has_member(server_port, "rtsp"));
+
+    rtsp_port = json_object_get_int_member(server_port, "rtsp");
 
     IpcamIMediaPrivate *priv = ipcam_imedia_get_instance_private(imedia);
     ipcam_rtsp_set_port(priv->rtsp, rtsp_port);
@@ -625,11 +643,18 @@ static void ipcam_imedia_set_rtsp_port(IpcamIMedia *imedia, JsonNode *body)
 
 static void proc_each_user(JsonArray *array, guint index_, JsonNode *element_node, gpointer user_data)
 {
-    const gchar *username = json_object_get_string_member(json_node_get_object(element_node), "username");
-    const gchar *password = json_object_get_string_member(json_node_get_object(element_node), "password");
-
+    const gchar *username = NULL;
+    const gchar *password = NULL;
+    JsonObject *obj = json_node_get_object(element_node);
     IpcamIMediaPrivate *priv = ipcam_imedia_get_instance_private(IPCAM_IMEDIA(user_data));
-    ipcam_rtsp_insert_user(priv->rtsp, username, password);
+
+    if (json_object_has_member(obj, "username")) {
+        username = json_object_get_string_member(obj, "username");
+        if (json_object_has_member(obj, "password"))
+            password = json_object_get_string_member(obj, "password");
+
+        ipcam_rtsp_insert_user(priv->rtsp, username, password);
+    }
 }
 
 static void ipcam_imedia_set_users(IpcamIMedia *irtsp, JsonNode *body)
@@ -641,10 +666,14 @@ static void ipcam_imedia_set_users(IpcamIMedia *irtsp, JsonNode *body)
 static void ipcam_imedia_set_rtsp_auth(IpcamIMedia *imedia, JsonNode *body)
 {
     JsonObject *res_obj = json_object_get_object_member(json_node_get_object(body), "items");
-    gboolean rtsp_auth = json_object_get_boolean_member(res_obj, "rtsp_auth");
+    gboolean rtsp_auth;
 
-    IpcamIMediaPrivate *priv = ipcam_imedia_get_instance_private(imedia);
-    ipcam_rtsp_set_auth(priv->rtsp, rtsp_auth);
+    if (json_object_has_member(res_obj, "rtsp_auth")) {
+        rtsp_auth = json_object_get_boolean_member(res_obj, "rtsp_auth");
+
+        IpcamIMediaPrivate *priv = ipcam_imedia_get_instance_private(imedia);
+        ipcam_rtsp_set_auth(priv->rtsp, rtsp_auth);
+    }
 }
 
 static void ipcam_imedia_parse_profile(IpcamIMedia *imedia, const gchar *profile)
@@ -732,15 +761,28 @@ static void ipcam_imedia_parse_bit_rate(IpcamIMedia *imedia, const gchar *bit_ra
 static void ipcam_imedia_parse_stream(IpcamIMedia *imedia, JsonObject *obj, enum StreamChannel chn)
 {
     IpcamIMediaPrivate *priv = ipcam_imedia_get_instance_private(imedia);
-    const gchar *resolution = json_object_get_string_member(obj, "resolution");
-    ipcam_imedia_parse_resolution(imedia, resolution, chn);
-    priv->stream_desc[chn].v_desc.resolution = g_strdup(resolution);
-    const gchar *bit_rate_ctrl = json_object_get_string_member(obj, "bit_rate");
-    ipcam_imedia_parse_bit_rate(imedia, bit_rate_ctrl, chn);
-    priv->stream_desc[chn].v_desc.frame_rate = json_object_get_int_member(obj, "frame_rate");
-    priv->stream_desc[chn].v_desc.bit_rate = json_object_get_int_member(obj, "bit_rate_value");
-    priv->stream_desc[chn].v_desc.path = g_strdup(json_object_get_string_member(obj, "stream_path"));
-    ipcam_rtsp_set_stream_path(priv->rtsp, chn, priv->stream_desc[chn].v_desc.path);
+    const gchar *resolution;
+    const gchar *bit_rate_ctrl;
+
+    if (json_object_has_member(obj, "resolution")) {
+        resolution = json_object_get_string_member(obj, "resolution");
+        ipcam_imedia_parse_resolution(imedia, resolution, chn);
+        priv->stream_desc[chn].v_desc.resolution = g_strdup(resolution);
+    }
+    if (json_object_has_member(obj, "bit_rate")) {
+        bit_rate_ctrl = json_object_get_string_member(obj, "bit_rate");
+        ipcam_imedia_parse_bit_rate(imedia, bit_rate_ctrl, chn);
+    }
+    if (json_object_has_member(obj, "frame_rate")) {
+        priv->stream_desc[chn].v_desc.frame_rate = json_object_get_int_member(obj, "frame_rate");
+    }
+    if (json_object_has_member(obj, "bit_rate_value")) {
+        priv->stream_desc[chn].v_desc.bit_rate = json_object_get_int_member(obj, "bit_rate_value");
+    }
+    if (json_object_has_member(obj, "stream_path")) {
+        priv->stream_desc[chn].v_desc.path = g_strdup(json_object_get_string_member(obj, "stream_path"));
+        ipcam_rtsp_set_stream_path(priv->rtsp, chn, priv->stream_desc[chn].v_desc.path);
+    }
 }
 
 void ipcam_imedia_got_video_param(IpcamIMedia *imedia, JsonNode *body, gboolean is_notice)
@@ -824,7 +866,6 @@ static void ipcam_imedia_osd_lookup_video_run_info(IpcamIMedia *imedia,
     regmatch_t pmatch[4];
     const size_t nmatch = sizeof(pmatch) / sizeof(pmatch[0]);
     gint status;
-    gint i;
     IpcamIMediaPrivate *priv = ipcam_imedia_get_instance_private(imedia);
 
     status = regexec(&priv->reg, buffer, nmatch, pmatch, 0);
