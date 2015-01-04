@@ -393,6 +393,8 @@ void ipcam_isp_param_change(IpcamIsp *self, StreamDescriptor desc[])
 
     ipcam_isp_set_image_mode(self);
 
+    usleep(200000);
+
     ipcam_isp_init_image_attr(self, &stImageAttr);
     s32Ret = HI_MPI_ISP_SetImageAttr(&stImageAttr);
     if (s32Ret != HI_SUCCESS)
