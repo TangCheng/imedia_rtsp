@@ -117,23 +117,32 @@ gint32 ipcam_video_input_start(IpcamVideoInput *self, StreamDescriptor desc[])
 
     g_return_val_if_fail(IPCAM_IS_VIDEO_INPUT(self), HI_FAILURE);
 
+    /* default sensor mode: 1920x1200@20Hz */
+    sensor_image_width = 1920;
+    sensor_image_height = 1200;
+    input_fps = 20;
+
     resolution = desc[MASTER_CHN].v_desc.resolution;
     if (g_str_equal(resolution, "UXGA") ||
         g_str_equal(resolution, "960H"))
     {
+#if defined(SENSOR_MODE_AUTO)
         sensor_image_width = 1920;
         sensor_image_height = 1200;
+        input_fps = 20;
+#endif
         priv->image_width = 1600;
         priv->image_height = 1200;
-        input_fps = 20;
     }
     else
     {
+#if defined(SENSOR_MODE_AUTO)
         sensor_image_width = 1920;
         sensor_image_height = 1080;
+        input_fps = 30;
+#endif
         priv->image_width = 1920;
         priv->image_height = 1080;
-        input_fps = 30;
     }
 
     /******************************************************

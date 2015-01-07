@@ -39,6 +39,8 @@ extern void signalNewFrameData(void *clientData);
 static void ipcam_ivideo_interface_init(IpcamIVideoInterface *iface);
 static gpointer ipcam_media_video_livestream(gpointer data);
 
+#define ENABLE_VIDEO_DETECT
+
 G_DEFINE_TYPE_WITH_CODE(IpcamMediaVideo, ipcam_media_video, G_TYPE_OBJECT,
                         G_IMPLEMENT_INTERFACE(IPCAM_TYPE_IVIDEO,
                                               ipcam_ivideo_interface_init));

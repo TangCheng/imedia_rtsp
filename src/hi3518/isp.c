@@ -209,6 +209,7 @@ static gboolean ipcam_isp_check_video_resolution(IpcamIsp *self, StreamDescripto
     guint32 image_height;
     guint32 fps;
 
+#if defined(SENSOR_MODE_AUTO)
     resolution = desc[MASTER_CHN].v_desc.resolution;
     if (g_str_equal(resolution, "UXGA") ||
         g_str_equal(resolution, "960H"))
@@ -223,6 +224,11 @@ static gboolean ipcam_isp_check_video_resolution(IpcamIsp *self, StreamDescripto
         image_height = 1080;
         fps = 30;
     }
+#else
+    image_width = 1920;
+    image_height = 1200;
+    fps = 20;
+#endif
 
     if (priv->image_height != image_height) {
         priv->image_width = image_width;

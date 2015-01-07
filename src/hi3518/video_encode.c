@@ -116,19 +116,26 @@ gint32 ipcam_video_encode_start(IpcamVideoEncode *self, StreamDescriptor desc[])
     guint input_fps;
     guint output_fps;
 
+    /* default sensor mode: 1920x1200@20Hz */
+    input_fps = 20;
+
     gchar *resolution = desc[MASTER_CHN].v_desc.resolution;
     if (g_str_equal(resolution, "UXGA") ||
         g_str_equal(resolution, "960H"))
     {
         input_width = 1600;
         input_height = 1200;
+#if defined(SENSOR_MODE_AUTO)
         input_fps = 20;
+#endif
     }
     else
     {
         input_width = 1920;
         input_height = 1080;
+#if defined(SENSOR_MODE_AUTO)
         input_fps = 30;
+#endif
     }
 
     for (chn = MASTER_CHN; chn < STREAM_CHN_LAST; chn++)
@@ -207,35 +214,32 @@ gint32 ipcam_video_encode_start(IpcamVideoEncode *self, StreamDescriptor desc[])
             g_critical("HI_MPI_VENC_RegisterChn(%d,%d) err 0x%x\n", VeGroup, VeChn, s32Ret);
             return HI_FAILURE;
         }
-        if (VeGroup != MASTER_CHN)
-        {
-            guint cropped_width, cropped_height;
 
-            /* calculate the cropped image size */
-            /* input_width / input_height > image_width / image_height */
-            if (input_width * image_height > input_height * image_width) {
-                cropped_height = input_height;
-                cropped_width = cropped_height * image_width / image_height;
-            }
-            else {
-                cropped_width = input_width;
-                cropped_height = cropped_width * image_height / image_width;
-            }
+        guint cropped_width, cropped_height;
+        /* calculate the cropped image size */
+        /* input_width / input_height > image_width / image_height */
+        if (input_width * image_height > input_height * image_width) {
+            cropped_height = input_height;
+            cropped_width = cropped_height * image_width / image_height;
+        }
+        else {
+            cropped_width = input_width;
+            cropped_height = cropped_width * image_height / image_width;
+        }
 
-            GROUP_CROP_CFG_S stGrpCropCfg = {
-                .bEnable = TRUE,
-                .stRect = {
-                    .s32X = ((input_width - cropped_width) / 2) & (0xFFFFFFF0),
-                    .s32Y = (input_height - cropped_height) / 2,
-                    .u32Width = cropped_width & 0xFFFFFFF0,
-                    .u32Height = cropped_height & 0xFFFFFFF0
-                }
-            };
-
-            s32Ret = HI_MPI_VENC_SetGrpCrop(VeGroup, &stGrpCropCfg);
-            if (HI_SUCCESS != s32Ret) {
-                g_critical("HI_MPI_VENC_SetGrpCrop(%d) err 0x%x\n", VeGroup, s32Ret);
+        GROUP_CROP_CFG_S stGrpCropCfg = {
+            .bEnable = (input_width * image_height != input_height * image_width) ? HI_TRUE : HI_FALSE,
+            .stRect = {
+                .s32X = ((input_width - cropped_width) / 2) & (0xFFFFFFF0),
+                .s32Y = (input_height - cropped_height) / 2,
+                .u32Width = cropped_width & 0xFFFFFFF0,
+                .u32Height = cropped_height & 0xFFFFFFF0
             }
+        };
+
+        s32Ret = HI_MPI_VENC_SetGrpCrop(VeGroup, &stGrpCropCfg);
+        if (HI_SUCCESS != s32Ret) {
+            g_critical("HI_MPI_VENC_SetGrpCrop(%d) err 0x%x\n", VeGroup, s32Ret);
         }
 
         s32Ret = HI_MPI_VENC_StartRecvPic(VeChn);
@@ -274,21 +278,19 @@ gint32 ipcam_video_encode_stop(IpcamVideoEncode *self)
         /******************************************
          step 2:  Disable Venc Group Crop
          ******************************************/
-        if (VeGrp != MASTER_CHN)
-        {
-            GROUP_CROP_CFG_S stGrpCropCfg = {
-                .bEnable = FALSE,
-                .stRect = {
-                    .s32X = 0, .s32Y = 0,
-                    .u32Width = 0,
-                    .u32Height = 0
-                }
-            };
-            s32Ret = HI_MPI_VENC_SetGrpCrop(VeGrp, &stGrpCropCfg);
-            if (HI_SUCCESS != s32Ret) {
-                g_critical("HI_MPI_VENC_SetGrpCrop(%d) err 0x%x\n", VeGrp, s32Ret);
+        GROUP_CROP_CFG_S stGrpCropCfg = {
+            .bEnable = FALSE,
+            .stRect = {
+                .s32X = 0, .s32Y = 0,
+                .u32Width = 0,
+                .u32Height = 0
             }
+        };
+        s32Ret = HI_MPI_VENC_SetGrpCrop(VeGrp, &stGrpCropCfg);
+        if (HI_SUCCESS != s32Ret) {
+            g_critical("HI_MPI_VENC_SetGrpCrop(%d) err 0x%x\n", VeGrp, s32Ret);
         }
+
         /******************************************
          step 2:  UnRegist Venc Channel
          ******************************************/
