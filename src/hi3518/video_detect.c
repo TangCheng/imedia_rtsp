@@ -196,7 +196,7 @@ gint32 ipcam_video_detect_start(IpcamVideoDetect *self, StreamDescriptor desc[])
         rgn_attr->stRect.u32Width = 320;
         rgn_attr->stRect.u32Height = 240;
         rgn_attr->u32SadTh = 260;
-        rgn_attr->u32AreaTh = 60; /* 60% */
+        rgn_attr->u32AreaTh = 80; /* 80% */
         rgn_attr->u32OccCntTh = 4;
         rgn_attr->u32UnOccCntTh = 1;
     }
