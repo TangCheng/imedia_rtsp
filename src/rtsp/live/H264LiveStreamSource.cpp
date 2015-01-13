@@ -216,7 +216,6 @@ void H264LiveStreamSource::deliverFrame() {
     s32Ret = HI_MPI_VENC_Query(fParams.fChannelNo, &stStat);
     if (HI_SUCCESS != s32Ret)
     {
-        g_print("HI_MPI_VENC_Query chn[%d] failed with %#x!\n", fParams.fChannelNo, s32Ret);
         nextTask() = envir().taskScheduler().scheduleDelayedTask(10000, (TaskFunc*)deliverFrame0, this);
         return;
     }
@@ -238,7 +237,7 @@ void H264LiveStreamSource::deliverFrame() {
     }
 
     /* Drop the first Non-IDR frames */
-#if 1
+#if 0
     if (firstDeliverFrame && stStream.stH264Info.enRefType != BASE_IDRSLICE) {
         s32Ret = HI_MPI_VENC_ReleaseStream(fParams.fChannelNo, &stStream);
         if (HI_SUCCESS != s32Ret)
