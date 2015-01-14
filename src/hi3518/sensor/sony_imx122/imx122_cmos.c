@@ -267,8 +267,8 @@ HI_VOID cmos_set_pixel_detect(HI_BOOL bEnable)
     }
     else /* setup for ISP 'normal mode' */
     {
-        sensor_write_register(VMAX_ADDR, 0x65);
-        sensor_write_register(VMAX_ADDR + 1, 0x04);
+        sensor_write_register(VMAX_ADDR, (gu32FullLinesStd & 0xff));
+        sensor_write_register(VMAX_ADDR+1, (gu32FullLinesStd >> 8));
     }
 
     return;
@@ -347,9 +347,9 @@ static HI_S32 cmos_get_ae_default(AE_SENSOR_DEFAULT_S *pstAeSnsDft)
             gu32FullLinesStd = 1125;
             break;
         case SENSOR_UXGA_20FPS_MODE:
-            pstAeSnsDft->u32MaxIntTime = 1223;
-            pstAeSnsDft->u32LinesPer500ms = 1225*20/2;
-            gu32FullLinesStd = 1225;
+            pstAeSnsDft->u32MaxIntTime = 1248;
+            pstAeSnsDft->u32LinesPer500ms = 1250*20/2;
+            gu32FullLinesStd = 1250;
             break;
         default:
             break;
@@ -402,11 +402,11 @@ static HI_VOID cmos_fps_set(HI_U8 u8Fps, AE_SENSOR_DEFAULT_S *pstAeSnsDft)
         {
             case 20:
                 // Change the frame rate via changing the vertical blanking
-                gu32FullLinesStd = 1225;
-                pstAeSnsDft->u32MaxIntTime = 1222;
-                pstAeSnsDft->u32LinesPer500ms = 1225 * 20 / 2;
-                sensor_write_register(VMAX_ADDR, 0x65);
-                sensor_write_register(VMAX_ADDR+1, 0x04);
+                gu32FullLinesStd = 1250;
+                pstAeSnsDft->u32MaxIntTime = 1248;
+                pstAeSnsDft->u32LinesPer500ms = 1250 * 20 / 2;
+                sensor_write_register(VMAX_ADDR, (gu32FullLinesStd & 0xff));
+                sensor_write_register(VMAX_ADDR+1, (gu32FullLinesStd >> 8));
                 break;
             default:
                 break;
@@ -421,16 +421,16 @@ static HI_VOID cmos_fps_set(HI_U8 u8Fps, AE_SENSOR_DEFAULT_S *pstAeSnsDft)
                 gu32FullLinesStd = 1125;
                 pstAeSnsDft->u32MaxIntTime = 1122;
                 pstAeSnsDft->u32LinesPer500ms = 1125 * 30 / 2;
-                sensor_write_register(VMAX_ADDR, 0x65);
-                sensor_write_register(VMAX_ADDR+1, 0x04);
+                sensor_write_register(VMAX_ADDR, (gu32FullLinesStd & 0xff));
+                sensor_write_register(VMAX_ADDR+1, (gu32FullLinesStd >> 8));
                 break;
             case 25:
                 // Change the frame rate via changing the vertical blanking
                 gu32FullLinesStd = 1350;
                 pstAeSnsDft->u32MaxIntTime = 1347;
                 pstAeSnsDft->u32LinesPer500ms = 1350 * 25 / 2;
-                sensor_write_register(VMAX_ADDR, 0x46);
-                sensor_write_register(VMAX_ADDR+1, 0x05);
+                sensor_write_register(VMAX_ADDR, (gu32FullLinesStd & 0xff));
+                sensor_write_register(VMAX_ADDR+1, (gu32FullLinesStd >> 8));
                 break;
             default:
                 break;
@@ -445,8 +445,8 @@ static HI_VOID cmos_fps_set(HI_U8 u8Fps, AE_SENSOR_DEFAULT_S *pstAeSnsDft)
                 gu32FullLinesStd = 750;
                 pstAeSnsDft->u32MaxIntTime = 748;
                 pstAeSnsDft->u32LinesPer500ms = 750 * 60 / 2;
-                sensor_write_register(VMAX_ADDR, 0xEE);
-                sensor_write_register(VMAX_ADDR+1, 0x02);
+                sensor_write_register(VMAX_ADDR, (gu32FullLinesStd & 0xff));
+                sensor_write_register(VMAX_ADDR+1, (gu32FullLinesStd >> 8));
                 break;
 
             case 50:
@@ -454,8 +454,8 @@ static HI_VOID cmos_fps_set(HI_U8 u8Fps, AE_SENSOR_DEFAULT_S *pstAeSnsDft)
                 gu32FullLinesStd = 900;
                 pstAeSnsDft->u32MaxIntTime = 897;
                 pstAeSnsDft->u32LinesPer500ms = 900 * 50 / 2;
-                sensor_write_register(VMAX_ADDR, 0x84);
-                sensor_write_register(VMAX_ADDR+1, 0x03);
+                sensor_write_register(VMAX_ADDR, (gu32FullLinesStd & 0xff));
+                sensor_write_register(VMAX_ADDR+1, (gu32FullLinesStd >> 8));
                 break;
 
             default:
@@ -472,8 +472,8 @@ static HI_VOID cmos_fps_set(HI_U8 u8Fps, AE_SENSOR_DEFAULT_S *pstAeSnsDft)
                 gu32FullLinesStd = 750;
                 pstAeSnsDft->u32MaxIntTime = 748;
                 pstAeSnsDft->u32LinesPer500ms = 750 * 30 / 2;
-                sensor_write_register(VMAX_ADDR, 0xEE);
-                sensor_write_register(VMAX_ADDR+1, 0x02);
+                sensor_write_register(VMAX_ADDR, (gu32FullLinesStd & 0xff));
+                sensor_write_register(VMAX_ADDR+1, (gu32FullLinesStd >> 8));
                 break;
 
             case 25:
@@ -481,8 +481,8 @@ static HI_VOID cmos_fps_set(HI_U8 u8Fps, AE_SENSOR_DEFAULT_S *pstAeSnsDft)
                 gu32FullLinesStd = 900;
                 pstAeSnsDft->u32MaxIntTime = 897;
                 pstAeSnsDft->u32LinesPer500ms = 900 * 25 / 2;
-                sensor_write_register(VMAX_ADDR, 0x84);
-                sensor_write_register(VMAX_ADDR+1, 0x03);
+                sensor_write_register(VMAX_ADDR, (gu32FullLinesStd & 0xff));
+                sensor_write_register(VMAX_ADDR+1, (gu32FullLinesStd >> 8));
                 break;
 
             default:
@@ -506,8 +506,8 @@ static HI_VOID cmos_slow_framerate_set(HI_U16 u16FullLines,
 {
     gu32FullLines = u16FullLines;
 
-    sensor_write_register(VMAX_ADDR, (gu32FullLines & 0x00ff));
-    sensor_write_register(VMAX_ADDR+1, ((gu32FullLines & 0xff00) >> 8));
+    sensor_write_register(VMAX_ADDR, (gu32FullLines & 0xff));
+    sensor_write_register(VMAX_ADDR+1, (gu32FullLines >> 8));
 
     pstAeSnsDft->u32MaxIntTime = gu32FullLines - 3;
 

@@ -691,7 +691,7 @@ void sensor_init_uxga_20fps()
     sensor_write_register(0x222, 0x40);
     sensor_write_register(0x205, 0xE2);
     sensor_write_register(0x206, 0x04);
-    sensor_write_register(0x203, 0x98);
+    sensor_write_register(0x203, 0x70);
     sensor_write_register(0x204, 0x08);
     sensor_write_register(0x23B, 0xE0);
 
