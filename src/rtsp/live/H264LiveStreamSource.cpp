@@ -35,56 +35,6 @@
 #include "stream_descriptor.h"
 #include "interface/media_video_interface.h"
 
-#if 0
-PtsCalibrater::PtsCalibrater(uint32_t sync_win_us)
-{
-    struct timeval tv;
-
-    fSyncWinUs = sync_win_us;
-
-    HI_MPI_SYS_GetCurPts(&fBasePts);
-    gettimeofday(&tv, NULL);
-    fBaseTv = tv.tv_sec * 1000000LL + tv.tv_usec;
-
-    fDiffTv = 1000;
-    fDiffPts = 1000;
-}
-
-void PtsCalibrater::Calibrate(void)
-{
-    struct timeval tv;
-    uint64_t tvNow;
-    HI_U64 ptsNow;
-
-    HI_MPI_SYS_GetCurPts(&ptsNow);
-    gettimeofday(&tv, NULL);
-
-    tvNow = tv.tv_sec * 1000000LL + tv.tv_usec;
-    int64_t tvDiff = tvNow - fBaseTv;
-    if (tvDiff >= fSyncWinUs) {
-        HI_S64 ptsDiff = ptsNow - fBasePts;
-        if (ptsDiff) {
-            fDiffPts = tvDiff;
-            fDiffTv = ptsDiff;
-            fBasePts = ptsNow;
-            fBaseTv = tvNow;
-        }
-    }
-}
-
-void PtsCalibrater::PtsToTimevalue(HI_U64 pts, struct timeval &tv)
-{
-    if (!fDiffTv || !fDiffPts) {
-        gettimeofday(&tv, NULL);
-    }
-    else {
-        int64_t t = fBaseTv + ((int64_t)pts - (int64_t)fBasePts) * fDiffTv / fDiffPts;
-        tv.tv_sec = t / 1000000;
-        tv.tv_usec = t % 1000000;
-    }
-}
-#endif
-
 H264LiveStreamSource*
 H264LiveStreamSource::createNew(UsageEnvironment& env, H264LiveStreamParameters params)
 {
@@ -117,15 +67,15 @@ static void ClearVideoStreamBuffer(StreamChannel chn)
     }
 }
 
-//static void StreamSourceDataAvailable(void *clientData, int mask)
-//{
-//    H264LiveStreamSource *stream_source = (H264LiveStreamSource *)clientData; 
-//
-//    stream_source->envir().taskScheduler().triggerEvent(stream_source->eventTriggerId, stream_source);
-//}
+static void StreamSourceDataAvailable(void *clientData, int mask)
+{
+    H264LiveStreamSource *stream_source = (H264LiveStreamSource *)clientData; 
+
+    stream_source->envir().taskScheduler().triggerEvent(stream_source->eventTriggerId, stream_source);
+}
 
 H264LiveStreamSource::H264LiveStreamSource(UsageEnvironment& env, H264LiveStreamParameters params)
-    : FramedSource(env), fParams(params), /*eventTriggerId(0),*/ firstDeliverFrame(True)
+    : FramedSource(env), fParams(params), eventTriggerId(0), firstDeliverFrame(True)
 {
     TaskScheduler &scheduler = envir().taskScheduler();
 
@@ -134,11 +84,11 @@ H264LiveStreamSource::H264LiveStreamSource(UsageEnvironment& env, H264LiveStream
 
     HI_MPI_VENC_RequestIDRInst(fParams.fChannelNo);
 
-//    vencFd = HI_MPI_VENC_GetFd(fParams.fChannelNo);
-//
-//    scheduler.setBackgroundHandling(vencFd, SOCKET_READABLE,
-//                                    (TaskScheduler::BackgroundHandlerProc*)StreamSourceDataAvailable,
-//                                    this);
+    vencFd = HI_MPI_VENC_GetFd(fParams.fChannelNo);
+
+    scheduler.setBackgroundHandling(vencFd, SOCKET_READABLE,
+                                    (TaskScheduler::BackgroundHandlerProc*)StreamSourceDataAvailable,
+                                    this);
 
     // We arrange here for our "deliverFrame" member function to be called
     // whenever the next frame of data becomes available from the device.
@@ -150,15 +100,15 @@ H264LiveStreamSource::H264LiveStreamSource(UsageEnvironment& env, H264LiveStream
     // If, however, the device *cannot* be accessed as a readable socket, then instead we can implement it using 'event triggers':
     // Create an 'event trigger' for this device (if it hasn't already been done):
 
-    //eventTriggerId = envir().taskScheduler().createEventTrigger(deliverFrame0);
+    eventTriggerId = envir().taskScheduler().createEventTrigger(deliverFrame0);
 }
 
 H264LiveStreamSource::~H264LiveStreamSource() {
     // Any instance-specific 'destruction' (i.e., resetting) of the device would be done here:
-    //envir().taskScheduler().disableBackgroundHandling(vencFd);
+    envir().taskScheduler().disableBackgroundHandling(vencFd);
 
     // Reclaim our 'event trigger'
-    //envir().taskScheduler().deleteEventTrigger(eventTriggerId);
+    envir().taskScheduler().deleteEventTrigger(eventTriggerId);
 }
 
 void H264LiveStreamSource::doGetNextFrame() {
@@ -171,7 +121,9 @@ void H264LiveStreamSource::doGetNextFrame() {
     }
 
     // If a new frame of data is immediately available to be delivered, then do this now:
-    deliverFrame();
+    if (0 /* a new frame of data is immediately available to be delivered*/ /*%%% TO BE WRITTEN %%%*/) {
+        deliverFrame();
+    }
 
     // No new data is immediately available to be delivered.  We don't do anything more here.
     // Instead, our event trigger must be called (e.g., from a separate thread) when new data becomes available.
@@ -216,12 +168,10 @@ void H264LiveStreamSource::deliverFrame() {
     s32Ret = HI_MPI_VENC_Query(fParams.fChannelNo, &stStat);
     if (HI_SUCCESS != s32Ret)
     {
-        nextTask() = envir().taskScheduler().scheduleDelayedTask(10000, (TaskFunc*)deliverFrame0, this);
         return;
     }
 
     if (stStat.u32CurPacks <= 0) {
-        nextTask() = envir().taskScheduler().scheduleDelayedTask(10000, (TaskFunc*)deliverFrame0, this);
         return;
     }
 
@@ -256,12 +206,6 @@ void H264LiveStreamSource::deliverFrame() {
 
     fPresentationTime.tv_sec = stStream.pstPack[0].u64PTS / 1000000UL;
     fPresentationTime.tv_usec = stStream.pstPack[0].u64PTS % 1000000UL;
-
-#if 0
-    calibrater.Calibrate();
-    calibrater.PtsToTimevalue(stStream.pstPack[0].u64PTS, fPresentationTime);
-    g_print("pts=%llu\n", stStream.pstPack[0].u64PTS, fPresentationTime);
-#endif
 
     fFrameSize = 0;
     for (int i = 0; i < stStream.u32PackCount; i++) {
@@ -298,6 +242,5 @@ void H264LiveStreamSource::deliverFrame() {
     }
 
     // After delivering the data, inform the reader that it is now available:
-    //FramedSource::afterGetting(this);
-    nextTask() = envir().taskScheduler().scheduleDelayedTask(10000, (TaskFunc*)afterGetting, this);
+    FramedSource::afterGetting(this);
 }

@@ -28,24 +28,6 @@ along with this library; if not, write to the Free Software Foundation, Inc.,
 #include <FramedSource.hh>
 #endif
 
-#if 0
-#include <hi_defines.h>
-#include <hi_comm_sys.h>
-class PtsCalibrater
-{
-public:
-    PtsCalibrater(uint32_t sync_win_us = 2000000);
-    void Calibrate(void);
-    void PtsToTimevalue(HI_U64 pts, struct timeval &tv);
-private:
-    uint32_t       fSyncWinUs;
-    uint64_t       fBaseTv;
-    HI_U64          fBasePts;
-    int32_t        fDiffTv;
-    int32_t        fDiffPts;
-};
-#endif
-
 // The following class can be used to define specific encoder parameters
 class H264LiveStreamParameters {
   //%%% TO BE WRITTEN %%%
@@ -61,7 +43,7 @@ public:
     //static unsigned getRefCount();
 
 public:
-    // EventTriggerId eventTriggerId; 
+    EventTriggerId eventTriggerId; 
     // Note that this is defined here to be a static class variable, because this code is intended to illustrate how to
     // encapsulate a *single* device - not a set of devices.
     // You can, however, redefine this to be a non-static member variable.
@@ -82,9 +64,7 @@ private:
     //static unsigned referenceCount; // used to count how many instances of this class currently exist
     bool firstDeliverFrame;
     H264LiveStreamParameters fParams;
-#if 0
-    PtsCalibrater calibrater;
-#endif
+    int vencFd;
 };
 
 #endif
