@@ -354,7 +354,14 @@ gint32 ipcam_isp_start(IpcamIsp *self, StreamDescriptor desc[])
         return s32Ret;
     }
 
-    if (0 != pthread_create(&priv->IspPid, 0, (void* (*)(void*))HI_MPI_ISP_Run, NULL))
+    pthread_attr_t attr;
+    struct sched_param param;
+    pthread_attr_init(&attr);
+    pthread_attr_setschedpolicy(&attr, SCHED_RR);
+    pthread_attr_getschedparam(&attr, &param);
+    param.sched_priority = 50;
+    pthread_attr_setschedparam(&attr, &param);
+    if (0 != pthread_create(&priv->IspPid, &attr, (void* (*)(void*))HI_MPI_ISP_Run, NULL))
     {
         g_critical("%s: create isp running thread failed!\n", __FUNCTION__);
         return HI_FAILURE;
