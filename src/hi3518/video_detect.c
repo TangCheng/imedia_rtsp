@@ -355,8 +355,8 @@ static gpointer ipcam_video_detect_thread_handler(gpointer data)
             guint region = i;
             gboolean occ = (stVdaData.unData.stOdData.abRgnAlarm[i] == HI_TRUE);
             if (occ) {
-                g_print("VdaChn-%d, Rgn-%d, Occ!\n", VdaChn, i);
                 ipcam_video_detect_send_notify (self, region, occ);
+
                 s32Ret = HI_MPI_VDA_ResetOdRegion(VdaChn, i);
                 if (s32Ret != HI_SUCCESS) {
                     g_print("HI_MPI_VDA_ResetOdRegion failed with %#x!\n", s32Ret);
