@@ -90,7 +90,7 @@ static void ipcam_imedia_init(IpcamIMedia *self)
 
     regcomp(&priv->reg, pattern, REG_EXTENDED | REG_NEWLINE);
     priv->sys_ctrl = g_object_new(IPCAM_MEDIA_SYS_CTRL_TYPE, NULL);
-    priv->video = g_object_new(IPCAM_MEDIA_VIDEO_TYPE, NULL);
+    priv->video = g_object_new(IPCAM_MEDIA_VIDEO_TYPE, "app", self, NULL);
     for (i = 0; i < STREAM_CHN_LAST; i++) {
         priv->bit_rate[i] = g_malloc(BIT_RATE_BUF_SIZE);
         priv->frame_rate[i] = g_malloc(FRAME_RATE_BUF_SIZE);

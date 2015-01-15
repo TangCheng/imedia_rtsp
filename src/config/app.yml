@@ -3,3 +3,5 @@ connect:
   iconfig: tcp://127.0.0.1:65400
 subscribe:
   iconfig_pub: tcp://127.0.0.1:65401
+publish:
+  imedia_rtsp_pub: tcp://127.0.0.1:65402

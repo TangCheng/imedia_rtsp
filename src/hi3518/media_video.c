@@ -47,6 +47,45 @@ G_DEFINE_TYPE_WITH_CODE(IpcamMediaVideo, ipcam_media_video, G_TYPE_OBJECT,
 
 static GParamSpec *obj_properties[N_PROPERTIES] = {NULL, };
 
+static void ipcam_media_video_init(IpcamMediaVideo *self)
+{
+	IpcamMediaVideoPrivate *priv = IPCAM_MEDIA_VIDEO_GET_PRIVATE(self);
+
+    priv->isp = NULL;
+    priv->vi = NULL;
+    priv->vpss = NULL;
+    priv->venc = NULL;
+    priv->vda = NULL;
+}
+
+static GObject *
+ipcam_media_video_constructor(GType                  gtype,
+                              guint                  n_properties,
+                              GObjectConstructParam *properties)
+{
+    GObjectClass *klass;
+    GObject *object;
+    IpcamMediaVideo *self;
+	IpcamMediaVideoPrivate *priv;
+    IpcamIMedia *imedia;
+
+    /* Always chain up to the parent constructor */
+    klass = G_OBJECT_CLASS(ipcam_media_video_parent_class);
+    object = klass->constructor(gtype, n_properties, properties);
+    self = IPCAM_MEDIA_VIDEO(object);
+    priv = IPCAM_MEDIA_VIDEO_GET_PRIVATE(self);
+
+    g_object_get(G_OBJECT(self), "app", &imedia, NULL);
+
+    priv->isp = g_object_new(IPCAM_ISP_TYPE, NULL);
+    priv->vi = g_object_new(IPCAM_VIDEO_INPUT_TYPE, NULL);
+    priv->vpss = g_object_new(IPCAM_VIDEO_PROCESS_SUBSYSTEM_TYPE, NULL);
+    priv->venc = g_object_new(IPCAM_VIDEO_ENCODE_TYPE, NULL);
+    priv->vda = g_object_new(IPCAM_VIDEO_DETECT_TYPE, "app", imedia, NULL);
+
+    return object;
+}
+
 static void ipcam_media_video_finalize(GObject *object)
 {
     IpcamMediaVideo *self = IPCAM_MEDIA_VIDEO(object);
@@ -58,17 +97,6 @@ static void ipcam_media_video_finalize(GObject *object)
     g_clear_object(&priv->vi);
 	g_clear_object(&priv->isp);
     G_OBJECT_CLASS(ipcam_media_video_parent_class)->finalize(object);
-}
-
-static void ipcam_media_video_init(IpcamMediaVideo *self)
-{
-	IpcamMediaVideoPrivate *priv = IPCAM_MEDIA_VIDEO_GET_PRIVATE(self);
-
-    priv->isp = g_object_new(IPCAM_ISP_TYPE, NULL);
-    priv->vi = g_object_new(IPCAM_VIDEO_INPUT_TYPE, NULL);
-    priv->vpss = g_object_new(IPCAM_VIDEO_PROCESS_SUBSYSTEM_TYPE, NULL);
-    priv->venc = g_object_new(IPCAM_VIDEO_ENCODE_TYPE, NULL);
-    priv->vda = g_object_new(IPCAM_VIDEO_DETECT_TYPE, NULL);
 }
 
 static void ipcam_media_video_get_property(GObject    *object,
@@ -124,6 +152,7 @@ static void ipcam_media_video_class_init(IpcamMediaVideoClass *klass)
 {
     g_type_class_add_private(klass, sizeof(IpcamMediaVideoPrivate));
     GObjectClass *object_class = G_OBJECT_CLASS(klass);
+    object_class->constructor = ipcam_media_video_constructor;
     object_class->finalize = &ipcam_media_video_finalize;
     object_class->get_property = &ipcam_media_video_get_property;
     object_class->set_property = &ipcam_media_video_set_property;

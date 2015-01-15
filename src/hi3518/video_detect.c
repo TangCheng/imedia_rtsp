@@ -4,6 +4,7 @@
 #include <mpi_vda.h>
 #include <mpi_sys.h>
 #include <stdlib.h>
+#include <notice_message.h>
 #include "imedia.h"
 #include "video_detect.h"
 
@@ -180,11 +181,11 @@ gint32 ipcam_video_detect_start(IpcamVideoDetect *self, StreamDescriptor desc[])
     stVdaChnAttr.u32Width = 320;
     stVdaChnAttr.u32Height = 240;
 
-    stVdaChnAttr.unAttr.stOdAttr.enVdaAlg = VDA_ALG_BG;
-    stVdaChnAttr.unAttr.stOdAttr.enMbSize = VDA_MB_16PIXEL;
+    stVdaChnAttr.unAttr.stOdAttr.enVdaAlg = VDA_ALG_REF;
+    stVdaChnAttr.unAttr.stOdAttr.enMbSize = VDA_MB_8PIXEL;
     stVdaChnAttr.unAttr.stOdAttr.enMbSadBits = VDA_MB_SAD_8BIT;
     stVdaChnAttr.unAttr.stOdAttr.enRefMode = VDA_REF_MODE_DYNAMIC;
-    stVdaChnAttr.unAttr.stOdAttr.u32VdaIntvl = 2;
+    stVdaChnAttr.unAttr.stOdAttr.u32VdaIntvl = 4;
     stVdaChnAttr.unAttr.stOdAttr.u32BgUpSrcWgt = 128;
 
     stVdaChnAttr.unAttr.stOdAttr.u32RgnNum = 1;
@@ -195,9 +196,9 @@ gint32 ipcam_video_detect_start(IpcamVideoDetect *self, StreamDescriptor desc[])
         rgn_attr->stRect.s32Y = 0;
         rgn_attr->stRect.u32Width = 320;
         rgn_attr->stRect.u32Height = 240;
-        rgn_attr->u32SadTh = 260;
+        rgn_attr->u32SadTh = 240;
         rgn_attr->u32AreaTh = 80; /* 80% */
-        rgn_attr->u32OccCntTh = 4;
+        rgn_attr->u32OccCntTh = 6;
         rgn_attr->u32UnOccCntTh = 1;
     }
 
@@ -277,6 +278,36 @@ gint32 ipcam_video_detect_stop(IpcamVideoDetect *self)
 static void
 ipcam_video_detect_send_notify(IpcamVideoDetect *detect, guint region, gboolean occ)
 {
+    IpcamIMedia *imedia;
+    JsonBuilder *builder;
+    IpcamMessage *notice_msg;
+    JsonNode *body;
+
+    g_object_get(detect, "app", &imedia, NULL);
+
+    g_return_if_fail(imedia != NULL);
+
+    builder = json_builder_new();
+    json_builder_begin_object(builder);
+    json_builder_set_member_name(builder, "event");
+    json_builder_begin_object(builder);
+    json_builder_set_member_name(builder, "region");
+    json_builder_add_int_value(builder, region);
+    json_builder_set_member_name(builder, "state");
+    json_builder_add_boolean_value(builder, occ);
+    json_builder_end_object(builder);
+    json_builder_end_object(builder);
+
+    body = json_builder_get_root(builder);
+
+    notice_msg = g_object_new(IPCAM_NOTICE_MESSAGE_TYPE,
+                              "event", "video_occlusion_event",
+                              "body", body,
+                              NULL);
+    ipcam_base_app_broadcast_notice_message(IPCAM_BASE_APP(imedia), notice_msg, "imedia_rtsp_token");
+
+    g_object_unref(notice_msg);
+    g_object_unref(builder);
 }
 
 static gpointer ipcam_video_detect_thread_handler(gpointer data)
@@ -321,8 +352,11 @@ static gpointer ipcam_video_detect_thread_handler(gpointer data)
         }
 
         for (i = 0; i < stVdaData.unData.stOdData.u32RgnNum; i++) {
-            if (stVdaData.unData.stOdData.abRgnAlarm[i] == HI_TRUE) {
+            guint region = i;
+            gboolean occ = (stVdaData.unData.stOdData.abRgnAlarm[i] == HI_TRUE);
+            if (occ) {
                 g_print("VdaChn-%d, Rgn-%d, Occ!\n", VdaChn, i);
+                ipcam_video_detect_send_notify (self, region, occ);
                 s32Ret = HI_MPI_VDA_ResetOdRegion(VdaChn, i);
                 if (s32Ret != HI_SUCCESS) {
                     g_print("HI_MPI_VDA_ResetOdRegion failed with %#x!\n", s32Ret);
