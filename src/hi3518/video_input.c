@@ -228,8 +228,8 @@ gint32 ipcam_video_input_start(IpcamVideoInput *self, StreamDescriptor desc[])
         },
         .enCapSel = VI_CAPSEL_BOTH,
         .enPixFormat = PIXEL_FORMAT_YUV_SEMIPLANAR_422,
-        .bMirror = HI_FALSE,
-        .bFlip = HI_FALSE,
+        .bMirror = desc[MASTER_CHN].v_desc.mirror,
+        .bFlip = desc[MASTER_CHN].v_desc.flip,
         .bChromaResample = HI_FALSE,
         .s32SrcFrameRate = input_fps,
         .s32FrameRate = input_fps
