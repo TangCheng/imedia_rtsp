@@ -208,6 +208,22 @@ gint32 ipcam_video_encode_start(IpcamVideoEncode *self, StreamDescriptor desc[])
             g_critical("HI_MPI_VENC_CreateChn(%d) err 0x%x\n", VeChn, s32Ret);
             return HI_FAILURE;
         }
+
+        VENC_PARAM_H264_VUI_S stVui;
+        s32Ret = HI_MPI_VENC_GetH264Vui(VeChn, &stVui);
+        if (HI_SUCCESS == s32Ret) {
+            stVui.timing_info_present_flag = 1;
+            stVui.num_units_in_tick = 1;
+            stVui.time_scale = output_fps * 2;
+            s32Ret = HI_MPI_VENC_SetH264Vui(VeChn, &stVui);
+            if (HI_SUCCESS != s32Ret) {
+                g_warning("HI_MPI_VENC_SetH264Vui(%d) err 0x%x\n", VeChn, s32Ret);
+            }
+        }
+        else {
+            g_warning("HI_MPI_VENC_GetH264Vui(%d) err 0x%x\n", VeChn, s32Ret);
+        }
+
         s32Ret = HI_MPI_VENC_RegisterChn(VeGroup, VeChn);
         if (HI_SUCCESS != s32Ret)
         {
