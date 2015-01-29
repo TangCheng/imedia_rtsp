@@ -16,10 +16,7 @@ G_DEFINE_TYPE_WITH_CODE(IpcamMediaSysCtrl, ipcam_media_sys_ctrl, G_TYPE_OBJECT,
                         G_IMPLEMENT_INTERFACE(IPCAM_TYPE_IMEDIA_SYS_CTRL,
                                               ipcam_imedia_sys_ctrl_interface_init));
 
-#define SYS_ALIGN_WIDTH      64
-
-//#define IMAGE_WIDTH          1280
-//#define IMAGE_HEIGHT         720
+#define SYS_ALIGN_WIDTH      16
 
 static void ipcam_media_sys_ctrl_finalize(GObject *object)
 {
@@ -42,11 +39,11 @@ static void ipcam_media_sys_ctrl_init_media_system(IpcamMediaSysCtrl *self)
     HI_S32 s32Ret = HI_FAILURE;
 
     memset(&stVbConf, 0, sizeof(VB_CONF_S));
-    stVbConf.u32MaxPoolCnt = 128;
+    stVbConf.u32MaxPoolCnt = VB_MAX_POOLS;
     stVbConf.astCommPool[0].u32BlkSize = (CEILING_2_POWER(IMAGE_MAX_WIDTH, SYS_ALIGN_WIDTH) * \
                                           CEILING_2_POWER(IMAGE_MAX_HEIGHT, SYS_ALIGN_WIDTH) * \
                                           2);
-    stVbConf.astCommPool[0].u32BlkCnt = 20;
+    stVbConf.astCommPool[0].u32BlkCnt = 16;
     memset(stVbConf.astCommPool[0].acMmzName, 0, sizeof(stVbConf.astCommPool[0].acMmzName));
 
     HI_MPI_SYS_Exit();
