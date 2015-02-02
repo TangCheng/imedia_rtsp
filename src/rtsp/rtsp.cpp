@@ -30,7 +30,7 @@ live555_thread_proc(gpointer data)
     IpcamRtspPrivate *priv = (IpcamRtspPrivate *)data;
     UserAuthenticationDatabase *auth_db;
 
-    OutPacketBuffer::increaseMaxSizeTo(1024 * 1024);
+    OutPacketBuffer::increaseMaxSizeTo(2 * 1024 * 1024);
 
     auth_db = priv->enable_auth ? priv->auth_db : NULL;
     priv->rtsp_server = RTSPServer::createNew(*priv->m_env, priv->port, auth_db);
