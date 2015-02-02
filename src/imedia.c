@@ -495,13 +495,18 @@ void ipcam_imedia_got_szyc_parameter(IpcamIMedia *imedia, JsonNode *body)
             ipcam_iosd_set_content(priv->osd[i], IPCAM_OSD_TYPE_POSITION_NUM, position_num);
     }
 
-    g_free(priv->train_num);
-    g_free(priv->carriage_num);
-    g_free(priv->position_num);
-
-    priv->train_num = g_strdup(train_num);
-    priv->carriage_num = g_strdup(carriage_num);
-    priv->position_num = g_strdup(position_num);
+    if (train_num) {
+        g_free(priv->train_num);
+        priv->train_num = g_strdup(train_num);
+    }
+    if (carriage_num) {
+        g_free(priv->carriage_num);
+        priv->carriage_num = g_strdup(carriage_num);
+    }
+    if (position_num) {
+        g_free(priv->position_num);
+        priv->position_num = g_strdup(position_num);
+    }
 }
 
 void ipcam_imedia_got_image_parameter(IpcamIMedia *imedia, JsonNode *body)
