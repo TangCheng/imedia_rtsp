@@ -16,12 +16,14 @@ enum
     PROP_0,
     PROP_RGN_HANDLE,
     PROP_VENC_GROUP,
+	PROP_FONT_FILE,
     N_PROPERTIES
 };
 
 typedef struct _IpcamMediaOsdPrivate
 {
 	TTF_Font *ttf_font;
+	gchar *font_file;	
     IpcamBitmap *bitmap;
     VENC_GRP VencGrp;
     RGN_HANDLE RgnHandle;
@@ -62,6 +64,9 @@ static void ipcam_media_osd_get_property(GObject    *object,
         case PROP_VENC_GROUP:
             g_value_set_uint(value, priv->VencGrp);
             break;
+		case PROP_FONT_FILE:
+			g_value_set_string(value, priv->font_file);
+			break;
         default:
             G_OBJECT_WARN_INVALID_PROPERTY_ID(object, property_id, pspec);
             break;
@@ -83,6 +88,9 @@ static void ipcam_media_osd_set_property(GObject      *object,
         case PROP_VENC_GROUP:
             priv->VencGrp = g_value_get_uint(value);
             break;
+		case PROP_FONT_FILE:
+			priv->font_file = g_strdup(g_value_get_string(value));
+			break;
         default:
             G_OBJECT_WARN_INVALID_PROPERTY_ID(object, property_id, pspec);
             break;
@@ -115,6 +123,8 @@ static void ipcam_media_osd_finalize(GObject *object)
         g_free(priv->content[type]);
         priv->content[type] = NULL;
     }
+
+	g_free(priv->font_file);
 
 	if (priv->ttf_font)
 		TTF_CloseFont(priv->ttf_font);
@@ -158,11 +168,21 @@ static GObject *ipcam_media_osd_constructor (GType gtype,
 	if (TTF_Init() < 0) {
 		g_critical("Couldn't initialize TTF: %s\n", SDL_GetError());
 	}
-	priv->ttf_font = TTF_OpenFont("/usr/share/fonts/truetype/droid/DroidSansFallback.ttf", 20);
+
+	if (priv->font_file) {
+		g_print("loading font %s\n", priv->font_file);
+		priv->ttf_font = TTF_OpenFont(priv->font_file, 20);
+	}
+
+	/* Use fallback */
+	if (!priv->ttf_font)
+		priv->ttf_font = TTF_OpenFont("/usr/share/fonts/truetype/droid/DroidSansFallback.ttf", 20);
+
 	if (!priv->ttf_font) {
 		g_critical("Couldn't load %s pt font from %d: %s\n", "ptsize", 20, SDL_GetError());
 	}
-    TTF_SetFontStyle(priv->ttf_font, TTF_STYLE_BOLD);
+
+	TTF_SetFontStyle(priv->ttf_font, TTF_STYLE_BOLD);
 	TTF_SetFontOutline(priv->ttf_font, 0);
 	TTF_SetFontKerning(priv->ttf_font, 0);
 	TTF_SetFontHinting(priv->ttf_font, TTF_HINTING_LIGHT);
@@ -239,6 +259,12 @@ static void ipcam_media_osd_class_init(IpcamMediaOsdClass *klass)
                            "VENC Group Number",
                            0, VENC_MAX_GRP_NUM - 1,
                            0,
+                           G_PARAM_CONSTRUCT_ONLY | G_PARAM_READWRITE);
+    obj_properties[PROP_FONT_FILE] = 
+        g_param_spec_string ("font",
+                           "Font file name",
+                           "Font file name",
+                           NULL,
                            G_PARAM_CONSTRUCT_ONLY | G_PARAM_READWRITE);
     g_object_class_install_properties (object_class,
                                        N_PROPERTIES,

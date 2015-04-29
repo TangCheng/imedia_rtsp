@@ -148,6 +148,7 @@ static void ipcam_imedia_in_loop(IpcamIMedia *imedia)
     IpcamIMediaPrivate *priv = ipcam_imedia_get_instance_private(imedia);
     time_t now;
     int i;
+	gchar osdBuf[128] = {0};
     gchar timeBuf[64] = {0};
 
     time(&now);
@@ -156,25 +157,47 @@ static void ipcam_imedia_in_loop(IpcamIMedia *imedia)
         priv->last_time = now;
         strftime(timeBuf, sizeof(timeBuf), "%Y-%m-%d %H:%M:%S ", localtime(&now));
 
-        if (priv->train_num) {
-            g_strlcat(timeBuf, "  ", sizeof(timeBuf));
-            g_strlcat(timeBuf, priv->train_num, sizeof(timeBuf));
-        }
-        if (priv->carriage_num) {
-            g_strlcat(timeBuf, "  ", sizeof(timeBuf));
-            g_strlcat(timeBuf, priv->carriage_num, sizeof(timeBuf));
-        }
-        if (priv->position_num) {
-            g_strlcat(timeBuf, "-", sizeof(timeBuf));
-            g_strlcat(timeBuf, priv->position_num, sizeof(timeBuf));
-        }
-        g_strlcat(timeBuf, "  ", sizeof(timeBuf));
+		gchar *project = (gchar *)ipcam_base_app_get_config(IPCAM_BASE_APP(imedia), "imedia_rtsp:project");
+
+		if (!project) {
+			g_strlcat(osdBuf, timeBuf, sizeof(osdBuf));
+		}
+		else {
+			if (strcasecmp(project, "dctx") == 0) {
+				g_strlcpy(osdBuf, timeBuf, sizeof(timeBuf));
+				if (priv->train_num) {
+					g_strlcat(osdBuf, " ", sizeof(osdBuf));
+					g_strlcat(osdBuf, priv->train_num, sizeof(osdBuf));
+				}
+				if (priv->carriage_num) {
+					g_strlcat(osdBuf, " ", sizeof(osdBuf));
+					g_strlcat(osdBuf, priv->carriage_num, sizeof(osdBuf));
+				}
+				if (priv->position_num) {
+					g_strlcat(osdBuf, "-", sizeof(osdBuf));
+					g_strlcat(osdBuf, priv->position_num, sizeof(osdBuf));
+				}
+				g_strlcat(osdBuf, " ", sizeof(osdBuf));
+			}
+			else if (strcasecmp(project, "dttx") == 0) {
+				if (priv->train_num) {
+					g_strlcpy(osdBuf, "", sizeof(osdBuf));
+					g_strlcat(osdBuf, priv->train_num, sizeof(osdBuf));
+				}
+				if (priv->position_num) {
+					g_strlcat(osdBuf, " ", sizeof(osdBuf));
+					g_strlcat(osdBuf, priv->position_num, sizeof(osdBuf));
+				}
+				g_strlcat(osdBuf, " ", sizeof(osdBuf));
+				g_strlcat(osdBuf, timeBuf, sizeof(osdBuf));
+			}
+		}
 
         for (i = MASTER_CHN; i < STREAM_CHN_LAST; i++)
         {
             if (!priv->osd[i])
                 continue;
-            ipcam_iosd_set_content(priv->osd[i], IPCAM_OSD_TYPE_DATETIME, timeBuf);
+            ipcam_iosd_set_content(priv->osd[i], IPCAM_OSD_TYPE_DATETIME, osdBuf);
             ipcam_iosd_invalidate(priv->osd[i]);
         }
     }
@@ -481,27 +504,28 @@ void ipcam_imedia_got_szyc_parameter(IpcamIMedia *imedia, JsonNode *body)
         train_num = json_object_get_string_member(items_obj, "train_num");
         for (i = MASTER_CHN; i < STREAM_CHN_LAST; i++)
             ipcam_iosd_set_content(priv->osd[i], IPCAM_OSD_TYPE_TRAIN_NUM, train_num);
+
+		g_free(priv->train_num);
+		priv->train_num = g_strdup(train_num);
     }
     if (json_object_has_member(items_obj, "carriage_num"))
     {
         carriage_num = json_object_get_string_member(items_obj, "carriage_num");
         for (i = MASTER_CHN; i < STREAM_CHN_LAST; i++)
             ipcam_iosd_set_content(priv->osd[i], IPCAM_OSD_TYPE_CARRIAGE_NUM, carriage_num);
-    }
+
+		g_free(priv->carriage_num);
+		priv->carriage_num = g_strdup(carriage_num);
+	}
     if (json_object_has_member(items_obj, "position_num"))
     {
         position_num = json_object_get_string_member(items_obj, "position_num");
         for (i = MASTER_CHN; i < STREAM_CHN_LAST; i++)
             ipcam_iosd_set_content(priv->osd[i], IPCAM_OSD_TYPE_POSITION_NUM, position_num);
-    }
 
-    g_free(priv->train_num);
-    g_free(priv->carriage_num);
-    g_free(priv->position_num);
-
-    priv->train_num = g_strdup(train_num);
-    priv->carriage_num = g_strdup(carriage_num);
-    priv->position_num = g_strdup(position_num);
+		g_free(priv->position_num);
+		priv->position_num = g_strdup(position_num);
+	}
 }
 
 void ipcam_imedia_got_image_parameter(IpcamIMedia *imedia, JsonNode *body)
@@ -509,20 +533,30 @@ void ipcam_imedia_got_image_parameter(IpcamIMedia *imedia, JsonNode *body)
     IpcamIMediaPrivate *priv = ipcam_imedia_get_instance_private(imedia);
     JsonObject *res_object;
     IpcamMediaImageAttr *imgattr = &priv->stream_desc[MASTER].v_desc.img_attr;
-    
+	const gchar *range_str = NULL;
+	guint range = 0;
+
+	range_str = ipcam_base_app_get_config(IPCAM_BASE_APP(imedia), "imedia_rtsp:image_setting_range");
+	if (range_str)
+		range = strtoul(range_str, NULL, 0);
+
     res_object = json_object_get_object_member(json_node_get_object(body), "items");
 
     if (json_object_has_member(res_object, "brightness")) {
-        imgattr->brightness = (gint32)json_object_get_int_member(res_object, "brightness");
+        guint32 val = (guint32)json_object_get_int_member(res_object, "brightness");
+		imgattr->brightness = range ? (val * 100 / range) : val;
     }
     if (json_object_has_member(res_object, "chrominance")) {
-        imgattr->chrominance = (gint32)json_object_get_int_member(res_object, "chrominance");
+        guint32 val = (gint32)json_object_get_int_member(res_object, "chrominance");
+		imgattr->chrominance = range ? (val * 100 / range) : val;
     }
     if (json_object_has_member(res_object, "contrast")) {
-        imgattr->contrast = (gint32)json_object_get_int_member(res_object, "contrast");
+        guint32 val = (gint32)json_object_get_int_member(res_object, "contrast");
+		imgattr->contrast = range ? (val * 100 / range) : val;
     }
     if (json_object_has_member(res_object, "saturation")) {
-        imgattr->saturation = (gint32)json_object_get_int_member(res_object, "saturation");
+        guint32 val = (gint32)json_object_get_int_member(res_object, "saturation");
+		imgattr->saturation = range ? (val * 100 / range) : val;
     }
     if (json_object_has_member(res_object, "3ddnr")) {
         imgattr->b3ddnr = json_object_get_boolean_member(res_object, "3ddnr");
@@ -789,6 +823,7 @@ void ipcam_imedia_got_video_param(IpcamIMedia *imedia, JsonNode *body, gboolean 
 {
     JsonObject *res_obj = json_object_get_object_member(json_node_get_object(body), "items");
     IpcamIMediaPrivate *priv = ipcam_imedia_get_instance_private(imedia);
+	const gchar *font = ipcam_base_app_get_config(IPCAM_BASE_APP(imedia), "imedia_rtsp:font");
 
     if (json_object_has_member(res_obj, "profile"))
     {
@@ -828,6 +863,7 @@ void ipcam_imedia_got_video_param(IpcamIMedia *imedia, JsonNode *body, gboolean 
             priv->osd[i] = g_object_new(IPCAM_MEDIA_OSD_TYPE,
                                         "RgnHandle", i,
                                         "VencGroup", i,
+										"font", font,
                                         NULL);
             ipcam_media_osd_set_image_size(priv->osd[i],
                                            priv->stream_desc[i].v_desc.image_width,

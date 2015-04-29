@@ -310,6 +310,14 @@ ipcam_video_detect_send_notify(IpcamVideoDetect *detect, guint region, gboolean 
     g_object_unref(builder);
 }
 
+struct VdaRegionState
+{
+	gboolean  occ_state;
+	guint32   count;
+};
+
+static struct VdaRegionState __rgn_stat[VDA_OD_RGN_NUM_MAX];
+
 static gpointer ipcam_video_detect_thread_handler(gpointer data)
 {
     IpcamVideoDetect *self = IPCAM_VIDEO_DETECT(data);
@@ -325,6 +333,11 @@ static gpointer ipcam_video_detect_thread_handler(gpointer data)
 
     HI_S32 s32VdaFd;
     fd_set read_fds;
+
+	for (i = 0; i < ARRAY_SIZE(__rgn_stat); i++) {
+		__rgn_stat[i].occ_state = FALSE;
+		__rgn_stat[i].count = 0;
+	}
 
     s32VdaFd = HI_MPI_VDA_GetFd(VdaChn);
 
@@ -355,7 +368,13 @@ static gpointer ipcam_video_detect_thread_handler(gpointer data)
             guint region = i;
             gboolean occ = (stVdaData.unData.stOdData.abRgnAlarm[i] == HI_TRUE);
             if (occ) {
-                ipcam_video_detect_send_notify (self, region, occ);
+				if (!__rgn_stat[region].occ_state) {
+					g_print("region[%d] OCC\n", region);
+					ipcam_video_detect_send_notify (self, region, occ);
+				}
+
+				__rgn_stat[region].occ_state = TRUE;
+				__rgn_stat[region].count = 0;
 
                 s32Ret = HI_MPI_VDA_ResetOdRegion(VdaChn, i);
                 if (s32Ret != HI_SUCCESS) {
@@ -363,6 +382,19 @@ static gpointer ipcam_video_detect_thread_handler(gpointer data)
                     return NULL;
                 }
             }
+			else {
+				if (__rgn_stat[region].occ_state) {
+					if (__rgn_stat[region].count > 20) {
+						g_print("region[%d] unOCC\n", region);
+						ipcam_video_detect_send_notify(self, region, occ);
+						__rgn_stat[region].occ_state = FALSE;
+						__rgn_stat[region].count = 0;
+					}
+					else {
+						__rgn_stat[region].count++;
+					}
+				}
+			}
         }
 
         s32Ret = HI_MPI_VDA_ReleaseData(VdaChn, &stVdaData);
