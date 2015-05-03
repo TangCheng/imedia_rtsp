@@ -29,5 +29,7 @@ void ipcam_imedia_got_video_param(IpcamIMedia *imedia, JsonNode *body, gboolean 
 void ipcam_imedia_got_image_parameter(IpcamIMedia *imedia, JsonNode *body);
 void ipcam_imedia_got_baseinfo_parameter(IpcamIMedia *imedia, JsonNode *body);
 void ipcam_imedia_got_osd_parameter(IpcamIMedia *imedia, JsonNode *body);
+void ipcam_imedia_got_szyc_parameter(IpcamIMedia *imedia, JsonNode *body);
+void ipcam_imedia_got_day_night_mode_param(IpcamIMedia *imedia, JsonNode *body);
 
 #endif /* __IMEDIA_H__ */

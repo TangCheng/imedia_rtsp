@@ -416,7 +416,7 @@ static gint32 ipcam_media_osd_draw_content(IpcamMediaOsd *self, IPCAM_OSD_TYPE t
     }
 
 	SDL_FreeSurface(scrn_sf);
-    
+
     return s32Ret;
 }
 

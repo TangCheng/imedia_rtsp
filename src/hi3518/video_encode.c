@@ -266,9 +266,10 @@ gint32 ipcam_video_encode_start(IpcamVideoEncode *self, StreamDescriptor desc[])
         }
     }
 
-    // omit other code here.
+	// omit other code here.
     return HI_SUCCESS;
 }
+
 gint32 ipcam_video_encode_stop(IpcamVideoEncode *self)
 {
     g_return_val_if_fail(IPCAM_IS_VIDEO_ENCODE(self), HI_FAILURE);
@@ -340,9 +341,104 @@ gint32 ipcam_video_encode_stop(IpcamVideoEncode *self)
 
     return HI_SUCCESS;
 }
-void ipcam_video_encode_param_change(IpcamVideoEncode *self, StreamDescriptor desc[])
+
+gint32 ipcam_video_encode_enable_color2grey(IpcamVideoEncode *self, StreamDescriptor desc[])
 {
     g_return_val_if_fail(IPCAM_IS_VIDEO_ENCODE(self), HI_FAILURE);
+    HI_S32 s32Ret;
+    HI_S32 chn;
+    IpcamVideoEncodePrivate *priv = ipcam_video_encode_get_instance_private(self);
+    guint input_width, input_height;
+
+    /* default sensor mode: 1920x1200@20Hz */
+
+    gchar *resolution = desc[MASTER_CHN].v_desc.resolution;
+    if (g_str_equal(resolution, "UXGA") ||
+        g_str_equal(resolution, "960H"))
+    {
+        input_width = 1600;
+        input_height = 1200;
+    }
+    else
+    {
+        input_width = 1920;
+        input_height = 1080;
+    }
+
+	GROUP_COLOR2GREY_CONF_S stColor2GreyConf = {
+		.bEnable = HI_TRUE,
+		.u32MaxWidth = input_width,
+		.u32MaxHeight = input_height,
+	};
+	s32Ret = HI_MPI_VENC_SetColor2GreyConf(&stColor2GreyConf);
+	if (s32Ret != HI_SUCCESS)
+	{
+		g_critical("HI_MPI_VENC_SetColor2GreyConf() err 0x%x\n", s32Ret);
+	}
+
+	for (chn = MASTER_CHN; chn < STREAM_CHN_LAST; chn++)
+    {
+		GROUP_COLOR2GREY_S stGrpColor2Grey = {
+			.bColor2Grey = HI_TRUE
+		};
+		s32Ret = HI_MPI_VENC_SetGrpColor2Grey(chn, &stGrpColor2Grey);
+		if (s32Ret != HI_SUCCESS)
+		{
+			g_critical("HI_MPI_VENC_SetColor2GreyConf() err 0x%x\n", s32Ret);
+		}
+	}
+}
+
+gint32 ipcam_video_encode_disable_color2grey(IpcamVideoEncode *self, StreamDescriptor desc[])
+{
+    g_return_val_if_fail(IPCAM_IS_VIDEO_ENCODE(self), HI_FAILURE);
+    HI_S32 s32Ret;
+    HI_S32 chn;
+    IpcamVideoEncodePrivate *priv = ipcam_video_encode_get_instance_private(self);
+    guint input_width, input_height;
+
+    /* default sensor mode: 1920x1200@20Hz */
+
+    gchar *resolution = desc[MASTER_CHN].v_desc.resolution;
+    if (g_str_equal(resolution, "UXGA") ||
+        g_str_equal(resolution, "960H"))
+    {
+        input_width = 1600;
+        input_height = 1200;
+    }
+    else
+    {
+        input_width = 1920;
+        input_height = 1080;
+    }
+
+	for (chn = MASTER_CHN; chn < STREAM_CHN_LAST; chn++)
+    {
+		GROUP_COLOR2GREY_S stGrpColor2Grey = {
+			.bColor2Grey = HI_FALSE
+		};
+		s32Ret = HI_MPI_VENC_SetGrpColor2Grey(chn, &stGrpColor2Grey);
+		if (s32Ret != HI_SUCCESS)
+		{
+			g_critical("HI_MPI_VENC_SetColor2GreyConf() err 0x%x\n", s32Ret);
+		}
+	}
+
+	GROUP_COLOR2GREY_CONF_S stColor2GreyConf = {
+		.bEnable = HI_FALSE,
+		.u32MaxWidth = input_width,
+		.u32MaxHeight = input_height,
+	};
+	s32Ret = HI_MPI_VENC_SetColor2GreyConf(&stColor2GreyConf);
+	if (s32Ret != HI_SUCCESS)
+	{
+		g_critical("HI_MPI_VENC_SetColor2GreyConf() err 0x%x\n", s32Ret);
+	}
+}
+
+void ipcam_video_encode_param_change(IpcamVideoEncode *self, StreamDescriptor desc[])
+{
+    g_return_if_fail(IPCAM_IS_VIDEO_ENCODE(self));
 
     ipcam_video_encode_stop(self);
     ipcam_video_encode_start(self, desc);

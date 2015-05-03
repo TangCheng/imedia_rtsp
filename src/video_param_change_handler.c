@@ -67,6 +67,9 @@ static void ipcam_video_param_change_handler_run_impl(IpcamVideoParamChangeHandl
     else if (g_str_equal (event, "set_szyc")) {
         ipcam_imedia_got_szyc_parameter(IPCAM_IMEDIA(service), body);
     }
+	else if (g_str_equal (event, "set_day_night_mode")) {
+		ipcam_imedia_got_day_night_mode_parameter(IPCAM_IMEDIA(service), body);
+	}
 	else {
 		g_warning ("unhandled event \"%s\"\n", event);
 	}

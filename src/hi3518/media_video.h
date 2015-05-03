@@ -28,5 +28,6 @@ struct _IpcamMediaVideoClass
 GType ipcam_media_video_get_type(void);
 
 void ipcam_media_video_set_image_parameter(IpcamMediaVideo *self, IpcamMediaImageAttr *attr);
+void ipcam_media_video_set_color2grey(IpcamMediaVideo *self, StreamDescriptor desc[], gboolean enabled);
 
 #endif /* __MEDIA_VIDEO_H__ */

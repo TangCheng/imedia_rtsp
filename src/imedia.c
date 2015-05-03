@@ -16,6 +16,7 @@
 #endif
 #include "rtsp/rtsp.h"
 #include "video_param_change_handler.h"
+#include "media-ircut.h"
 
 #define OSD_BUFFER_LENGTH 4096
 
@@ -34,6 +35,7 @@ typedef struct _IpcamIMediaPrivate
     gchar *carriage_num;
     gchar *position_num;
     StreamDescriptor stream_desc[STREAM_CHN_LAST];
+	MediaIrCut *ircut;
 } IpcamIMediaPrivate;
 
 #define BIT_RATE_BUF_SIZE   16
@@ -44,6 +46,7 @@ G_DEFINE_TYPE_WITH_PRIVATE(IpcamIMedia, ipcam_imedia, IPCAM_BASE_APP_TYPE)
 static void ipcam_imedia_before(IpcamIMedia *imedia);
 static void ipcam_imedia_in_loop(IpcamIMedia *imedia);
 static void message_handler(GObject *obj, IpcamMessage* msg, gboolean timeout);
+static void ipcam_imedia_query_day_night_mode(IpcamIMedia *imedia);
 static void ipcam_imedia_query_osd_parameter(IpcamIMedia *imedia);
 static void ipcam_imedia_query_szyc_parameter(IpcamIMedia *imedia);
 static void ipcam_imedia_query_baseinfo_parameter(IpcamIMedia *imedia);
@@ -76,10 +79,11 @@ static void ipcam_imedia_finalize(GObject *object)
     gint chn = MASTER_CHN;
     for (chn = MASTER_CHN; chn < STREAM_CHN_LAST; chn++)
     {
-        g_free(priv->stream_desc[chn].v_desc.path);
-        g_free(priv->stream_desc[chn].v_desc.resolution);
+        g_free((gpointer)priv->stream_desc[chn].v_desc.path);
+        g_free((gpointer)priv->stream_desc[chn].v_desc.resolution);
     }
     g_free(priv->osd_buffer);
+	media_ircut_free(priv->ircut);
     G_OBJECT_CLASS(ipcam_imedia_parent_class)->finalize(object);
 }
 static void ipcam_imedia_init(IpcamIMedia *self)
@@ -119,7 +123,10 @@ static void ipcam_imedia_init(IpcamIMedia *self)
     ipcam_base_app_register_notice_handler(IPCAM_BASE_APP(self), "set_osd", IPCAM_VIDEO_PARAM_CHANGE_HANDLER_TYPE);
     ipcam_base_app_register_notice_handler(IPCAM_BASE_APP(self), "set_image", IPCAM_VIDEO_PARAM_CHANGE_HANDLER_TYPE);
     ipcam_base_app_register_notice_handler(IPCAM_BASE_APP(self), "set_szyc", IPCAM_VIDEO_PARAM_CHANGE_HANDLER_TYPE);
+    ipcam_base_app_register_notice_handler(IPCAM_BASE_APP(self), "set_day_night_mode", IPCAM_VIDEO_PARAM_CHANGE_HANDLER_TYPE);
     priv->osd_buffer = g_malloc(OSD_BUFFER_LENGTH);
+	priv->ircut = media_ircut_new(256, 30);
+	media_ircut_initialize(priv->ircut);
 }
 static void ipcam_imedia_class_init(IpcamIMediaClass *klass)
 {
@@ -142,6 +149,7 @@ static void ipcam_imedia_before(IpcamIMedia *imedia)
     ipcam_imedia_query_szyc_parameter(imedia);
     ipcam_imedia_query_osd_parameter(imedia);
     ipcam_imedia_query_baseinfo_parameter(imedia);
+	ipcam_imedia_query_day_night_mode(imedia);
 }
 static void ipcam_imedia_in_loop(IpcamIMedia *imedia)
 {
@@ -150,6 +158,12 @@ static void ipcam_imedia_in_loop(IpcamIMedia *imedia)
     int i;
 	gchar osdBuf[128] = {0};
     gchar timeBuf[64] = {0};
+
+	if (media_ircut_detect(priv->ircut)) {
+		gboolean ir_status = media_ircut_get_status(priv->ircut);
+
+		ipcam_media_video_set_color2grey(priv->video, priv->stream_desc, ir_status);
+	}
 
     time(&now);
     if (priv->last_time != now)
@@ -249,6 +263,10 @@ static void message_handler(GObject *obj, IpcamMessage* msg, gboolean timeout)
         {
             ipcam_imedia_got_video_param(IPCAM_IMEDIA(obj), body, FALSE);
         }
+		else if (g_str_equal("get_day_night_mode", action))
+		{
+			ipcam_imedia_got_day_night_mode_parameter(IPCAM_IMEDIA(obj), body);
+		}
         else
         {
             g_warning("Unhandled message: %s\n", action);
@@ -275,6 +293,24 @@ static void ipcam_imedia_query_szyc_parameter(IpcamIMedia *imedia)
     json_builder_add_string_value(builder, "train_num");
     json_builder_add_string_value(builder, "carriage_num");
     json_builder_add_string_value(builder, "position_num");
+    json_builder_end_array(builder);
+    json_builder_end_object(builder);
+    
+    ipcam_imedia_query_param(imedia, rq_msg, builder);
+    g_object_unref(rq_msg);
+    g_object_unref(builder);
+}
+static void ipcam_imedia_query_day_night_mode(IpcamIMedia *imedia)
+{
+    IpcamRequestMessage *rq_msg = g_object_new(IPCAM_REQUEST_MESSAGE_TYPE,
+                                               "action", "get_day_night_mode", NULL);
+    
+    JsonBuilder *builder = json_builder_new();
+    json_builder_begin_object(builder);
+    json_builder_set_member_name(builder, "items");
+    json_builder_begin_array(builder);
+    json_builder_add_string_value(builder, "night_mode_threshold");
+    json_builder_add_string_value(builder, "ir_intensity");
     json_builder_end_array(builder);
     json_builder_end_object(builder);
     
@@ -488,6 +524,32 @@ void ipcam_imedia_got_osd_parameter(IpcamIMedia *imedia, JsonNode *body)
     }
 }
 
+void ipcam_imedia_got_day_night_mode_parameter(IpcamIMedia *imedia, JsonNode *body)
+{
+    IpcamIMediaPrivate *priv = ipcam_imedia_get_instance_private(imedia);
+    JsonObject *items_obj;
+	guint threshold = 0;
+	guint ir_intensity = 0;
+    int i;
+
+    items_obj = json_object_get_object_member(json_node_get_object(body), "items");
+
+    if (json_object_has_member(items_obj, "night_mode_threshold"))
+    {
+        threshold = json_object_get_int_member(items_obj, "night_mode_threshold");
+
+		media_ircut_set_sensitivity(priv->ircut, threshold);
+    }
+    if (json_object_has_member(items_obj, "ir_intensity"))
+    {
+        ir_intensity = json_object_get_int_member(items_obj, "ir_intensity");
+
+		media_ircut_set_ir_intensity(priv->ircut, ir_intensity);
+	}
+
+	g_print("%s: threshold=%d, ir_intensity=%d\n", __func__, threshold, ir_intensity);
+}
+
 void ipcam_imedia_got_szyc_parameter(IpcamIMedia *imedia, JsonNode *body)
 {
     IpcamIMediaPrivate *priv = ipcam_imedia_get_instance_private(imedia);
@@ -600,7 +662,6 @@ void ipcam_imedia_got_baseinfo_parameter(IpcamIMedia *imedia, JsonNode *body)
 
 void ipcam_imedia_got_misc_parameter(IpcamIMedia *imedia, JsonNode *body)
 {
-    IpcamIMediaPrivate *priv = ipcam_imedia_get_instance_private(imedia);
     JsonObject *res_object;
 
     res_object = json_object_get_object_member(json_node_get_object(body), "items");

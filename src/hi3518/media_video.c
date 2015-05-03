@@ -351,3 +351,13 @@ static void ipcam_ivideo_interface_init(IpcamIVideoInterface *iface)
     iface->stop = ipcam_media_video_stop_livestream;
     iface->param_change = ipcam_media_video_param_change;
 }
+
+void ipcam_media_video_set_color2grey(IpcamMediaVideo *self, StreamDescriptor desc[], gboolean enabled)
+{
+	IpcamMediaVideoPrivate *priv = IPCAM_MEDIA_VIDEO_GET_PRIVATE(self);
+
+	if (enabled)
+		ipcam_video_encode_enable_color2grey(priv->venc, desc);
+	else
+		ipcam_video_encode_disable_color2grey(priv->venc, desc);
+}

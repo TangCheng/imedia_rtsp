@@ -28,6 +28,8 @@ struct _IpcamVideoEncodeClass
 GType ipcam_video_encode_get_type(void);
 gint32 ipcam_video_encode_start(IpcamVideoEncode *self, StreamDescriptor desc[]);
 gint32 ipcam_video_encode_stop(IpcamVideoEncode *self);
+gint32 ipcam_video_encode_enable_color2grey(IpcamVideoEncode *self, StreamDescriptor desc[]);
+gint32 ipcam_video_encode_disable_color2grey(IpcamVideoEncode *self, StreamDescriptor desc[]);
 void ipcam_video_encode_param_change(IpcamVideoEncode *self, StreamDescriptor desc[]);
 
 #endif /* __VIDEO_ENCODE_H__ */
