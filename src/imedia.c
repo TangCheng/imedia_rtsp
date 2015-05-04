@@ -125,7 +125,7 @@ static void ipcam_imedia_init(IpcamIMedia *self)
     ipcam_base_app_register_notice_handler(IPCAM_BASE_APP(self), "set_szyc", IPCAM_VIDEO_PARAM_CHANGE_HANDLER_TYPE);
     ipcam_base_app_register_notice_handler(IPCAM_BASE_APP(self), "set_day_night_mode", IPCAM_VIDEO_PARAM_CHANGE_HANDLER_TYPE);
     priv->osd_buffer = g_malloc(OSD_BUFFER_LENGTH);
-	priv->ircut = media_ircut_new(256, 30);
+	priv->ircut = media_ircut_new(256, 15);
 	media_ircut_initialize(priv->ircut);
 }
 static void ipcam_imedia_class_init(IpcamIMediaClass *klass)
@@ -546,8 +546,6 @@ void ipcam_imedia_got_day_night_mode_parameter(IpcamIMedia *imedia, JsonNode *bo
 
 		media_ircut_set_ir_intensity(priv->ircut, ir_intensity);
 	}
-
-	g_print("%s: threshold=%d, ir_intensity=%d\n", __func__, threshold, ir_intensity);
 }
 
 void ipcam_imedia_got_szyc_parameter(IpcamIMedia *imedia, JsonNode *body)

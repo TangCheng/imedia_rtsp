@@ -38,6 +38,7 @@ typedef struct HI35XX_PWM_REG
 	HI_U32 pwm0_state0;
 	HI_U32 pwm0_state1;
 	HI_U32 pwm0_state2;
+	HI_U32 pwm0_dummy;
 	HI_U32 pwm1_cfg0;
 	HI_U32 pwm1_cfg1;
 	HI_U32 pwm1_cfg2;
@@ -113,12 +114,12 @@ static void media_ircut_enable_pwm_output(MediaIrCut *ircut)
 	ircut->pwm_base->pwm1_cfg2 = 1023;
 	ircut->pwm_base->pwm1_ctrl = 5;			/* keep outout & start */
 
-	ircut->gpio8_base->data[0x01] = 0x01;
+	ircut->gpio8_base->data[0x02] = 0x02;
 }
 
 static void media_ircut_disable_pwm_output(MediaIrCut *ircut)
 {
-	ircut->gpio8_base->data[0x01] = 0x00;
+	ircut->gpio8_base->data[0x02] = 0x00;
 }
 
 gint media_ircut_initialize(MediaIrCut *ircut)
@@ -129,11 +130,11 @@ gint media_ircut_initialize(MediaIrCut *ircut)
 	ircut->adc_base->int_mask = 0;      /* enable ADC interrupt */
 
 	/* IrCut optical filter initialize */
-	ircut->gpio8_base->dir |= 0x61;		/* GPIO8_1/GPIO8_5/GPIO8_6 as output */
+	ircut->gpio8_base->dir |= 0x62;		/* GPIO8_1/GPIO8_5/GPIO8_6 as output */
 	/* Enable color filter default */
 	media_ircut_enable_color_filter(ircut);
 	/* Ir Output enable */
-	ircut->gpio8_base->data[0x01] = 0x01;
+	ircut->gpio8_base->data[0x02] = 0x02;
 
 	/* PWM initialize */
 	media_ircut_disable_pwm_output(ircut);
@@ -156,7 +157,7 @@ static guint16 media_ircut_get_adc_value(MediaIrCut *ircut)
 	return result & 0x3ff;
 }
 
-#define IRCUT_TRIGGER_COUNT  4
+#define IRCUT_TRIGGER_COUNT  10
 
 gboolean media_ircut_detect(MediaIrCut *ircut)
 {
@@ -222,7 +223,7 @@ void media_ircut_set_ir_intensity(MediaIrCut *ircut, guint16 value)
 
 	ircut->pwm_duty = value;
 
-	if (!ircut->status)
+	if (ircut->status)
 		media_ircut_enable_pwm_output(ircut);
 }
 
