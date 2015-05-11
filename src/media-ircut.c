@@ -51,6 +51,7 @@ typedef struct HI35XX_PWM_REG
 struct MediaIrCut
 {
 	gboolean status;
+	gboolean hw_found;
 	guint16  sensitivity;
 	guint16  hysteresis;
 	guint    pwm_duty;
@@ -60,9 +61,17 @@ struct MediaIrCut
 	volatile HI35XX_PWM_REG *pwm_base;
 };
 
+static gboolean media_ircut_hw_detect(void);
+static void media_ircut_initialize(MediaIrCut *ircut);
+
 MediaIrCut *media_ircut_new(guint16 sensitivity, guint16 hysteresis)
 {
-	MediaIrCut *ircut = g_malloc0(sizeof(MediaIrCut));
+	MediaIrCut *ircut = NULL;
+
+	if (!media_ircut_hw_detect())
+		return NULL;
+
+	ircut = g_malloc0(sizeof(MediaIrCut));
 
 	g_return_val_if_fail(ircut != NULL, NULL);
 
@@ -76,6 +85,8 @@ MediaIrCut *media_ircut_new(guint16 sensitivity, guint16 hysteresis)
 	ircut->gpio8_base = HI_MPI_SYS_Mmap(0x201C0000, 0x1000);
 	ircut->pwm_base = HI_MPI_SYS_Mmap(0x20130000, 0x1000);
 
+	media_ircut_initialize(ircut);
+
 	return ircut;
 }
 
@@ -88,6 +99,24 @@ void media_ircut_free(MediaIrCut *ircut)
 	HI_MPI_SYS_Munmap((HI_VOID*)ircut->pwm_base, 0x1000);
 
 	g_free(ircut);
+}
+
+static gboolean media_ircut_hw_detect(void)
+{
+	gboolean result;
+	volatile HI35XX_GPIO_REG *gpio1;
+
+	gpio1 = HI_MPI_SYS_Mmap(0x20150000, 0x1000);
+	if (!gpio1)
+		return FALSE;
+
+	gpio1->dir &= ~(1 << 0);
+
+	result = gpio1->data[1 << 0] ? TRUE : FALSE;
+
+	HI_MPI_SYS_Munmap(gpio1, 0x1000);
+
+	return result;
 }
 
 static void media_ircut_enable_color_filter(MediaIrCut *ircut)
@@ -122,24 +151,6 @@ static void media_ircut_disable_pwm_output(MediaIrCut *ircut)
 	ircut->gpio8_base->data[0x02] = 0x00;
 }
 
-gint media_ircut_initialize(MediaIrCut *ircut)
-{
-	/* SAR_ADC initialize */
-	ircut->adc_base->powerdown = 0;		/* power on */
-	ircut->adc_base->ctrl = 0x00010000; /* select ADC1 */
-	ircut->adc_base->int_mask = 0;      /* enable ADC interrupt */
-
-	/* IrCut optical filter initialize */
-	ircut->gpio8_base->dir |= 0x62;		/* GPIO8_1/GPIO8_5/GPIO8_6 as output */
-	/* Enable color filter default */
-	media_ircut_enable_color_filter(ircut);
-	/* Ir Output enable */
-	ircut->gpio8_base->data[0x02] = 0x02;
-
-	/* PWM initialize */
-	media_ircut_disable_pwm_output(ircut);
-}
-
 static guint16 media_ircut_get_adc_value(MediaIrCut *ircut)
 {
 	int cnt;
@@ -157,9 +168,30 @@ static guint16 media_ircut_get_adc_value(MediaIrCut *ircut)
 	return result & 0x3ff;
 }
 
+static void media_ircut_initialize(MediaIrCut *ircut)
+{
+	g_return_val_if_fail(ircut != NULL, -1);
+
+	/* SAR_ADC initialize */
+	ircut->adc_base->powerdown = 0;		/* power on */
+	ircut->adc_base->ctrl = 0x00010000; /* select ADC1 */
+	ircut->adc_base->int_mask = 0;      /* enable ADC interrupt */
+
+	/* IrCut optical filter initialize */
+	/* GPIO8_1/GPIO8_5/GPIO8_6 */
+	ircut->gpio8_base->dir |= (1 << 1) | (1 << 5) | (1 << 6);
+	/* Enable color filter default */
+	media_ircut_enable_color_filter(ircut);
+	/* Ir Output enable */
+	ircut->gpio8_base->data[0x02] = 0x02;
+
+	/* PWM initialize */
+	media_ircut_disable_pwm_output(ircut);
+}
+
 #define IRCUT_TRIGGER_COUNT  10
 
-gboolean media_ircut_detect(MediaIrCut *ircut)
+gboolean media_ircut_poll(MediaIrCut *ircut)
 {
 	gboolean triggered = FALSE;
 
@@ -229,5 +261,7 @@ void media_ircut_set_ir_intensity(MediaIrCut *ircut, guint16 value)
 
 gboolean media_ircut_get_status(MediaIrCut *ircut)
 {
+	g_return_val_if_fail(ircut != NULL, FALSE);
+
 	return ircut->status;
 }

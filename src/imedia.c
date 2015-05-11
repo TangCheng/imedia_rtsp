@@ -25,6 +25,7 @@ typedef struct _IpcamIMediaPrivate
     IpcamIMediaSysCtrl *sys_ctrl;
     IpcamIVideo *video;
     IpcamIOSD *osd[STREAM_CHN_LAST];
+	gboolean initialized;
     gchar *osd_buffer;
     IpcamRtsp *rtsp;
     time_t last_time;
@@ -83,7 +84,8 @@ static void ipcam_imedia_finalize(GObject *object)
         g_free((gpointer)priv->stream_desc[chn].v_desc.resolution);
     }
     g_free(priv->osd_buffer);
-	media_ircut_free(priv->ircut);
+	if (priv->ircut)
+		media_ircut_free(priv->ircut);
     G_OBJECT_CLASS(ipcam_imedia_parent_class)->finalize(object);
 }
 static void ipcam_imedia_init(IpcamIMedia *self)
@@ -91,6 +93,8 @@ static void ipcam_imedia_init(IpcamIMedia *self)
 	IpcamIMediaPrivate *priv = ipcam_imedia_get_instance_private(self);
     const gchar *pattern = "InsBr.*InsFr[^\n]*[\n]+([^\n]*)[\n]([^\n]*)[\n]";
     int i;
+
+	priv->initialized = FALSE;
 
     regcomp(&priv->reg, pattern, REG_EXTENDED | REG_NEWLINE);
     priv->sys_ctrl = g_object_new(IPCAM_MEDIA_SYS_CTRL_TYPE, NULL);
@@ -126,7 +130,7 @@ static void ipcam_imedia_init(IpcamIMedia *self)
     ipcam_base_app_register_notice_handler(IPCAM_BASE_APP(self), "set_day_night_mode", IPCAM_VIDEO_PARAM_CHANGE_HANDLER_TYPE);
     priv->osd_buffer = g_malloc(OSD_BUFFER_LENGTH);
 	priv->ircut = media_ircut_new(256, 15);
-	media_ircut_initialize(priv->ircut);
+	g_print("IrCut hardware %s\n", priv->ircut ? "found" : "not found");
 }
 static void ipcam_imedia_class_init(IpcamIMediaClass *klass)
 {
@@ -159,10 +163,16 @@ static void ipcam_imedia_in_loop(IpcamIMedia *imedia)
 	gchar osdBuf[128] = {0};
     gchar timeBuf[64] = {0};
 
-	if (media_ircut_detect(priv->ircut)) {
-		gboolean ir_status = media_ircut_get_status(priv->ircut);
+	if (!priv->initialized)
+		return;
 
-		ipcam_media_video_set_color2grey(priv->video, priv->stream_desc, ir_status);
+	if (priv->ircut) {
+		if (media_ircut_poll(priv->ircut)) {
+			gboolean ir_status = media_ircut_get_status(priv->ircut);
+
+			ipcam_media_video_set_color2grey(priv->video,
+											 ir_status);
+		}
 	}
 
     time(&now);
@@ -222,11 +232,6 @@ static void message_handler(GObject *obj, IpcamMessage* msg, gboolean timeout)
 
     if (!timeout && msg)
     {
-#if 0
-        gchar *str = ipcam_message_to_string(msg);
-        g_print("result=\n%s\n", str);
-        g_free(str);
-#endif
         IpcamResponseMessage *res_msg = IPCAM_RESPONSE_MESSAGE(msg);
         gchar *action = NULL;
         g_object_get(res_msg, "action", &action, NULL);
@@ -271,8 +276,7 @@ static void message_handler(GObject *obj, IpcamMessage* msg, gboolean timeout)
         {
             g_warning("Unhandled message: %s\n", action);
         }
-    }
-}
+	}	}
 static void ipcam_imedia_query_param(IpcamIMedia *imedia, IpcamRequestMessage *rq_msg, JsonBuilder *builder)
 {
     gchar *token = (gchar *)ipcam_base_app_get_config(IPCAM_BASE_APP(imedia), "token");
@@ -538,13 +542,15 @@ void ipcam_imedia_got_day_night_mode_parameter(IpcamIMedia *imedia, JsonNode *bo
     {
         threshold = json_object_get_int_member(items_obj, "night_mode_threshold");
 
-		media_ircut_set_sensitivity(priv->ircut, threshold);
+		if (priv->ircut)
+			media_ircut_set_sensitivity(priv->ircut, threshold);
     }
     if (json_object_has_member(items_obj, "ir_intensity"))
     {
         ir_intensity = json_object_get_int_member(items_obj, "ir_intensity");
 
-		media_ircut_set_ir_intensity(priv->ircut, ir_intensity);
+		if (priv->ircut)
+			media_ircut_set_ir_intensity(priv->ircut, ir_intensity);
 	}
 }
 
@@ -932,6 +938,8 @@ void ipcam_imedia_got_video_param(IpcamIMedia *imedia, JsonNode *body, gboolean 
                                  ipcam_imedia_osd_display_video_data);
         ipcam_rtsp_set_video_iface(priv->rtsp, priv->video);
         ipcam_rtsp_start_server(priv->rtsp);
+
+		priv->initialized = TRUE;
     }
     else
     {

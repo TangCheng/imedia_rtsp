@@ -14,6 +14,7 @@ enum
 
 typedef struct _IpcamVideoEncodePrivate
 {
+    gboolean color2grey;
     guint32 image_width;
     guint32 image_height;
 } IpcamVideoEncodePrivate;
@@ -25,6 +26,7 @@ static GParamSpec *obj_properties[N_PROPERTIES] = {NULL, };
 static void ipcam_video_encode_init(IpcamVideoEncode *self)
 {
     IpcamVideoEncodePrivate *priv = ipcam_video_encode_get_instance_private(self);
+    priv->color2grey = FALSE;
     priv->image_width = IMAGE_MAX_WIDTH;
     priv->image_height = IMAGE_MAX_HEIGHT;
 }
@@ -100,6 +102,68 @@ static void ipcam_video_encode_class_init(IpcamVideoEncodeClass *klass)
                           G_PARAM_READWRITE);
 
     g_object_class_install_properties(object_class, N_PROPERTIES, obj_properties);
+}
+
+static gint32 video_encode_enable_color2grey(IpcamVideoEncode *self)
+{
+    g_return_val_if_fail(IPCAM_IS_VIDEO_ENCODE(self), HI_FAILURE);
+    HI_S32 s32Ret;
+    HI_S32 chn;
+    IpcamVideoEncodePrivate *priv = ipcam_video_encode_get_instance_private(self);
+
+    GROUP_COLOR2GREY_CONF_S stColor2GreyConf = {
+		.bEnable = HI_TRUE,
+		.u32MaxWidth = priv->image_width,
+		.u32MaxHeight = priv->image_height,
+	};
+	s32Ret = HI_MPI_VENC_SetColor2GreyConf(&stColor2GreyConf);
+	if (s32Ret != HI_SUCCESS)
+	{
+		g_critical("HI_MPI_VENC_SetColor2GreyConf() err 0x%x\n", s32Ret);
+	}
+
+	for (chn = MASTER_CHN; chn < STREAM_CHN_LAST; chn++)
+    {
+		GROUP_COLOR2GREY_S stGrpColor2Grey = {
+			.bColor2Grey = HI_TRUE
+		};
+		s32Ret = HI_MPI_VENC_SetGrpColor2Grey(chn, &stGrpColor2Grey);
+		if (s32Ret != HI_SUCCESS)
+		{
+			g_critical("HI_MPI_VENC_SetGrpColor2Grey() err 0x%x\n", s32Ret);
+		}
+	}
+}
+
+static gint32 video_encode_disable_color2grey(IpcamVideoEncode *self)
+{
+    g_return_val_if_fail(IPCAM_IS_VIDEO_ENCODE(self), HI_FAILURE);
+    HI_S32 s32Ret;
+    HI_S32 chn;
+    IpcamVideoEncodePrivate *priv = ipcam_video_encode_get_instance_private(self);
+
+	for (chn = MASTER_CHN; chn < STREAM_CHN_LAST; chn++)
+    {
+		GROUP_COLOR2GREY_S stGrpColor2Grey = {
+			.bColor2Grey = HI_FALSE
+		};
+		s32Ret = HI_MPI_VENC_SetGrpColor2Grey(chn, &stGrpColor2Grey);
+		if (s32Ret != HI_SUCCESS)
+		{
+			g_critical("HI_MPI_VENC_SetGrpColor2Grey() err 0x%x\n", s32Ret);
+		}
+	}
+
+	GROUP_COLOR2GREY_CONF_S stColor2GreyConf = {
+		.bEnable = HI_FALSE,
+		.u32MaxWidth = priv->image_width,
+		.u32MaxHeight = priv->image_height,
+	};
+	s32Ret = HI_MPI_VENC_SetColor2GreyConf(&stColor2GreyConf);
+	if (s32Ret != HI_SUCCESS)
+	{
+		g_critical("HI_MPI_VENC_SetColor2GreyConf() err 0x%x\n", s32Ret);
+	}
 }
 
 gint32 ipcam_video_encode_start(IpcamVideoEncode *self, StreamDescriptor desc[])
@@ -266,6 +330,9 @@ gint32 ipcam_video_encode_start(IpcamVideoEncode *self, StreamDescriptor desc[])
         }
     }
 
+    if (priv->color2grey)
+        video_encode_enable_color2grey(self);
+
 	// omit other code here.
     return HI_SUCCESS;
 }
@@ -278,10 +345,13 @@ gint32 ipcam_video_encode_stop(IpcamVideoEncode *self)
     VENC_GRP VeGrp = 0;
     VENC_CHN VeChn = 0;
 
+    video_encode_disable_color2grey(self);
+
     for (chn = MASTER_CHN; chn < STREAM_CHN_LAST; chn++)
     {
         VeGrp = chn;
         VeChn = chn;
+
         /******************************************
          step 1:  Stop Recv Pictures
          ******************************************/
@@ -342,98 +412,20 @@ gint32 ipcam_video_encode_stop(IpcamVideoEncode *self)
     return HI_SUCCESS;
 }
 
-gint32 ipcam_video_encode_enable_color2grey(IpcamVideoEncode *self, StreamDescriptor desc[])
+gint32 ipcam_video_encode_enable_color2grey(IpcamVideoEncode *self)
 {
-    g_return_val_if_fail(IPCAM_IS_VIDEO_ENCODE(self), HI_FAILURE);
-    HI_S32 s32Ret;
-    HI_S32 chn;
     IpcamVideoEncodePrivate *priv = ipcam_video_encode_get_instance_private(self);
-    guint input_width, input_height;
 
-    /* default sensor mode: 1920x1200@20Hz */
-
-    gchar *resolution = desc[MASTER_CHN].v_desc.resolution;
-    if (g_str_equal(resolution, "UXGA") ||
-        g_str_equal(resolution, "960H"))
-    {
-        input_width = 1600;
-        input_height = 1200;
-    }
-    else
-    {
-        input_width = 1920;
-        input_height = 1080;
-    }
-
-	GROUP_COLOR2GREY_CONF_S stColor2GreyConf = {
-		.bEnable = HI_TRUE,
-		.u32MaxWidth = input_width,
-		.u32MaxHeight = input_height,
-	};
-	s32Ret = HI_MPI_VENC_SetColor2GreyConf(&stColor2GreyConf);
-	if (s32Ret != HI_SUCCESS)
-	{
-		g_critical("HI_MPI_VENC_SetColor2GreyConf() err 0x%x\n", s32Ret);
-	}
-
-	for (chn = MASTER_CHN; chn < STREAM_CHN_LAST; chn++)
-    {
-		GROUP_COLOR2GREY_S stGrpColor2Grey = {
-			.bColor2Grey = HI_TRUE
-		};
-		s32Ret = HI_MPI_VENC_SetGrpColor2Grey(chn, &stGrpColor2Grey);
-		if (s32Ret != HI_SUCCESS)
-		{
-			g_critical("HI_MPI_VENC_SetColor2GreyConf() err 0x%x\n", s32Ret);
-		}
-	}
+    video_encode_enable_color2grey(self);
+    priv->color2grey = TRUE;
 }
 
-gint32 ipcam_video_encode_disable_color2grey(IpcamVideoEncode *self, StreamDescriptor desc[])
+gint32 ipcam_video_encode_disable_color2grey(IpcamVideoEncode *self)
 {
-    g_return_val_if_fail(IPCAM_IS_VIDEO_ENCODE(self), HI_FAILURE);
-    HI_S32 s32Ret;
-    HI_S32 chn;
     IpcamVideoEncodePrivate *priv = ipcam_video_encode_get_instance_private(self);
-    guint input_width, input_height;
 
-    /* default sensor mode: 1920x1200@20Hz */
-
-    gchar *resolution = desc[MASTER_CHN].v_desc.resolution;
-    if (g_str_equal(resolution, "UXGA") ||
-        g_str_equal(resolution, "960H"))
-    {
-        input_width = 1600;
-        input_height = 1200;
-    }
-    else
-    {
-        input_width = 1920;
-        input_height = 1080;
-    }
-
-	for (chn = MASTER_CHN; chn < STREAM_CHN_LAST; chn++)
-    {
-		GROUP_COLOR2GREY_S stGrpColor2Grey = {
-			.bColor2Grey = HI_FALSE
-		};
-		s32Ret = HI_MPI_VENC_SetGrpColor2Grey(chn, &stGrpColor2Grey);
-		if (s32Ret != HI_SUCCESS)
-		{
-			g_critical("HI_MPI_VENC_SetColor2GreyConf() err 0x%x\n", s32Ret);
-		}
-	}
-
-	GROUP_COLOR2GREY_CONF_S stColor2GreyConf = {
-		.bEnable = HI_FALSE,
-		.u32MaxWidth = input_width,
-		.u32MaxHeight = input_height,
-	};
-	s32Ret = HI_MPI_VENC_SetColor2GreyConf(&stColor2GreyConf);
-	if (s32Ret != HI_SUCCESS)
-	{
-		g_critical("HI_MPI_VENC_SetColor2GreyConf() err 0x%x\n", s32Ret);
-	}
+    video_encode_disable_color2grey(self);
+    priv->color2grey = FALSE;
 }
 
 void ipcam_video_encode_param_change(IpcamVideoEncode *self, StreamDescriptor desc[])

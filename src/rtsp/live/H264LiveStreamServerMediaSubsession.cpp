@@ -115,7 +115,7 @@ RTPSink* H264LiveStreamServerMediaSubsession
 		   unsigned char rtpPayloadTypeIfDynamic,
 		   FramedSource* /*inputSource*/) {
   H264VideoRTPSink *rtp_sink = H264VideoRTPSink::createNew(envir(), rtpGroupsock, rtpPayloadTypeIfDynamic);
-  rtp_sink->setPacketSizes(1000, 1456 * 12);
+  rtp_sink->setPacketSizes(1000, 1456 * 10);
   return rtp_sink;
 }
 
