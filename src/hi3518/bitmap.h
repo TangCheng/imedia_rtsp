@@ -1,9 +1,9 @@
 #ifndef __BITMAP_H__
 #define __BITMAP_H__
 
+#include <hi_common.h>
 #include <glib.h>
 #include <glib-object.h>
-#include <hi_common.h>
 
 #define IPCAM_BITMAP_TYPE (ipcam_bitmap_get_type())
 #define IPCAM_BITMAP(obj) (G_TYPE_CHECK_INSTANCE_CAST((obj), IPCAM_BITMAP_TYPE, IpcamBitmap))

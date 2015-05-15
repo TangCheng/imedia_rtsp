@@ -4,8 +4,8 @@
 #include <sys/types.h>
 #include <regex.h>
 #include <time.h>
-#include <messages.h>
 #include <mpi_vda.h>
+#include <messages.h>
 #include "imedia.h"
 #include "stream_descriptor.h"
 #if defined(HI3518) || defined(HI3516)
@@ -29,6 +29,7 @@ typedef struct _IpcamIMediaPrivate
     IpcamRtsp *rtsp;
     time_t last_time;
     regex_t reg;
+    gchar *model;
     gchar *bit_rate[STREAM_CHN_LAST];
     gchar *frame_rate[STREAM_CHN_LAST];
     gchar *train_num;
@@ -69,11 +70,13 @@ static void ipcam_imedia_finalize(GObject *object)
     g_clear_object(&priv->rtsp);
     g_clear_object(&priv->sys_ctrl);
     g_clear_object(&priv->video);
+
     for (i = MASTER_CHN; i < STREAM_CHN_LAST; i++) {
         g_clear_object(&priv->osd[i]);
         g_free(priv->bit_rate[i]);
         g_free(priv->frame_rate[i]);
     }
+    g_free(priv->model);
     g_free(priv->train_num);
     g_free(priv->carriage_num);
     g_free(priv->position_num);
@@ -105,6 +108,7 @@ static void ipcam_imedia_init(IpcamIMedia *self)
         priv->bit_rate[i] = g_malloc(BIT_RATE_BUF_SIZE);
         priv->frame_rate[i] = g_malloc(FRAME_RATE_BUF_SIZE);
     }
+    priv->model = NULL;
     priv->train_num = NULL;
     priv->carriage_num = NULL;
     priv->position_num = NULL;
@@ -160,6 +164,7 @@ static void ipcam_imedia_before(IpcamBaseService *base_service)
     IpcamIMediaPrivate *priv = ipcam_imedia_get_instance_private(imedia);
     ipcam_media_sys_ctrl_init_media_system(priv->sys_ctrl);
 
+    ipcam_imedia_query_baseinfo_parameter(imedia);
     ipcam_imedia_request_users(imedia);
     ipcam_imedia_query_rtsp_auth(imedia);
     ipcam_imedia_request_rtsp_port(imedia);
@@ -199,13 +204,11 @@ static void ipcam_imedia_in_loop(IpcamBaseService *base_service)
         priv->last_time = now;
         strftime(timeBuf, sizeof(timeBuf), "%Y-%m-%d %H:%M:%S ", localtime(&now));
 
-		gchar *project = (gchar *)ipcam_base_app_get_config(IPCAM_BASE_APP(imedia), "imedia_rtsp:project");
-
-		if (!project) {
+        if (!priv->model) {
 			g_strlcat(osdBuf, timeBuf, sizeof(osdBuf));
 		}
 		else {
-			if (strcasecmp(project, "dctx") == 0) {
+			if (g_ascii_strncasecmp(priv->model, "DCTX", 4) == 0) {
 				g_strlcpy(osdBuf, timeBuf, sizeof(timeBuf));
 				if (priv->train_num) {
 					g_strlcat(osdBuf, " ", sizeof(osdBuf));
@@ -221,7 +224,7 @@ static void ipcam_imedia_in_loop(IpcamBaseService *base_service)
 				}
 				g_strlcat(osdBuf, " ", sizeof(osdBuf));
 			}
-			else if (strcasecmp(project, "dttx") == 0) {
+			else if (g_ascii_strncasecmp(priv->model, "DTTX", 4) == 0) {
 				if (priv->train_num) {
 					g_strlcpy(osdBuf, "", sizeof(osdBuf));
 					g_strlcat(osdBuf, priv->train_num, sizeof(osdBuf));
@@ -233,6 +236,9 @@ static void ipcam_imedia_in_loop(IpcamBaseService *base_service)
 				g_strlcat(osdBuf, " ", sizeof(osdBuf));
 				g_strlcat(osdBuf, timeBuf, sizeof(osdBuf));
 			}
+            else {
+                g_strlcat(osdBuf, timeBuf, sizeof(osdBuf));
+            }
 		}
 
         for (i = MASTER_CHN; i < STREAM_CHN_LAST; i++)
@@ -308,7 +314,7 @@ static void ipcam_imedia_query_param(IpcamIMedia *imedia, IpcamRequestMessage *r
     JsonNode *body = json_builder_get_root(builder);
     g_object_set(G_OBJECT(rq_msg), "body", body, NULL);
     ipcam_base_app_send_message(IPCAM_BASE_APP(imedia), IPCAM_MESSAGE(rq_msg), "iconfig", token,
-                                message_handler, 10);
+                                message_handler, 20);
 }
 
 static void ipcam_imedia_query_szyc_parameter(IpcamIMedia *imedia)
@@ -387,6 +393,7 @@ static void ipcam_imedia_query_baseinfo_parameter(IpcamIMedia *imedia)
     json_builder_begin_array(builder);
     json_builder_add_string_value(builder, "device_name");
     json_builder_add_string_value(builder, "comment");
+    json_builder_add_string_value(builder, "model");
     json_builder_end_array(builder);
     json_builder_end_object(builder);
 
@@ -701,16 +708,28 @@ void ipcam_imedia_got_baseinfo_parameter(IpcamIMedia *imedia, JsonNode *body)
 
     if (NULL != device_name && strlen(device_name) > 0)
     {
-        for (i = MASTER_CHN; i < STREAM_CHN_LAST; i++)
-            ipcam_media_osd_set_content(priv->osd[i], IPCAM_OSD_TYPE_DEVICE_NAME, device_name);
+        for (i = MASTER_CHN; i < STREAM_CHN_LAST; i++) {
+            if (priv->osd[i])
+                ipcam_media_osd_set_content(priv->osd[i], IPCAM_OSD_TYPE_DEVICE_NAME, device_name);
+        }
     }
 
     const gchar *comment = NULL;
     comment = json_object_get_string_member(res_object, "comment");
     if (NULL != comment && strlen(comment) > 0)
     {
-        for (i = MASTER_CHN; i < STREAM_CHN_LAST; i++)
-            ipcam_media_osd_set_content(priv->osd[i], IPCAM_OSD_TYPE_COMMENT, comment);
+        for (i = MASTER_CHN; i < STREAM_CHN_LAST; i++) {
+            if (priv->osd[i])
+                ipcam_media_osd_set_content(priv->osd[i], IPCAM_OSD_TYPE_COMMENT, comment);
+        }
+    }
+
+    const gchar *model = NULL;
+    model = json_object_get_string_member(res_object, "model");
+    if (NULL != model && strlen(model) > 0)
+    {
+        g_free(priv->model);
+        priv->model = g_strdup(model);
     }
 }
 
@@ -976,11 +995,20 @@ void ipcam_imedia_got_od_param(IpcamIMedia *imedia, JsonNode *body, gboolean is_
     }
 }
 
+#define DEFAULT_FONT    "/usr/share/fonts/truetype/droid/DroidSansFallback.ttf"
+#define SIMSUN_FONT     "/usr/share/fonts/truetype/simsun.ttf"
+
 void ipcam_imedia_got_video_param(IpcamIMedia *imedia, JsonNode *body, gboolean is_notice)
 {
     JsonObject *res_obj = json_object_get_object_member(json_node_get_object(body), "items");
     IpcamIMediaPrivate *priv = ipcam_imedia_get_instance_private(imedia);
-	const gchar *font = ipcam_base_app_get_config(IPCAM_BASE_APP(imedia), "imedia_rtsp:font");
+	const gchar *font = DEFAULT_FONT;
+
+    if (priv->model) {
+        if (g_ascii_strncasecmp(priv->model, "DTTX", 4) == 0) {
+            font = SIMSUN_FONT;
+        }
+    }
 
     if (json_object_has_member(res_obj, "profile"))
     {

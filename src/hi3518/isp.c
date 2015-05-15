@@ -395,10 +395,10 @@ void ipcam_isp_stop(IpcamIsp *self)
 
 void ipcam_isp_param_change(IpcamIsp *self, StreamDescriptor desc[])
 {
+    /* IpcamIspPrivate *priv = ipcam_isp_get_instance_private(self); */
 	ISP_IMAGE_ATTR_S stImageAttr;
     ISP_INPUT_TIMING_S stInputTiming;
     HI_S32 s32Ret = HI_SUCCESS;
-    IpcamIspPrivate *priv = ipcam_isp_get_instance_private(self);
 
     g_return_if_fail(IPCAM_IS_ISP(self));
 

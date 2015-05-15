@@ -274,6 +274,7 @@ static void ipcam_media_osd_init(IpcamMediaOsd *self)
     priv->image_height = 1080;
 }
 
+#if 0
 static void ipcam_media_osd_bitmap_clear(IpcamBitmap *bitmap, RECT_S *rect)
 {
 	SDL_Surface *scrn_sf;
@@ -297,6 +298,7 @@ static void ipcam_media_osd_bitmap_clear(IpcamBitmap *bitmap, RECT_S *rect)
 		SDL_FreeSurface(scrn_sf);
 	}
 }
+#endif
 
 gint32 ipcam_media_osd_start(IpcamMediaOsd *self, IPCAM_OSD_TYPE type, IpcamOSDParameter *parameter)
 {

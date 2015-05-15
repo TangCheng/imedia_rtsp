@@ -1,7 +1,7 @@
 #include <unistd.h>
 #include <stdlib.h>
-#include <glib.h>
 #include <mpi_sys.h>
+#include <glib.h>
 
 #include "media-ircut.h"
 

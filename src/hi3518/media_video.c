@@ -1,5 +1,4 @@
 #include <stdlib.h>
-#include <glib.h>
 #include <hi_type.h>
 #include <hi_defines.h>
 #include <hi_comm_sys.h>
@@ -7,6 +6,9 @@
 #include <mpi_sys.h>
 #include <mpi_venc.h>
 #include <hi_mem.h>
+
+#include <glib.h>
+
 #include "stream_descriptor.h"
 #include "imedia.h"
 #include "isp.h"
