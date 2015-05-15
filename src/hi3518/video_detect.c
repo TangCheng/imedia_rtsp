@@ -333,7 +333,12 @@ ipcam_video_detect_send_notify(IpcamVideoDetect *detect, guint region, gboolean 
                               "event", "video_occlusion_event",
                               "body", body,
                               NULL);
-    ipcam_base_app_broadcast_notice_message(IPCAM_BASE_APP(imedia), notice_msg, "imedia_rtsp_token");
+    ipcam_base_app_send_message(IPCAM_BASE_APP(imedia),
+                                notice_msg,
+                                "imedia_rtsp_pub",
+                                "imedia_rtsp_token",
+                                NULL,
+                                0);
 
     g_object_unref(notice_msg);
     g_object_unref(builder);
