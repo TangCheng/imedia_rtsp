@@ -122,7 +122,7 @@ gint32 ipcam_video_input_start(IpcamVideoInput *self, StreamDescriptor desc[])
     sensor_image_height = 1200;
     input_fps = 20;
 
-    resolution = desc[MASTER_CHN].v_desc.resolution;
+    resolution = (gchar *)desc[MASTER_CHN].v_desc.resolution;
     if (g_str_equal(resolution, "UXGA") ||
         g_str_equal(resolution, "960H"))
     {
@@ -334,7 +334,6 @@ void ipcam_video_input_set_image_parameter(IpcamVideoInput *self, IpcamMediaImag
         return;
     }
 
-#define MIN(a, b)   ((a) < (b) ? (a) : (b))
     if (attr->brightness >= 0)
         csc_attr.u32LumaVal = MIN(attr->brightness, 100);
     if (attr->chrominance >= 0)

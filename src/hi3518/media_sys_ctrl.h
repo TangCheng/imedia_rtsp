@@ -26,4 +26,7 @@ struct _IpcamMediaSysCtrlClass
 
 GType ipcam_media_sys_ctrl_get_type(void);
 
+void ipcam_media_sys_ctrl_init_media_system(IpcamMediaSysCtrl *self);
+void ipcam_media_sys_ctrl_uninit_media_system(IpcamMediaSysCtrl *self);
+
 #endif /* __MEDIA_SYS_CTRL_H__ */

@@ -1,3 +1,4 @@
+#include <unistd.h>
 #include <stdlib.h>
 #include <glib.h>
 #include <mpi_sys.h>
@@ -114,7 +115,7 @@ static gboolean media_ircut_hw_detect(void)
 
 	result = gpio1->data[1 << 0] ? TRUE : FALSE;
 
-	HI_MPI_SYS_Munmap(gpio1, 0x1000);
+	HI_MPI_SYS_Munmap((void*)gpio1, 0x1000);
 
 	return result;
 }
@@ -170,7 +171,7 @@ static guint16 media_ircut_get_adc_value(MediaIrCut *ircut)
 
 static void media_ircut_initialize(MediaIrCut *ircut)
 {
-	g_return_val_if_fail(ircut != NULL, -1);
+	g_return_if_fail(ircut != NULL);
 
 	/* SAR_ADC initialize */
 	ircut->adc_base->powerdown = 0;		/* power on */

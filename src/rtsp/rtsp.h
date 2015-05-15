@@ -8,7 +8,7 @@ extern "C"
 
 #include <base_app.h>
 #include "stream_descriptor.h"
-#include "interface/media_video_interface.h"
+#include "hi3518/media_video.h"
 
 #define IPCAM_TYPE_RTSP (ipcam_rtsp_get_type())
 #define IPCAM_RTSP(obj) (G_TYPE_CHECK_INSTANCE_CAST((obj), IPCAM_TYPE_RTSP, IpcamRtsp))
@@ -36,7 +36,7 @@ void ipcam_rtsp_insert_user(IpcamRtsp *rtsp, const gchar *username, const gchar 
 void ipcam_rtsp_delete_user(IpcamRtsp *rtsp, const gchar *username);
 void ipcam_rtsp_set_auth(IpcamRtsp *rtsp, gboolean auth);
 void ipcam_rtsp_set_stream_path(IpcamRtsp *rtsp, enum StreamChannel chn, const gchar *path);
-void ipcam_rtsp_set_video_iface(IpcamRtsp *rtsp, IpcamIVideo *video);
+void ipcam_rtsp_set_video_iface(IpcamRtsp *rtsp, IpcamMediaVideo *video);
 void ipcam_rtsp_start_server(IpcamRtsp *rtsp);
 void ipcam_rtsp_stop_server(IpcamRtsp *rtsp);
 

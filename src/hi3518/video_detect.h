@@ -25,9 +25,21 @@ struct _IpcamVideoDetectClass
     GObjectClass parent_class;
 };
 
+typedef struct OD_REGION_INFO
+{
+    gboolean enable;
+    guint32  sensitivity;
+    struct {
+        int left;
+        int top;
+        int width;
+        int height;
+    } rect;
+} OD_REGION_INFO;
+
 GType ipcam_video_detect_get_type(void);
-gint32 ipcam_video_detect_start(IpcamVideoDetect *self, StreamDescriptor desc[]);
+gint32 ipcam_video_detect_start(IpcamVideoDetect *self, OD_REGION_INFO reg_info[]);
 gint32 ipcam_video_detect_stop(IpcamVideoDetect *self);
-void ipcam_video_detect_param_change(IpcamVideoDetect *self, StreamDescriptor desc[]);
+void ipcam_video_detect_param_change(IpcamVideoDetect *self, OD_REGION_INFO reg_info[]);
 
 #endif /* __VIDEO_DETECT_H__ */

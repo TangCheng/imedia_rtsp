@@ -3,6 +3,7 @@
 
 #include <glib.h>
 #include <glib-object.h>
+#include "video_detect.h"
 
 #define IPCAM_MEDIA_VIDEO_TYPE (ipcam_media_video_get_type())
 #define IPCAM_MEDIA_VIDEO(obj) (G_TYPE_CHECK_INSTANCE_CAST((obj), IPCAM_MEDIA_VIDEO_TYPE, IpcamMediaVideo))
@@ -26,6 +27,14 @@ struct _IpcamMediaVideoClass
 };
 
 GType ipcam_media_video_get_type(void);
+
+gint32 ipcam_media_video_start_livestream(IpcamMediaVideo *self,
+                                          StreamDescriptor desc[],
+                                          OD_REGION_INFO od_reg_info[]);
+gint32 ipcam_media_video_stop_livestream(IpcamMediaVideo *self);
+void ipcam_media_video_param_change(IpcamMediaVideo *self,
+                                    StreamDescriptor desc[],
+                                    OD_REGION_INFO od_reg_info[]);
 
 void ipcam_media_video_set_image_parameter(IpcamMediaVideo *self, IpcamMediaImageAttr *attr);
 void ipcam_media_video_set_color2grey(IpcamMediaVideo *self, gboolean enabled);

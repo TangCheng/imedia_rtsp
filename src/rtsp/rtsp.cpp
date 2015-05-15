@@ -14,7 +14,7 @@ typedef struct _IpcamRtspPrivate
     GThread *live555_thread;
     gchar watch_variable;
     const gchar *stream_path[STREAM_CHN_LAST];
-    IpcamIVideo *video;
+    IpcamMediaVideo *video;
     gboolean enable_auth;
     UserAuthenticationDatabase *auth_db;
     RTSPServer *rtsp_server;
@@ -154,7 +154,7 @@ void ipcam_rtsp_set_stream_path(IpcamRtsp *rtsp, enum StreamChannel chn, const g
     priv->stream_path[chn] = path;
 }
 
-void ipcam_rtsp_set_video_iface(IpcamRtsp *rtsp, IpcamIVideo *video)
+void ipcam_rtsp_set_video_iface(IpcamRtsp *rtsp, IpcamMediaVideo *video)
 {
     IpcamRtspPrivate *priv = (IpcamRtspPrivate *)ipcam_rtsp_get_instance_private(rtsp);
     priv->video = video;

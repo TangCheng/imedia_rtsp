@@ -112,7 +112,7 @@ gint32 ipcam_video_process_subsystem_start(IpcamVideoProcessSubsystem *self, Str
     HI_S32 s32Ret;
     IpcamVideoProcessSubsystemPrivate *priv = ipcam_video_process_subsystem_get_instance_private(self);
 
-    gchar *resolution = desc[MASTER_CHN].v_desc.resolution;
+    gchar *resolution = (gchar *)desc[MASTER_CHN].v_desc.resolution;
     if (g_str_equal(resolution, "UXGA") ||
         g_str_equal(resolution, "960H"))
     {
@@ -264,7 +264,7 @@ gint32 ipcam_video_process_subsystem_stop(IpcamVideoProcessSubsystem *self)
 }
 void ipcam_video_process_subsystem_param_change(IpcamVideoProcessSubsystem *self, StreamDescriptor desc[])
 {
-    g_return_val_if_fail(IPCAM_IS_VIDEO_PROCESS_SUBSYSTEM(self), HI_FAILURE);
+    g_return_if_fail(IPCAM_IS_VIDEO_PROCESS_SUBSYSTEM(self));
 
     ipcam_video_process_subsystem_stop(self);
     ipcam_video_process_subsystem_start(self, desc);

@@ -38,9 +38,6 @@ imedia_rtsp_SOURCES = \
 	rtsp/live/H264LiveStreamSource.cpp \
 	rtsp/live/H264LiveStreamInput.cpp \
 	rtsp/live/H264LiveStreamServerMediaSubsession.cpp \
-	interface/media_sys_ctrl_interface.c \
-	interface/media_video_interface.c \
-	interface/media_osd_interface.c \
 	video_param_change_handler.c \
 	imedia.c \
 	main.c

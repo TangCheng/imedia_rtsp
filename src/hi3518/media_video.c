@@ -8,14 +8,13 @@
 #include <mpi_venc.h>
 #include <hi_mem.h>
 #include "stream_descriptor.h"
-#include "interface/media_video_interface.h"
 #include "imedia.h"
-#include "media_video.h"
 #include "isp.h"
 #include "video_input.h"
 #include "video_encode.h"
 #include "video_process_subsystem.h"
 #include "video_detect.h"
+#include "media_video.h"
 
 enum
 {
@@ -36,14 +35,10 @@ typedef struct _IpcamMediaVideoPrivate
 } IpcamMediaVideoPrivate;
 
 extern void signalNewFrameData(void *clientData);
-static void ipcam_ivideo_interface_init(IpcamIVideoInterface *iface);
-static gpointer ipcam_media_video_livestream(gpointer data);
 
 #define ENABLE_VIDEO_DETECT
 
-G_DEFINE_TYPE_WITH_CODE(IpcamMediaVideo, ipcam_media_video, G_TYPE_OBJECT,
-                        G_IMPLEMENT_INTERFACE(IPCAM_TYPE_IVIDEO,
-                                              ipcam_ivideo_interface_init));
+G_DEFINE_TYPE(IpcamMediaVideo, ipcam_media_video, G_TYPE_OBJECT);
 
 static GParamSpec *obj_properties[N_PROPERTIES] = {NULL, };
 
@@ -127,7 +122,7 @@ static void ipcam_media_video_get_property(GObject    *object,
 
 static void ipcam_media_video_set_property(GObject  *object,
                                            guint      property_id,
-                                           GValue     *value,
+                                           const GValue     *value,
                                            GParamSpec *pspec)
 {
     IpcamMediaVideo *self = IPCAM_MEDIA_VIDEO(object);
@@ -279,7 +274,9 @@ static gint32 ipcam_media_video_venc_unbind_vpss(IpcamMediaVideo *self)
     return s32Ret;
 }
 
-static gint32 ipcam_media_video_start_livestream(IpcamMediaVideo *self, StreamDescriptor desc[])
+gint32 ipcam_media_video_start_livestream(IpcamMediaVideo *self,
+                                          StreamDescriptor desc[],
+                                          OD_REGION_INFO od_reg_info[])
 {
     IpcamMediaVideoPrivate *priv = IPCAM_MEDIA_VIDEO_GET_PRIVATE(self);
 
@@ -292,13 +289,13 @@ static gint32 ipcam_media_video_start_livestream(IpcamMediaVideo *self, StreamDe
     ipcam_media_video_venc_bind_vpss(self);
 
 #if defined(ENABLE_VIDEO_DETECT)
-    ipcam_video_detect_start(priv->vda, desc);
+    ipcam_video_detect_start(priv->vda, od_reg_info);
 #endif
 
     return HI_SUCCESS;
 }
 
-static gint32 ipcam_media_video_stop_livestream(IpcamMediaVideo *self)
+gint32 ipcam_media_video_stop_livestream(IpcamMediaVideo *self)
 {
     IpcamMediaVideoPrivate *priv = IPCAM_MEDIA_VIDEO_GET_PRIVATE(self);
 
@@ -317,7 +314,9 @@ static gint32 ipcam_media_video_stop_livestream(IpcamMediaVideo *self)
     return HI_SUCCESS;
 }
 
-static void ipcam_media_video_param_change(IpcamMediaVideo *self, StreamDescriptor desc[])
+void ipcam_media_video_param_change(IpcamMediaVideo *self,
+                                    StreamDescriptor desc[],
+                                    OD_REGION_INFO *od_reg_info)
 {
     IpcamMediaVideoPrivate *priv = IPCAM_MEDIA_VIDEO_GET_PRIVATE(self);
 
@@ -334,7 +333,7 @@ static void ipcam_media_video_param_change(IpcamMediaVideo *self, StreamDescript
     ipcam_video_process_subsystem_start(priv->vpss, desc);
     ipcam_video_encode_start(priv->venc, desc);
 #if defined(ENABLE_VIDEO_DETECT)
-    ipcam_video_detect_start(priv->vda, desc);
+    ipcam_video_detect_start(priv->vda, od_reg_info);
 #endif
 }
 
@@ -343,13 +342,6 @@ void ipcam_media_video_set_image_parameter(IpcamMediaVideo *self, IpcamMediaImag
     IpcamMediaVideoPrivate *priv = IPCAM_MEDIA_VIDEO_GET_PRIVATE(self);
 
     ipcam_video_input_set_image_parameter(priv->vi, attr);
-}
-
-static void ipcam_ivideo_interface_init(IpcamIVideoInterface *iface)
-{
-    iface->start = ipcam_media_video_start_livestream;
-    iface->stop = ipcam_media_video_stop_livestream;
-    iface->param_change = ipcam_media_video_param_change;
 }
 
 void ipcam_media_video_set_color2grey(IpcamMediaVideo *self, gboolean enabled)

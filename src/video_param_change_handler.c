@@ -6,20 +6,23 @@
 
 G_DEFINE_TYPE(IpcamVideoParamChangeHandler, ipcam_video_param_change_handler, IPCAM_EVENT_HANDLER_TYPE);
 
-static void ipcam_video_param_change_handler_run_impl(IpcamVideoParamChangeHandler *video_param_change_handler,
+static void ipcam_video_param_change_handler_run_impl(IpcamEventHandler *event_handler,
                                                       IpcamMessage *message);
 
 static void ipcam_video_param_change_handler_init(IpcamVideoParamChangeHandler *self)
 {
 }
+
 static void ipcam_video_param_change_handler_class_init(IpcamVideoParamChangeHandlerClass *klass)
 {
     IpcamEventHandlerClass *event_handler_class = IPCAM_EVENT_HANDLER_CLASS(klass);
     event_handler_class->run = &ipcam_video_param_change_handler_run_impl;
 }
-static void ipcam_video_param_change_handler_run_impl(IpcamVideoParamChangeHandler *video_param_change_handler,
+
+static void ipcam_video_param_change_handler_run_impl(IpcamEventHandler *event_handler,
                                                       IpcamMessage *message)
 {
+    IpcamVideoParamChangeHandler *video_param_change_handler = IPCAM_VIDEO_PARAM_CHANGE_HANDLER(event_handler);
     gpointer service;
 	const char *event;
     JsonNode *body;
@@ -54,6 +57,9 @@ static void ipcam_video_param_change_handler_run_impl(IpcamVideoParamChangeHandl
 	}
 	else if (g_str_equal (event, "del_users")) {
 		ipcam_imedia_got_del_users_parameter(IPCAM_IMEDIA(service), body);
+	}
+	else if (g_str_equal (event, "set_event_cover")) {
+		ipcam_imedia_got_od_param(IPCAM_IMEDIA(service), body, TRUE);
 	}
 	else if (g_str_equal (event, "set_video")) {
 		ipcam_imedia_got_video_param(IPCAM_IMEDIA(service), body, TRUE);

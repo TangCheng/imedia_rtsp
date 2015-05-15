@@ -6,6 +6,4 @@ subscribe:
 publish:
   imedia_rtsp_pub: tcp://127.0.0.1:65402
 imedia_rtsp:
-  project: DCTX
-  font: /usr/share/fonts/truetype/droid/DroidSansFallback.ttf
-  image_setting_range: 100
+  image_setting_range: 255

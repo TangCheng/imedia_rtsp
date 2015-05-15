@@ -6,7 +6,6 @@
 #include <string.h>
 #include <SDL2/SDL.h>
 #include <SDL2/SDL_ttf.h>
-#include "interface/media_osd_interface.h"
 #include "media_osd.h"
 #include "bitmap.h"
 #include "stream_descriptor.h"
@@ -39,13 +38,9 @@ typedef struct _IpcamMediaOsdPrivate
     gchar *content[IPCAM_OSD_TYPE_LAST];
 } IpcamMediaOsdPrivate;
 
-static void ipcam_iosd_interface_init(IpcamIOSDInterface *iface);
 static gint32 ipcam_media_osd_draw_content(IpcamMediaOsd *self, IPCAM_OSD_TYPE type);
-static gint32 ipcam_media_osd_set_content(IpcamMediaOsd *self, IPCAM_OSD_TYPE type, const gchar *content);
 
-G_DEFINE_TYPE_WITH_CODE(IpcamMediaOsd, ipcam_media_osd, G_TYPE_OBJECT,
-                        G_IMPLEMENT_INTERFACE(IPCAM_TYPE_IOSD,
-                                              ipcam_iosd_interface_init));
+G_DEFINE_TYPE(IpcamMediaOsd, ipcam_media_osd, G_TYPE_OBJECT);
 
 static GParamSpec *obj_properties[N_PROPERTIES] = { NULL, };
 
@@ -303,7 +298,7 @@ static void ipcam_media_osd_bitmap_clear(IpcamBitmap *bitmap, RECT_S *rect)
 	}
 }
 
-static gint32 ipcam_media_osd_start(IpcamMediaOsd *self, IPCAM_OSD_TYPE type, IpcamOSDParameter *parameter)
+gint32 ipcam_media_osd_start(IpcamMediaOsd *self, IPCAM_OSD_TYPE type, IpcamOSDParameter *parameter)
 {
     IpcamMediaOsdPrivate *priv = IPCAM_MEDIA_OSD_GET_PRIVATE(self);
 
@@ -330,26 +325,30 @@ static gint32 ipcam_media_osd_set_region_attr(IpcamMediaOsd *self, IPCAM_OSD_TYP
     }
     return s32Ret;
 }
-static gint32 ipcam_media_osd_show(IpcamMediaOsd *self, IPCAM_OSD_TYPE type, const gboolean show)
+
+gint32 ipcam_media_osd_show(IpcamMediaOsd *self, IPCAM_OSD_TYPE type, const gboolean show)
 {
     IpcamMediaOsdPrivate *priv = IPCAM_MEDIA_OSD_GET_PRIVATE(self);
     priv->bShow[type] = show;
     return ipcam_media_osd_set_content(self, type, priv->content[type]);
 }
-static gint32 ipcam_media_osd_set_pos(IpcamMediaOsd *self, IPCAM_OSD_TYPE type,  const Point pos)
+
+gint32 ipcam_media_osd_set_pos(IpcamMediaOsd *self, IPCAM_OSD_TYPE type,  const Point pos)
 {
     IpcamMediaOsdPrivate *priv = IPCAM_MEDIA_OSD_GET_PRIVATE(self);
     priv->position[type].x = pos.x;
     priv->position[type].y = pos.y;
     return ipcam_media_osd_set_region_attr(self, type);
 }
-static gint32 ipcam_media_osd_set_fontsize(IpcamMediaOsd *self, IPCAM_OSD_TYPE type, const guint fsize)
+
+gint32 ipcam_media_osd_set_fontsize(IpcamMediaOsd *self, IPCAM_OSD_TYPE type, const guint fsize)
 {
     IpcamMediaOsdPrivate *priv = IPCAM_MEDIA_OSD_GET_PRIVATE(self);
     priv->font_size[type] = fsize;
     return ipcam_media_osd_set_content(self, type, priv->content[type]);
 }
-static gint32 ipcam_media_osd_set_color(IpcamMediaOsd *self, IPCAM_OSD_TYPE type, const Color color)
+
+gint32 ipcam_media_osd_set_color(IpcamMediaOsd *self, IPCAM_OSD_TYPE type, const Color color)
 {
     IpcamMediaOsdPrivate *priv = IPCAM_MEDIA_OSD_GET_PRIVATE(self);
     priv->color[type] = color;
@@ -420,7 +419,7 @@ static gint32 ipcam_media_osd_draw_content(IpcamMediaOsd *self, IPCAM_OSD_TYPE t
     return s32Ret;
 }
 
-static gint32 ipcam_media_osd_set_content(IpcamMediaOsd *self, IPCAM_OSD_TYPE type, const gchar *content)
+gint32 ipcam_media_osd_set_content(IpcamMediaOsd *self, IPCAM_OSD_TYPE type, const gchar *content)
 {
     IpcamMediaOsdPrivate *priv = IPCAM_MEDIA_OSD_GET_PRIVATE(self);
 
@@ -432,7 +431,7 @@ static gint32 ipcam_media_osd_set_content(IpcamMediaOsd *self, IPCAM_OSD_TYPE ty
     return ipcam_media_osd_draw_content(self, type);
 }
 
-static gint32 ipcam_media_osd_invalidate(IpcamMediaOsd *self)
+gint32 ipcam_media_osd_invalidate(IpcamMediaOsd *self)
 {
     HI_S32 s32Ret = HI_FAILURE;
     IpcamMediaOsdPrivate *priv = IPCAM_MEDIA_OSD_GET_PRIVATE(self);
@@ -443,7 +442,8 @@ static gint32 ipcam_media_osd_invalidate(IpcamMediaOsd *self)
     }
     return s32Ret;
 }
-static gint32 ipcam_media_osd_stop(IpcamMediaOsd *self)
+
+gint32 ipcam_media_osd_stop(IpcamMediaOsd *self)
 {
     HI_S32 s32Ret = HI_SUCCESS;
     
@@ -460,16 +460,4 @@ void ipcam_media_osd_set_image_size(IpcamMediaOsd *self, guint32 width, guint32 
 
     for (i = 0; i < IPCAM_OSD_TYPE_LAST; i++)
         ipcam_media_osd_draw_content(self, i);
-}
-
-static void ipcam_iosd_interface_init(IpcamIOSDInterface *iface)
-{
-    iface->start = ipcam_media_osd_start;
-    iface->show = ipcam_media_osd_show;
-    iface->set_pos = ipcam_media_osd_set_pos;
-    iface->set_fontsize = ipcam_media_osd_set_fontsize;
-    iface->set_color = ipcam_media_osd_set_color;
-    iface->set_content = ipcam_media_osd_set_content;
-    iface->invalidate = ipcam_media_osd_invalidate;
-    iface->stop = ipcam_media_osd_stop;
 }

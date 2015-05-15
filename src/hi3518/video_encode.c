@@ -133,6 +133,8 @@ static gint32 video_encode_enable_color2grey(IpcamVideoEncode *self)
 			g_critical("HI_MPI_VENC_SetGrpColor2Grey() err 0x%x\n", s32Ret);
 		}
 	}
+
+    return s32Ret;
 }
 
 static gint32 video_encode_disable_color2grey(IpcamVideoEncode *self)
@@ -164,6 +166,8 @@ static gint32 video_encode_disable_color2grey(IpcamVideoEncode *self)
 	{
 		g_critical("HI_MPI_VENC_SetColor2GreyConf() err 0x%x\n", s32Ret);
 	}
+
+    return s32Ret;
 }
 
 gint32 ipcam_video_encode_start(IpcamVideoEncode *self, StreamDescriptor desc[])
@@ -183,7 +187,7 @@ gint32 ipcam_video_encode_start(IpcamVideoEncode *self, StreamDescriptor desc[])
     /* default sensor mode: 1920x1200@20Hz */
     input_fps = 20;
 
-    gchar *resolution = desc[MASTER_CHN].v_desc.resolution;
+    const gchar *resolution = desc[MASTER_CHN].v_desc.resolution;
     if (g_str_equal(resolution, "UXGA") ||
         g_str_equal(resolution, "960H"))
     {
@@ -242,7 +246,7 @@ gint32 ipcam_video_encode_start(IpcamVideoEncode *self, StreamDescriptor desc[])
             stAttr.stRcAttr.stAttrH264Cbr.u32FluctuateLevel = 0;
             stAttr.stRcAttr.stAttrH264Cbr.u32StatTime = 1;
         }
-        else if (desc[chn].v_desc.bit_rate_type = VARIABLE_BIT_RATE)
+        else if (desc[chn].v_desc.bit_rate_type == VARIABLE_BIT_RATE)
         {
             stAttr.stRcAttr.enRcMode = VENC_RC_MODE_H264VBR;
             stAttr.stRcAttr.stAttrH264Vbr.u32MaxBitRate = desc[chn].v_desc.bit_rate;
@@ -418,6 +422,8 @@ gint32 ipcam_video_encode_enable_color2grey(IpcamVideoEncode *self)
 
     video_encode_enable_color2grey(self);
     priv->color2grey = TRUE;
+
+    return 0;
 }
 
 gint32 ipcam_video_encode_disable_color2grey(IpcamVideoEncode *self)
@@ -426,6 +432,8 @@ gint32 ipcam_video_encode_disable_color2grey(IpcamVideoEncode *self)
 
     video_encode_disable_color2grey(self);
     priv->color2grey = FALSE;
+
+    return 0;
 }
 
 void ipcam_video_encode_param_change(IpcamVideoEncode *self, StreamDescriptor desc[])

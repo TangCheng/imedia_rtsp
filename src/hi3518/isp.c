@@ -1,3 +1,4 @@
+#include <unistd.h>
 #include <hi_defines.h>
 #include <hi_comm_sys.h>
 #include <hi_comm_3a.h>
@@ -204,7 +205,6 @@ static void ipcam_isp_set_pixel_clock(IpcamIsp *self)
 static gboolean ipcam_isp_check_video_resolution(IpcamIsp *self, StreamDescriptor desc[])
 {
     IpcamIspPrivate *priv = ipcam_isp_get_instance_private(self);
-    gchar *resolution;
     guint32 image_width;
     guint32 image_height;
     guint32 fps;
@@ -416,7 +416,7 @@ void ipcam_isp_param_change(IpcamIsp *self, StreamDescriptor desc[])
     if (s32Ret != HI_SUCCESS)
     {
         g_critical("%s: HI_MPI_ISP_SetImageAttr failed with %#x!\n", __FUNCTION__, s32Ret);
-        return s32Ret;
+        return;
     }
 
     ipcam_isp_init_input_timing(self, &stInputTiming);
@@ -424,6 +424,6 @@ void ipcam_isp_param_change(IpcamIsp *self, StreamDescriptor desc[])
     if (s32Ret != HI_SUCCESS)
     {
         g_critical("%s: HI_MPI_ISP_SetInputTiming failed with %#x!\n", __FUNCTION__, s32Ret);
-        return s32Ret;
+        return;
     }
 }

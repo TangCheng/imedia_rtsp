@@ -6,15 +6,8 @@
 #include <memory.h>
 #include "media_sys_ctrl.h"
 #include "stream_descriptor.h"
-#include "interface/media_sys_ctrl_interface.h"
 
-static void ipcam_imedia_sys_ctrl_interface_init(IpcamIMediaSysCtrlInterface *iface);
-static void ipcam_media_sys_ctrl_init_media_system(IpcamMediaSysCtrl *self);
-static void ipcam_media_sys_ctrl_uninit_media_system(IpcamMediaSysCtrl *self);
-
-G_DEFINE_TYPE_WITH_CODE(IpcamMediaSysCtrl, ipcam_media_sys_ctrl, G_TYPE_OBJECT,
-                        G_IMPLEMENT_INTERFACE(IPCAM_TYPE_IMEDIA_SYS_CTRL,
-                                              ipcam_imedia_sys_ctrl_interface_init));
+G_DEFINE_TYPE(IpcamMediaSysCtrl, ipcam_media_sys_ctrl, G_TYPE_OBJECT);
 
 #define SYS_ALIGN_WIDTH      16
 
@@ -32,7 +25,7 @@ static void ipcam_media_sys_ctrl_class_init(IpcamMediaSysCtrlClass *klass)
     object_class->finalize = &ipcam_media_sys_ctrl_finalize;
 }
 
-static void ipcam_media_sys_ctrl_init_media_system(IpcamMediaSysCtrl *self)
+void ipcam_media_sys_ctrl_init_media_system(IpcamMediaSysCtrl *self)
 {
     VB_CONF_S stVbConf;
     MPP_SYS_CONF_S stSysConf = {0};
@@ -79,14 +72,8 @@ static void ipcam_media_sys_ctrl_init_media_system(IpcamMediaSysCtrl *self)
     }
 }
 
-static void ipcam_media_sys_ctrl_uninit_media_system(IpcamMediaSysCtrl *self)
+void ipcam_media_sys_ctrl_uninit_media_system(IpcamMediaSysCtrl *self)
 {
     HI_MPI_SYS_Exit();
     HI_MPI_VB_Exit();
-}
-
-static void ipcam_imedia_sys_ctrl_interface_init(IpcamIMediaSysCtrlInterface *iface)
-{
-    iface->init_media_system = ipcam_media_sys_ctrl_init_media_system;
-    iface->uninit_media_system = ipcam_media_sys_ctrl_uninit_media_system;
 }

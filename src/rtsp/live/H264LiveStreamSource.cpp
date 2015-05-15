@@ -33,7 +33,6 @@
 #include "stream_descriptor.h"
 #include "H264LiveStreamSource.hh"
 #include "stream_descriptor.h"
-#include "interface/media_video_interface.h"
 
 H264LiveStreamSource*
 H264LiveStreamSource::createNew(UsageEnvironment& env, H264LiveStreamParameters params)

@@ -30,6 +30,8 @@ typedef struct _IpcamVideoDetectPrivate
     guint32 image_width;
     guint32 image_height;
 
+    guint32 rgn_num;
+
     GThread *thread;
     gboolean terminated;
 
@@ -48,6 +50,7 @@ static void ipcam_video_detect_init(IpcamVideoDetect *self)
 	IpcamVideoDetectPrivate *priv = ipcam_video_detect_get_instance_private(self);
     int i;
 
+    priv->rgn_num = 0;
     priv->imedia = NULL;
     priv->image_width = IMAGE_MAX_WIDTH;
     priv->image_height = IMAGE_MAX_HEIGHT;
@@ -164,7 +167,7 @@ static void ipcam_video_detect_class_init(IpcamVideoDetectClass *klass)
     g_object_class_install_properties(object_class, N_PROPERTIES, obj_properties);
 }
 
-gint32 ipcam_video_detect_start(IpcamVideoDetect *self, StreamDescriptor desc[])
+gint32 ipcam_video_detect_start(IpcamVideoDetect *self, OD_REGION_INFO od_info[])
 {
     IpcamVideoDetectPrivate *priv = ipcam_video_detect_get_instance_private(self);
     HI_S32 s32Ret = HI_SUCCESS;
@@ -185,22 +188,41 @@ gint32 ipcam_video_detect_start(IpcamVideoDetect *self, StreamDescriptor desc[])
     stVdaChnAttr.unAttr.stOdAttr.enMbSize = VDA_MB_8PIXEL;
     stVdaChnAttr.unAttr.stOdAttr.enMbSadBits = VDA_MB_SAD_8BIT;
     stVdaChnAttr.unAttr.stOdAttr.enRefMode = VDA_REF_MODE_DYNAMIC;
-    stVdaChnAttr.unAttr.stOdAttr.u32VdaIntvl = 4;
+    stVdaChnAttr.unAttr.stOdAttr.u32VdaIntvl = 4;   /* fps= 20/(4+1) = 4 */
     stVdaChnAttr.unAttr.stOdAttr.u32BgUpSrcWgt = 128;
 
-    stVdaChnAttr.unAttr.stOdAttr.u32RgnNum = 1;
-    for (i = 0; i < stVdaChnAttr.unAttr.stOdAttr.u32RgnNum; i++) {
-        VDA_OD_RGN_ATTR_S *rgn_attr = &stVdaChnAttr.unAttr.stOdAttr.astOdRgnAttr[i];
+    int rgn_num = 0;
+    for (i = 0; i < VDA_OD_RGN_NUM_MAX; i++) {
+        VDA_OD_RGN_ATTR_S *rgn_attr;
 
-        rgn_attr->stRect.s32X = 0;
-        rgn_attr->stRect.s32Y = 0;
-        rgn_attr->stRect.u32Width = 320;
-        rgn_attr->stRect.u32Height = 240;
-        rgn_attr->u32SadTh = 240;
+        if (!od_info[i].enable)
+            continue;
+
+        rgn_attr = &stVdaChnAttr.unAttr.stOdAttr.astOdRgnAttr[rgn_num];
+
+        rgn_attr->stRect.s32X = od_info[i].rect.left * 320 / 1000;
+        rgn_attr->stRect.s32Y = od_info[i].rect.top * 240 / 1000;
+        rgn_attr->stRect.u32Width = od_info[i].rect.width * 320 / 1000;
+        rgn_attr->stRect.u32Height = od_info[i].rect.height * 240 / 1000;
+        rgn_attr->u32SadTh = 512 * (100 - od_info[i].sensitivity) / 100;
         rgn_attr->u32AreaTh = 80; /* 80% */
-        rgn_attr->u32OccCntTh = 6;
-        rgn_attr->u32UnOccCntTh = 1;
+        rgn_attr->u32OccCntTh = 8;
+        rgn_attr->u32UnOccCntTh = 2;
+
+        g_print("VDA: rgn%d rect={%d,%d,%d,%d} u32SadTh=%d\n",
+                rgn_num,
+                rgn_attr->stRect.s32X,
+                rgn_attr->stRect.s32Y,
+                rgn_attr->stRect.u32Width,
+                rgn_attr->stRect.u32Height,
+                rgn_attr->u32SadTh);
+
+        rgn_num++;
     }
+    stVdaChnAttr.unAttr.stOdAttr.u32RgnNum = rgn_num;
+    priv->rgn_num = rgn_num;
+
+    g_return_val_if_fail(priv->rgn_num > 0, HI_SUCCESS);
 
     /* Create Channel */
     s32Ret = HI_MPI_VDA_CreateChn(VdaChn, &stVdaChnAttr);
@@ -231,6 +253,7 @@ gint32 ipcam_video_detect_start(IpcamVideoDetect *self, StreamDescriptor desc[])
         return s32Ret;
     }
 
+    priv->terminated = FALSE;
     priv->thread = g_thread_new("video_detect", ipcam_video_detect_thread_handler, self);
 
     return s32Ret;
@@ -238,6 +261,7 @@ gint32 ipcam_video_detect_start(IpcamVideoDetect *self, StreamDescriptor desc[])
 
 gint32 ipcam_video_detect_stop(IpcamVideoDetect *self)
 {
+    IpcamVideoDetectPrivate *priv = ipcam_video_detect_get_instance_private(self);
     HI_S32 s32Ret = HI_SUCCESS;
     VDA_CHN VdaChn;
     MPP_CHN_S stSrcChn;
@@ -245,7 +269,12 @@ gint32 ipcam_video_detect_stop(IpcamVideoDetect *self)
 
     g_return_val_if_fail(IPCAM_IS_VIDEO_DETECT(self), HI_FAILURE);
 
+    g_return_val_if_fail(priv->rgn_num > 0, HI_SUCCESS);
+
     VdaChn = 0;
+
+    priv->terminated = TRUE;
+    g_thread_join(priv->thread);
 
     /*Stop Receive Imaging */
     s32Ret = HI_MPI_VDA_StopRecvPic(VdaChn);
@@ -331,31 +360,13 @@ static gpointer ipcam_video_detect_thread_handler(gpointer data)
 
     g_object_get(self, "app", &imedia, NULL);
 
-    HI_S32 s32VdaFd;
-    fd_set read_fds;
-
 	for (i = 0; i < ARRAY_SIZE(__rgn_stat); i++) {
 		__rgn_stat[i].occ_state = FALSE;
 		__rgn_stat[i].count = 0;
 	}
 
-    s32VdaFd = HI_MPI_VDA_GetFd(VdaChn);
-
     while(!priv->terminated) {
         VDA_DATA_S stVdaData;
-
-        FD_ZERO(&read_fds);
-        FD_SET(s32VdaFd, &read_fds);
-
-        s32Ret = select(s32VdaFd + 1, &read_fds, NULL, NULL, NULL);
-        if (s32Ret < 0) {
-            g_critical("select err\n");
-            continue;
-        }
-        else if (s32Ret == 0) {
-            g_warning("timeout\n");
-            continue;
-        }
 
         s32Ret = HI_MPI_VDA_GetData(VdaChn, &stVdaData, TRUE);
         if (s32Ret != HI_SUCCESS)
@@ -369,7 +380,6 @@ static gpointer ipcam_video_detect_thread_handler(gpointer data)
             gboolean occ = (stVdaData.unData.stOdData.abRgnAlarm[i] == HI_TRUE);
             if (occ) {
 				if (!__rgn_stat[region].occ_state) {
-					g_print("region[%d] OCC\n", region);
 					ipcam_video_detect_send_notify (self, region, occ);
 				}
 
@@ -384,8 +394,7 @@ static gpointer ipcam_video_detect_thread_handler(gpointer data)
             }
 			else {
 				if (__rgn_stat[region].occ_state) {
-					if (__rgn_stat[region].count > 20) {
-						g_print("region[%d] unOCC\n", region);
+					if (__rgn_stat[region].count > 12) {
 						ipcam_video_detect_send_notify(self, region, occ);
 						__rgn_stat[region].occ_state = FALSE;
 						__rgn_stat[region].count = 0;
@@ -409,10 +418,10 @@ static gpointer ipcam_video_detect_thread_handler(gpointer data)
     return NULL;
 }
 
-void ipcam_video_detect_param_change(IpcamVideoDetect *self, StreamDescriptor desc[])
+void ipcam_video_detect_param_change(IpcamVideoDetect *self, OD_REGION_INFO od_info[])
 {
     g_return_if_fail(IPCAM_IS_VIDEO_DETECT(self));
 
     ipcam_video_detect_stop(self);
-    ipcam_video_detect_start(self, desc);
+    ipcam_video_detect_start(self, od_info);
 }
