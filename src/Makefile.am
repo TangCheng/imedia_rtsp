@@ -23,6 +23,7 @@ AM_CPPFLAGS = \
 	-DPACKAGE_SRC_DIR=\""$(srcdir)"\" \
 	-DPACKAGE_DATA_DIR=\""$(pkgdatadir)"\" \
 	$(IMEDIA_RTSP_CFLAGS) \
+	$(PCRE_CPPFLAGS) \
 	$(MPP_CFLAGS)
 
 AM_CFLAGS =\
@@ -35,6 +36,7 @@ bin_PROGRAMS = imedia_rtsp
 
 imedia_rtsp_SOURCES = \
 	rtsp/rtsp.cpp \
+	rtsp/live/LiveStreamRTSPServer.cpp \
 	rtsp/live/H264LiveStreamSource.cpp \
 	rtsp/live/H264LiveStreamInput.cpp \
 	rtsp/live/H264LiveStreamServerMediaSubsession.cpp \
@@ -74,7 +76,7 @@ endif
 
 imedia_rtsp_LDFLAGS = 
 
-imedia_rtsp_LDADD = $(IMEDIA_RTSP_LIBS) -ldl -L$(MPP_LIBDIR) -lmpi -lmem -lisp -l_hiae -l_hiaf -l_hiawb -ltde $(MPP_LIBDIR)/libanr.a $(MPP_LIBDIR)/libaec.a $(MPP_LIBDIR)/libVoiceEngine.a $(MPP_LIBDIR)/libresampler.a $(MPP_LIBDIR)/libvqev2.a -lliveMedia -lBasicUsageEnvironment -lUsageEnvironment -lgroupsock
+imedia_rtsp_LDADD = $(IMEDIA_RTSP_LIBS) $(PCRE_LIBS_CPP) -ldl -L$(MPP_LIBDIR) -lmpi -lmem -lisp -l_hiae -l_hiaf -l_hiawb -ltde $(MPP_LIBDIR)/libanr.a $(MPP_LIBDIR)/libaec.a $(MPP_LIBDIR)/libVoiceEngine.a $(MPP_LIBDIR)/libresampler.a $(MPP_LIBDIR)/libvqev2.a -lliveMedia -lBasicUsageEnvironment -lUsageEnvironment -lgroupsock
 
 SUBDIRS = \
 	config \

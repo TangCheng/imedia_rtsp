@@ -2,22 +2,22 @@
 #include <BasicUsageEnvironment.hh>
 #include <glib.h>
 #include <json-glib/json-glib.h>
-#include "rtsp.h"
 #include "messages.h"
-#include "live/H264LiveStreamServerMediaSubsession.hh"
+#include "imedia.h"
 #include "live/H264LiveStreamInput.hh"
-#include "live/H264LiveStreamSource.hh"
+#include "live/LiveStreamRTSPServer.hh"
+#include "rtsp.h"
 
 typedef struct _IpcamRtspPrivate
 {
     guint port;
     GThread *live555_thread;
     gchar watch_variable;
-    const gchar *stream_path[STREAM_CHN_LAST];
-    IpcamMediaVideo *video;
+    StreamDescriptor *stream_desc[STREAM_CHN_LAST];
+    gpointer user_data;
     gboolean enable_auth;
     UserAuthenticationDatabase *auth_db;
-    RTSPServer *rtsp_server;
+    LiveStreamRTSPServer *rtsp_server;
     TaskScheduler* m_scheduler;
     UsageEnvironment* m_env;
 } IpcamRtspPrivate;
@@ -33,32 +33,34 @@ live555_thread_proc(gpointer data)
     OutPacketBuffer::increaseMaxSizeTo(2 * 1024 * 1024);
 
     auth_db = priv->enable_auth ? priv->auth_db : NULL;
-    priv->rtsp_server = RTSPServer::createNew(*priv->m_env, priv->port, auth_db);
+    priv->rtsp_server = LiveStreamRTSPServer::createNew(*priv->m_env, priv->port, auth_db);
     if (priv->rtsp_server == NULL) {
         *priv->m_env << "Failed to create RTSP server: "
             << priv->m_env->getResultMsg() << "\n";
         return NULL;
     }
 
-    ServerMediaSession* sms[STREAM_CHN_LAST];
-
     for (int i = 0; i < STREAM_CHN_LAST; i++)
     {
-        char const* streamName = priv->stream_path[i];
+        H264LiveStreamInput *streamInput;
+
+        streamInput = H264LiveStreamInput::createNew(*priv->m_env, (StreamChannel)i, priv->stream_desc[i]);
+
+        priv->rtsp_server->addStreamInput(streamInput);
+#if 0
+        char const* streamName = priv->stream_desc[i]->v_desc.path;
         char const* descriptionString = "Session streamed by \"iRTSP\"";
-        H264LiveStreamInput *inputDevice = H264LiveStreamInput::createNew(*priv->m_env, priv->video, (StreamChannel)i);
-        ServerMediaSession* sms =
-            ServerMediaSession::createNew(*priv->m_env, streamName, streamName, descriptionString);
-        sms->addSubsession(H264LiveStreamServerMediaSubsession::createNew(*priv->m_env, *inputDevice));
-        priv->rtsp_server->addServerMediaSession(sms);
+        sms[i] = LiveStreamServerMediaSession::createNew(*priv->m_env,
+                                                         streamName,
+                                                         streamName,
+                                                         descriptionString);
+        sms[i]->addSubsession(H264LiveStreamServerMediaSubsession::createNew(*priv->m_env, (StreamChannel)i));
+        sms[i]->streamDescriptor() = priv->stream_desc[i];
+        priv->rtsp_server->addServerMediaSession(sms[i]);
+#endif
     }
 
     priv->m_env->taskScheduler().doEventLoop(&priv->watch_variable); // does not return
-
-    for (int i = 0; i < STREAM_CHN_LAST; i++)
-    {
-        priv->rtsp_server->deleteServerMediaSession(sms[i]);
-    }
     
     RTSPServer::close(priv->rtsp_server);
     priv->rtsp_server = NULL;
@@ -93,9 +95,9 @@ ipcam_rtsp_init(IpcamRtsp *self)
 	IpcamRtspPrivate *priv = (IpcamRtspPrivate *)ipcam_rtsp_get_instance_private(self);
 
     priv->port = 554;
-    priv->stream_path[MASTER] = NULL;
-    priv->stream_path[SLAVE] = NULL;
-    priv->video = NULL;
+    priv->stream_desc[MASTER] = NULL;
+    priv->stream_desc[SLAVE] = NULL;
+    priv->user_data = NULL;
 
     priv->auth_db = new UserAuthenticationDatabase;
 
@@ -148,16 +150,16 @@ void ipcam_rtsp_set_auth(IpcamRtsp *rtsp, gboolean auth)
     }
 }
 
-void ipcam_rtsp_set_stream_path(IpcamRtsp *rtsp, enum StreamChannel chn, const gchar *path)
+void ipcam_rtsp_set_stream_desc(IpcamRtsp *rtsp, StreamChannel chn, StreamDescriptor *desc)
 {
     IpcamRtspPrivate *priv = (IpcamRtspPrivate *)ipcam_rtsp_get_instance_private(rtsp);
-    priv->stream_path[chn] = path;
+    priv->stream_desc[chn] = desc;
 }
 
-void ipcam_rtsp_set_video_iface(IpcamRtsp *rtsp, IpcamMediaVideo *video)
+void ipcam_rtsp_set_user_data(IpcamRtsp *rtsp, gpointer user_data)
 {
     IpcamRtspPrivate *priv = (IpcamRtspPrivate *)ipcam_rtsp_get_instance_private(rtsp);
-    priv->video = video;
+    priv->user_data = user_data;
 }
 
 void ipcam_rtsp_start_server(IpcamRtsp *rtsp)

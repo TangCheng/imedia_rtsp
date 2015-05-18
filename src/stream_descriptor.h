@@ -106,13 +106,4 @@ typedef struct _StreamDescriptor
     };
 } StreamDescriptor;
 
-typedef struct _StreamData
-{
-    unsigned int magic;
-    struct timeval pts;
-    unsigned int len;
-    gboolean isIFrame;
-    char data[0];
-} StreamData;
-
 #endif /* __STREAM_DESCRIPTOR_H__ */

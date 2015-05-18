@@ -16,15 +16,22 @@ AM_PROG_CC_C_O
 AC_PROG_CXX
 
 
-
-
-
-
-
 LT_INIT
 
 
 PKG_CHECK_MODULES(IMEDIA_RTSP, [libzmq json-glib-1.0 glib-2.0 gobject-2.0 libipcam_base-0.1.0 freetype2 SDL2_ttf])
+
+AC_PATH_PROG(PCRECONFIG, pcre-config)
+if test x"$PCRECONFIG" != x; then
+    PCRE_LIBS=`$PCRECONFIG --libs`
+    PCRE_LIBS_CPP=`$PCRECONFIG --libs-cpp`
+    PCRE_CPPFLAGS="$CPPFLAGS `$PCRECONFIG --cflags`"
+    AC_SUBST(PCRE_LIBS)
+    AC_SUBST(PCRE_LIBS_CPP)
+    AC_SUBST(PCRE_CPPFLAGS)
+else
+    AC_MSG_ERROR([pcre-config not found, install the pcre-devel package])
+fi
 
 AC_ARG_ENABLE([hi3518],
 	AS_HELP_STRING([--enable-hi3518],[Build with hi3518 support (default: disabled)]),
@@ -57,7 +64,8 @@ AC_ARG_WITH(hisimpp,
                 fi
        ]
 )
- 
+
+
 dnl ------------------------------------------------------
 dnl hisimpp detection.  swiped from Tor.  modified a bit.
  

@@ -24,22 +24,16 @@ along with this library; if not, write to the Free Software Foundation, Inc.,
 #ifndef _H264_LIVE_STREAME_SOURCE_HH
 #define _H264_LIVE_STREAME_SOURCE_HH
 
+#include "stream_descriptor.h"
+
 #ifndef _FRAMED_SOURCE_HH
 #include <FramedSource.hh>
 #endif
 
-// The following class can be used to define specific encoder parameters
-class H264LiveStreamParameters {
-  //%%% TO BE WRITTEN %%%
-public:
-	StreamChannel fChannelNo;
-    void *fVideoEngine;
-};
-
 class H264LiveStreamSource: public FramedSource
 {
 public:
-    static H264LiveStreamSource* createNew(UsageEnvironment& env, H264LiveStreamParameters params);
+    static H264LiveStreamSource* createNew(UsageEnvironment& env, StreamChannel chn);
     //static unsigned getRefCount();
 
 public:
@@ -49,7 +43,7 @@ public:
     // You can, however, redefine this to be a non-static member variable.
 
 protected:
-    H264LiveStreamSource(UsageEnvironment& env, H264LiveStreamParameters params);
+    H264LiveStreamSource(UsageEnvironment& env, StreamChannel chn);
     // called only by createNew(), or by subclass constructors
     virtual ~H264LiveStreamSource();
 
@@ -63,7 +57,7 @@ private:
 private:
     //static unsigned referenceCount; // used to count how many instances of this class currently exist
     bool firstDeliverFrame;
-    H264LiveStreamParameters fParams;
+    StreamChannel fChannelNo;
     int vencFd;
 };
 

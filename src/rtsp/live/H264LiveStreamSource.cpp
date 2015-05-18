@@ -30,14 +30,13 @@
 #include <mpi_sys.h>
 #include <mpi_venc.h>
 #include <mpi_sys.h>
-#include "stream_descriptor.h"
 #include "H264LiveStreamSource.hh"
 #include "stream_descriptor.h"
 
 H264LiveStreamSource*
-H264LiveStreamSource::createNew(UsageEnvironment& env, H264LiveStreamParameters params)
+H264LiveStreamSource::createNew(UsageEnvironment& env, StreamChannel chn)
 {
-    return new H264LiveStreamSource(env, params);
+    return new H264LiveStreamSource(env, chn);
 }
 
 static void ClearVideoStreamBuffer(StreamChannel chn)
@@ -73,17 +72,17 @@ static void StreamSourceDataAvailable(void *clientData, int mask)
     stream_source->envir().taskScheduler().triggerEvent(stream_source->eventTriggerId, stream_source);
 }
 
-H264LiveStreamSource::H264LiveStreamSource(UsageEnvironment& env, H264LiveStreamParameters params)
-    : FramedSource(env), fParams(params), eventTriggerId(0), firstDeliverFrame(True)
+H264LiveStreamSource::H264LiveStreamSource(UsageEnvironment& env, StreamChannel chn)
+    : FramedSource(env), fChannelNo(chn), eventTriggerId(0), firstDeliverFrame(True)
 {
     TaskScheduler &scheduler = envir().taskScheduler();
 
     // Any instance-specific initialization of the device would be done here:
-    ClearVideoStreamBuffer(fParams.fChannelNo);
+    ClearVideoStreamBuffer(fChannelNo);
 
-    HI_MPI_VENC_RequestIDRInst(fParams.fChannelNo);
+    HI_MPI_VENC_RequestIDRInst(fChannelNo);
 
-    vencFd = HI_MPI_VENC_GetFd(fParams.fChannelNo);
+    vencFd = HI_MPI_VENC_GetFd(fChannelNo);
 
     scheduler.setBackgroundHandling(vencFd, SOCKET_READABLE,
                                     (TaskScheduler::BackgroundHandlerProc*)StreamSourceDataAvailable,
@@ -164,7 +163,7 @@ void H264LiveStreamSource::deliverFrame() {
     VENC_STREAM_S stStream;
     HI_S32 s32Ret;
 
-    s32Ret = HI_MPI_VENC_Query(fParams.fChannelNo, &stStat);
+    s32Ret = HI_MPI_VENC_Query(fChannelNo, &stStat);
     if (HI_SUCCESS != s32Ret)
     {
         return;
@@ -178,7 +177,7 @@ void H264LiveStreamSource::deliverFrame() {
     stStream.u32PackCount = stStat.u32CurPacks;
     stStream.u32Seq = 0;
     memset(&stStream.stH264Info, 0, sizeof(VENC_STREAM_INFO_H264_S));
-    s32Ret = HI_MPI_VENC_GetStream(fParams.fChannelNo, &stStream, HI_TRUE);
+    s32Ret = HI_MPI_VENC_GetStream(fChannelNo, &stStream, HI_TRUE);
     if (HI_SUCCESS != s32Ret)
     {
         g_critical("HI_MPI_VENC_GetStream failed with %#x!\n", s32Ret);
@@ -188,13 +187,13 @@ void H264LiveStreamSource::deliverFrame() {
     /* Drop the first Non-IDR frames */
 #if 0
     if (firstDeliverFrame && stStream.stH264Info.enRefType != BASE_IDRSLICE) {
-        s32Ret = HI_MPI_VENC_ReleaseStream(fParams.fChannelNo, &stStream);
+        s32Ret = HI_MPI_VENC_ReleaseStream(fChannelNo, &stStream);
         if (HI_SUCCESS != s32Ret)
         {
             g_critical("HI_MPI_VENC_ReleaseStream failed with %#x!\n", s32Ret);
         }
 
-        HI_MPI_VENC_RequestIDRInst(fParams.fChannelNo);
+        HI_MPI_VENC_RequestIDRInst(fChannelNo);
 
         nextTask() = envir().taskScheduler().scheduleDelayedTask(10000, (TaskFunc*)deliverFrame0, this);
         return;
@@ -234,7 +233,7 @@ void H264LiveStreamSource::deliverFrame() {
         }
     }
 
-    s32Ret = HI_MPI_VENC_ReleaseStream(fParams.fChannelNo, &stStream);
+    s32Ret = HI_MPI_VENC_ReleaseStream(fChannelNo, &stStream);
     if (HI_SUCCESS != s32Ret)
     {
         g_critical("HI_MPI_VENC_ReleaseStream failed with %#x!\n", s32Ret);

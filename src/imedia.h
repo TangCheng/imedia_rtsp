@@ -3,6 +3,12 @@
 
 #include <base_app.h>
 #include <json-glib/json-glib.h>
+#include "stream_descriptor.h"
+
+#ifdef __cplusplus
+extern "C"
+{
+#endif
 
 #define IPCAM_IMEDIA_TYPE (ipcam_imedia_get_type())
 #define IPCAM_IMEDIA(obj) (G_TYPE_CHECK_INSTANCE_CAST((obj), IPCAM_IMEDIA_TYPE, IpcamIMedia))
@@ -36,6 +42,11 @@ void ipcam_imedia_got_misc_parameter(IpcamIMedia *imedia, JsonNode *body);
 void ipcam_imedia_got_set_users_parameter(IpcamIMedia *imedia, JsonNode *body);
 void ipcam_imedia_got_del_users_parameter(IpcamIMedia *imedia, JsonNode *body);
 void ipcam_imedia_got_day_night_mode_parameter(IpcamIMedia *imedia, JsonNode *body);
+StreamDescriptor *ipcam_imedia_get_stream_info(IpcamIMedia *imedia, StreamChannel chn);
 
+
+#ifdef __cplusplus
+}
+#endif
 
 #endif /* __IMEDIA_H__ */

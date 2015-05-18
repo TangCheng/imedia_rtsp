@@ -7,7 +7,6 @@
 #include <mpi_vda.h>
 #include <messages.h>
 #include "imedia.h"
-#include "stream_descriptor.h"
 #if defined(HI3518) || defined(HI3516)
 #include "hi3518/media_sys_ctrl.h"
 #include "hi3518/media_video.h"
@@ -949,7 +948,6 @@ static void ipcam_imedia_parse_stream(IpcamIMedia *imedia, JsonObject *obj, enum
     }
     if (json_object_has_member(obj, "stream_path")) {
         priv->stream_desc[chn].v_desc.path = g_strdup(json_object_get_string_member(obj, "stream_path"));
-        ipcam_rtsp_set_stream_path(priv->rtsp, chn, priv->stream_desc[chn].v_desc.path);
     }
 }
 
@@ -1056,7 +1054,11 @@ void ipcam_imedia_got_video_param(IpcamIMedia *imedia, JsonNode *body, gboolean 
         }
         ipcam_base_app_add_timer(IPCAM_BASE_APP(imedia), "osd_display_video_data", "1",
                                  ipcam_imedia_osd_display_video_data);
-        ipcam_rtsp_set_video_iface(priv->rtsp, priv->video);
+        ipcam_rtsp_set_user_data(priv->rtsp, imedia);
+        for (i = MASTER_CHN; i < STREAM_CHN_LAST; i++)
+        {
+            ipcam_rtsp_set_stream_desc(priv->rtsp, i, &priv->stream_desc[i]);
+        }
         ipcam_rtsp_start_server(priv->rtsp);
 
 		priv->initialized = TRUE;
@@ -1137,4 +1139,14 @@ static void ipcam_imedia_osd_display_video_data(GObject *obj)
             }
         }
     }
+}
+
+StreamDescriptor *ipcam_imedia_get_stream_info(IpcamIMedia *imedia, StreamChannel chn)
+{
+    g_return_val_if_fail(IPCAM_IS_IMEDIA(imedia), NULL);
+    g_return_val_if_fail(chn >= 0 && chn < STREAM_CHN_LAST, NULL);
+
+    IpcamIMediaPrivate *priv = ipcam_imedia_get_instance_private(imedia);
+
+    return &priv->stream_desc[chn];
 }
