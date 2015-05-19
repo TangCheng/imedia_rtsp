@@ -19,7 +19,6 @@ along with this library; if not, write to the Free Software Foundation, Inc.,
 // Implementation
 
 #include <iostream>
-#include <pcrecpp.h>
 #include <liveMedia.hh>
 #include <string.h>
 #include "H264LiveStreamServerMediaSubsession.hh"
@@ -41,7 +40,9 @@ LiveStreamRTSPServer::LiveStreamRTSPServer(UsageEnvironment& env,
                                            UserAuthenticationDatabase* authDatabase,
                                            unsigned reclamationTestSeconds)
   : RTSPServer(env, ourSocket, ourPort, authDatabase, reclamationTestSeconds),
-  fStreamInput(HashTable::create(ONE_WORD_HASH_KEYS)) {
+  fStreamInput(HashTable::create(ONE_WORD_HASH_KEYS)),
+  fResolutionRE("<resolution>"),
+  fChannelRE("<channel>") {
 }
 
 LiveStreamRTSPServer::~LiveStreamRTSPServer() {
@@ -87,8 +88,8 @@ ServerMediaSession* LiveStreamRTSPServer
       char channel[16];
       snprintf(channel, sizeof(channel), "%d", streamInput->channelNo());
       std::string path = desc->v_desc.path;
-      pcrecpp::RE("<resolution>").GlobalReplace(desc->v_desc.resolution, &path);
-      pcrecpp::RE("<channel>").GlobalReplace(channel, &path);
+      fResolutionRE.GlobalReplace(desc->v_desc.resolution, &path);
+      fChannelRE.GlobalReplace(channel, &path);
 
       if (path.compare(streamName) == 0) {
         sms = RTSPServer::lookupServerMediaSession(streamName);

@@ -21,6 +21,8 @@ along with this library; if not, write to the Free Software Foundation, Inc.,
 #ifndef _LIVE_STREAM_RTSP_SERVER_HH
 #define _LIVE_STREAM_RTSP_SERVER_HH
 
+#include <pcrecpp.h>
+
 class LiveStreamRTSPServer: public RTSPServer {
 public:
   static LiveStreamRTSPServer* createNew(UsageEnvironment& env, Port ourPort = 554,
@@ -45,6 +47,8 @@ protected: // redefined virtual functions
 
 private:
   HashTable* fStreamInput;
+  pcrecpp::RE fResolutionRE;
+  pcrecpp::RE fChannelRE;
 };
 
 #endif
