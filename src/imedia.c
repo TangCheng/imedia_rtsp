@@ -201,7 +201,7 @@ static void ipcam_imedia_in_loop(IpcamBaseService *base_service)
     if (priv->last_time != now)
     {
         priv->last_time = now;
-        strftime(timeBuf, sizeof(timeBuf), "%Y-%m-%d %H:%M:%S ", localtime(&now));
+        strftime(timeBuf, sizeof(timeBuf), "%Y-%m-%d %H:%M:%S", localtime(&now));
 
         if (!priv->model) {
 			g_strlcat(osdBuf, timeBuf, sizeof(osdBuf));
@@ -221,11 +221,11 @@ static void ipcam_imedia_in_loop(IpcamBaseService *base_service)
 					g_strlcat(osdBuf, "-", sizeof(osdBuf));
 					g_strlcat(osdBuf, priv->position_num, sizeof(osdBuf));
 				}
-				g_strlcat(osdBuf, " ", sizeof(osdBuf));
+				//g_strlcat(osdBuf, " ", sizeof(osdBuf));
 			}
 			else if (g_ascii_strncasecmp(priv->model, "DTTX", 4) == 0) {
 				if (priv->train_num) {
-					g_strlcpy(osdBuf, "", sizeof(osdBuf));
+					//g_strlcpy(osdBuf, "", sizeof(osdBuf));
 					g_strlcat(osdBuf, priv->train_num, sizeof(osdBuf));
 				}
 				if (priv->position_num) {

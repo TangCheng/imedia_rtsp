@@ -206,8 +206,8 @@ static GObject *ipcam_media_osd_constructor (GType gtype,
         priv->stChnAttr.enType = OVERLAY_RGN;
         priv->stChnAttr.unChnAttr.stOverlayChn.stPoint.s32X = 0;
         priv->stChnAttr.unChnAttr.stOverlayChn.stPoint.s32Y = 0;
-        priv->stChnAttr.unChnAttr.stOverlayChn.u32BgAlpha = 0;
-        priv->stChnAttr.unChnAttr.stOverlayChn.u32FgAlpha = 128;
+        priv->stChnAttr.unChnAttr.stOverlayChn.u32BgAlpha = 32;
+        priv->stChnAttr.unChnAttr.stOverlayChn.u32FgAlpha = 96;
         priv->stChnAttr.unChnAttr.stOverlayChn.u32Layer = 0;
 
         priv->stChnAttr.unChnAttr.stOverlayChn.stQpInfo.bAbsQp = HI_FALSE;
@@ -217,7 +217,7 @@ static GObject *ipcam_media_osd_constructor (GType gtype,
         priv->stChnAttr.unChnAttr.stOverlayChn.stInvertColor.stInvColArea.u32Height = 16;
         priv->stChnAttr.unChnAttr.stOverlayChn.stInvertColor.u32LumThresh = 70;
         priv->stChnAttr.unChnAttr.stOverlayChn.stInvertColor.enChgMod = LESSTHAN_LUM_THRESH;
-        priv->stChnAttr.unChnAttr.stOverlayChn.stInvertColor.bInvColEn = HI_TRUE;
+        priv->stChnAttr.unChnAttr.stOverlayChn.stInvertColor.bInvColEn = HI_FALSE;
 
         s32Ret = HI_MPI_RGN_AttachToChn(priv->RgnHandle, &stChn, &priv->stChnAttr);
         if (HI_SUCCESS != s32Ret)
@@ -384,14 +384,18 @@ static gint32 ipcam_media_osd_draw_content(IpcamMediaOsd *self, IPCAM_OSD_TYPE t
 
     if (priv->bShow[type] && priv->content[type])
     {
-		SDL_Color foreclr= {
+		SDL_Color fgclr= {
 			priv->color[type].red,
 			priv->color[type].green,
 			priv->color[type].blue,
 			priv->color[type].alpha
 		};
-		TTF_SetFontSize(priv->ttf_font, priv->font_size[type]);
-		text_sf = TTF_RenderUTF8_Solid(priv->ttf_font, priv->content[type], foreclr);
+        SDL_Color bgclr = {
+            128, 128, 128, 1
+        };
+
+        TTF_SetFontSize(priv->ttf_font, priv->font_size[type]);
+		text_sf = TTF_RenderUTF8_Shaded(priv->ttf_font, priv->content[type], fgclr, bgclr);
         if (text_sf) {
             rect.x = priv->position[type].x * priv->image_width / 1000;
             rect.y = priv->position[type].y * priv->image_height / 1000;
