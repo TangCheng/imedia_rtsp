@@ -167,6 +167,7 @@ static void ipcam_video_detect_class_init(IpcamVideoDetectClass *klass)
     g_object_class_install_properties(object_class, N_PROPERTIES, obj_properties);
 }
 
+
 gint32 ipcam_video_detect_start(IpcamVideoDetect *self, OD_REGION_INFO od_info[])
 {
     IpcamVideoDetectPrivate *priv = ipcam_video_detect_get_instance_private(self);
@@ -200,10 +201,12 @@ gint32 ipcam_video_detect_start(IpcamVideoDetect *self, OD_REGION_INFO od_info[]
 
         rgn_attr = &stVdaChnAttr.unAttr.stOdAttr.astOdRgnAttr[rgn_num];
 
-        rgn_attr->stRect.s32X = od_info[i].rect.left * 320 / 1000;
+#define ALIGN16(x)      ((x) - ((x) % 16))
+
+        rgn_attr->stRect.s32X = ALIGN16(od_info[i].rect.left * 320 / 1000);
         rgn_attr->stRect.s32Y = od_info[i].rect.top * 240 / 1000;
-        rgn_attr->stRect.u32Width = od_info[i].rect.width * 320 / 1000;
-        rgn_attr->stRect.u32Height = od_info[i].rect.height * 240 / 1000;
+        rgn_attr->stRect.u32Width = ALIGN16(od_info[i].rect.width * 320 / 1000);
+        rgn_attr->stRect.u32Height = ALIGN16(od_info[i].rect.height * 240 / 1000);
         rgn_attr->u32SadTh = 512 * (100 - od_info[i].sensitivity) / 100;
         rgn_attr->u32AreaTh = 80; /* 80% */
         rgn_attr->u32OccCntTh = 8;
