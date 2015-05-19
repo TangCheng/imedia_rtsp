@@ -206,8 +206,8 @@ static GObject *ipcam_media_osd_constructor (GType gtype,
         priv->stChnAttr.enType = OVERLAY_RGN;
         priv->stChnAttr.unChnAttr.stOverlayChn.stPoint.s32X = 0;
         priv->stChnAttr.unChnAttr.stOverlayChn.stPoint.s32Y = 0;
-        priv->stChnAttr.unChnAttr.stOverlayChn.u32BgAlpha = 32;
-        priv->stChnAttr.unChnAttr.stOverlayChn.u32FgAlpha = 96;
+        priv->stChnAttr.unChnAttr.stOverlayChn.u32BgAlpha = 0;
+        priv->stChnAttr.unChnAttr.stOverlayChn.u32FgAlpha = 112;
         priv->stChnAttr.unChnAttr.stOverlayChn.u32Layer = 0;
 
         priv->stChnAttr.unChnAttr.stOverlayChn.stQpInfo.bAbsQp = HI_FALSE;
