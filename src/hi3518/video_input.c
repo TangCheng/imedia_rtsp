@@ -104,43 +104,31 @@ static void ipcam_video_input_class_init(IpcamVideoInputClass *klass)
     g_object_class_install_properties(object_class, N_PROPERTIES, obj_properties);
 }
 
+/* defined in isp.c */
+extern guint32 sensor_image_width;
+extern guint32 sensor_image_height;
+extern guint32 sensor_frame_rate;
+
 gint32 ipcam_video_input_start(IpcamVideoInput *self, StreamDescriptor desc[])
 {
     HI_S32 s32Ret = HI_SUCCESS;
     VI_DEV ViDev;
     VI_CHN ViChn;
     VI_CHN ViExtChn;
-    guint32 sensor_image_width, sensor_image_height;
     gchar *resolution;
-    guint32 input_fps;
     IpcamVideoInputPrivate *priv = ipcam_video_input_get_instance_private(self);
 
     g_return_val_if_fail(IPCAM_IS_VIDEO_INPUT(self), HI_FAILURE);
-
-    /* default sensor mode: 1920x1200@20Hz */
-    sensor_image_width = 1920;
-    sensor_image_height = 1200;
-    input_fps = 20;
 
     resolution = (gchar *)desc[MASTER_CHN].v_desc.resolution;
     if (g_str_equal(resolution, "UXGA") ||
         g_str_equal(resolution, "960H"))
     {
-#if defined(SENSOR_MODE_AUTO)
-        sensor_image_width = 1920;
-        sensor_image_height = 1200;
-        input_fps = 20;
-#endif
         priv->image_width = 1600;
         priv->image_height = 1200;
     }
     else
     {
-#if defined(SENSOR_MODE_AUTO)
-        sensor_image_width = 1920;
-        sensor_image_height = 1080;
-        input_fps = 30;
-#endif
         priv->image_width = 1920;
         priv->image_height = 1080;
     }
@@ -231,8 +219,8 @@ gint32 ipcam_video_input_start(IpcamVideoInput *self, StreamDescriptor desc[])
         .bMirror = desc[MASTER_CHN].v_desc.mirror,
         .bFlip = desc[MASTER_CHN].v_desc.flip,
         .bChromaResample = HI_FALSE,
-        .s32SrcFrameRate = input_fps,
-        .s32FrameRate = input_fps
+        .s32SrcFrameRate = sensor_frame_rate,
+        .s32FrameRate = sensor_frame_rate
     };
 
     stChnAttr.bMirror = desc[MASTER].v_desc.mirror;
@@ -256,8 +244,8 @@ gint32 ipcam_video_input_start(IpcamVideoInput *self, StreamDescriptor desc[])
     stViExtChnAttr.s32BindChn = 0;
     stViExtChnAttr.stDestSize.u32Width = 320;
     stViExtChnAttr.stDestSize.u32Height = 240;
-    stViExtChnAttr.s32SrcFrameRate = input_fps;
-    stViExtChnAttr.s32FrameRate = input_fps;
+    stViExtChnAttr.s32SrcFrameRate = sensor_frame_rate;
+    stViExtChnAttr.s32FrameRate = sensor_frame_rate;
     stViExtChnAttr.enPixFormat = PIXEL_FORMAT_YUV_SEMIPLANAR_422;
 
     ViExtChn = 1;

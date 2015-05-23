@@ -17,12 +17,16 @@
 #include <dlfcn.h>
 #include "isp.h"
 
+guint32 sensor_image_width;
+guint32 sensor_image_height;
+guint32 sensor_frame_rate;
+
 typedef struct _IpcamIspPrivate
 {
     gchar *sensor_type;
-    guint32 image_width;
-    guint32 image_height;
-    guint32 fps;
+    //guint32 image_width;
+    //guint32 image_height;
+    //guint32 fps;
     void *sensor_lib_handle;
     gint32 (*sensor_register_callback)();
     gint32 (*sensor_set_image_mode)(ISP_CMOS_SENSOR_IMAGE_MODE *);
@@ -36,9 +40,9 @@ static void ipcam_isp_init(IpcamIsp *self)
 {
 	IpcamIspPrivate *priv = ipcam_isp_get_instance_private(self);
     priv->sensor_type = NULL;
-    priv->image_width = 1920;
-    priv->image_height = 1080;
-    priv->fps = 30;
+    sensor_image_width = 1920;
+    sensor_image_height = 1080;
+    sensor_frame_rate = 30;
     priv->sensor_lib_handle = NULL;
     priv->sensor_register_callback = NULL;
 }
@@ -126,7 +130,7 @@ static void ipcam_isp_init_image_attr(IpcamIsp *self, ISP_IMAGE_ATTR_S *pstImage
     else if (g_str_equal(priv->sensor_type, "IMX222"))
     {
         pstImageAttr->enBayer      = BAYER_RGGB;
-        if (priv->image_height == 1200)
+        if (sensor_image_height == 1200)
         {
             pstImageAttr->u16FrameRate = 30;
             pstImageAttr->u16Width     = 1920;
@@ -153,7 +157,7 @@ static void ipcam_isp_init_input_timing(IpcamIsp *self, ISP_INPUT_TIMING_S *stIn
     stInputTiming->enWndMode = ISP_WIND_NONE;
     if (g_str_equal(priv->sensor_type, "IMX222"))
     {
-        if (priv->image_height == 1200)
+        if (sensor_image_height == 1200)
         {
             stInputTiming->enWndMode = ISP_WIND_ALL;
             stInputTiming->u16HorWndStart = 138;
@@ -190,7 +194,7 @@ static void ipcam_isp_set_pixel_clock(IpcamIsp *self)
     g_return_if_fail(IPCAM_IS_ISP(self));
 
     /* Adjust the clock */
-    if (priv->image_height == 1200) {
+    if (sensor_image_height == 1200) {
         /* 54M */
         physical_address_writel(0x20030030, 0x03);
     }
@@ -202,6 +206,8 @@ static void ipcam_isp_set_pixel_clock(IpcamIsp *self)
     usleep(200000);
 }
 
+#define SENSOR_MODE_AUTO	1
+
 static gboolean ipcam_isp_check_video_resolution(IpcamIsp *self, StreamDescriptor desc[])
 {
     IpcamIspPrivate *priv = ipcam_isp_get_instance_private(self);
@@ -209,31 +215,42 @@ static gboolean ipcam_isp_check_video_resolution(IpcamIsp *self, StreamDescripto
     guint32 image_height;
     guint32 fps;
 
-#if defined(SENSOR_MODE_AUTO)
-    resolution = desc[MASTER_CHN].v_desc.resolution;
-    if (g_str_equal(resolution, "UXGA") ||
-        g_str_equal(resolution, "960H"))
-    {
-        image_width = 1920;
-        image_height = 1200;
-        fps = 20;
-    }
-    else
-    {
-        image_width = 1920;
-        image_height = 1080;
-        fps = 30;
-    }
-#else
-    image_width = 1920;
-    image_height = 1200;
-    fps = 20;
-#endif
+	char *sensor_mode = getenv("SENSOR_MODE");
 
-    if (priv->image_height != image_height) {
-        priv->image_width = image_width;
-        priv->image_height = image_height;
-        priv->fps = fps;
+	if (sensor_mode && (strncmp(sensor_mode, "1920x1200", 9) == 0)) {
+		/* 1920x1200@20 */
+		image_width = 1920;
+		image_height = 1200;
+		fps = 20;
+	}
+	else if (sensor_mode && (strncmp(sensor_mode, "1920x1080", 9) == 0)) {
+		/* 1920x1080@30 */
+		image_width = 1920;
+		image_height = 1080;
+		fps = 30;
+	}
+	else {
+		/* Default: auto select sensor mode */
+		const gchar *resolution = desc[MASTER_CHN].v_desc.resolution;
+		if (g_str_equal(resolution, "UXGA") ||
+			g_str_equal(resolution, "960H"))
+		{
+			image_width = 1920;
+			image_height = 1200;
+			fps = 20;
+		}
+		else
+		{
+			image_width = 1920;
+			image_height = 1080;
+			fps = 30;
+		}
+	}
+
+    if (sensor_image_height != image_height) {
+        sensor_image_width = image_width;
+        sensor_image_height = image_height;
+        sensor_frame_rate = fps;
 
         return TRUE;
     }
@@ -248,9 +265,9 @@ static void ipcam_isp_set_image_mode(IpcamIsp *self)
     if (priv->sensor_set_image_mode)
     {
         ISP_CMOS_SENSOR_IMAGE_MODE stSensorImageMode = {
-            .u16Width = priv->image_width,
-            .u16Height = priv->image_height,
-            .u16Fps = priv->fps
+            .u16Width = sensor_image_width,
+            .u16Height = sensor_image_height,
+            .u16Fps = sensor_frame_rate
         };
         (*priv->sensor_set_image_mode)(&stSensorImageMode);
     }

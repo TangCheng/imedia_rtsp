@@ -170,6 +170,9 @@ static gint32 video_encode_disable_color2grey(IpcamVideoEncode *self)
     return s32Ret;
 }
 
+/* defined in isp.c */
+extern guint32 sensor_frame_rate;
+
 gint32 ipcam_video_encode_start(IpcamVideoEncode *self, StreamDescriptor desc[])
 {
     g_return_val_if_fail(IPCAM_IS_VIDEO_ENCODE(self), HI_FAILURE);
@@ -185,7 +188,7 @@ gint32 ipcam_video_encode_start(IpcamVideoEncode *self, StreamDescriptor desc[])
     guint output_fps;
 
     /* default sensor mode: 1920x1200@20Hz */
-    input_fps = 20;
+    input_fps = sensor_frame_rate;
 
     const gchar *resolution = desc[MASTER_CHN].v_desc.resolution;
     if (g_str_equal(resolution, "UXGA") ||
@@ -193,17 +196,11 @@ gint32 ipcam_video_encode_start(IpcamVideoEncode *self, StreamDescriptor desc[])
     {
         input_width = 1600;
         input_height = 1200;
-#if defined(SENSOR_MODE_AUTO)
-        input_fps = 20;
-#endif
     }
     else
     {
         input_width = 1920;
         input_height = 1080;
-#if defined(SENSOR_MODE_AUTO)
-        input_fps = 30;
-#endif
     }
 
     for (chn = MASTER_CHN; chn < STREAM_CHN_LAST; chn++)
