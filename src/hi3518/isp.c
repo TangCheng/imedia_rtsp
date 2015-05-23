@@ -233,7 +233,8 @@ static gboolean ipcam_isp_check_video_resolution(IpcamIsp *self, StreamDescripto
 		/* Default: auto select sensor mode */
 		const gchar *resolution = desc[MASTER_CHN].v_desc.resolution;
 		if (g_str_equal(resolution, "UXGA") ||
-			g_str_equal(resolution, "960H"))
+			g_str_equal(resolution, "960H") ||
+			desc[MASTER_CHN].v_desc.frame_rate <= 20)
 		{
 			image_width = 1920;
 			image_height = 1200;
