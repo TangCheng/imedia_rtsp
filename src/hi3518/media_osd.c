@@ -207,7 +207,11 @@ static GObject *ipcam_media_osd_constructor (GType gtype,
         priv->stChnAttr.unChnAttr.stOverlayChn.stPoint.s32X = 0;
         priv->stChnAttr.unChnAttr.stOverlayChn.stPoint.s32Y = 0;
         priv->stChnAttr.unChnAttr.stOverlayChn.u32BgAlpha = 0;
+#if defined(OSD_EFFECT_TRANSPARENT)
         priv->stChnAttr.unChnAttr.stOverlayChn.u32FgAlpha = 112;
+#else
+		priv->stChnAttr.unChnAttr.stOverlayChn.u32FgAlpha = 128;
+#endif
         priv->stChnAttr.unChnAttr.stOverlayChn.u32Layer = 0;
 
         priv->stChnAttr.unChnAttr.stOverlayChn.stQpInfo.bAbsQp = HI_FALSE;
@@ -217,9 +221,13 @@ static GObject *ipcam_media_osd_constructor (GType gtype,
         priv->stChnAttr.unChnAttr.stOverlayChn.stInvertColor.stInvColArea.u32Height = 16;
         priv->stChnAttr.unChnAttr.stOverlayChn.stInvertColor.u32LumThresh = 70;
         priv->stChnAttr.unChnAttr.stOverlayChn.stInvertColor.enChgMod = LESSTHAN_LUM_THRESH;
+#if defined(OSD_EFFECT_TRANSPARENT)
         priv->stChnAttr.unChnAttr.stOverlayChn.stInvertColor.bInvColEn = HI_FALSE;
+#else
+        priv->stChnAttr.unChnAttr.stOverlayChn.stInvertColor.bInvColEn = HI_TRUE;
+#endif
 
-        s32Ret = HI_MPI_RGN_AttachToChn(priv->RgnHandle, &stChn, &priv->stChnAttr);
+		s32Ret = HI_MPI_RGN_AttachToChn(priv->RgnHandle, &stChn, &priv->stChnAttr);
         if (HI_SUCCESS != s32Ret)
         {
             g_critical("HI_MPI_RGN_AttachToChn failed with %#x!\n", s32Ret);
@@ -395,7 +403,11 @@ static gint32 ipcam_media_osd_draw_content(IpcamMediaOsd *self, IPCAM_OSD_TYPE t
         };
 
         TTF_SetFontSize(priv->ttf_font, priv->font_size[type]);
+#if defined(OSD_EFFECT_TRANSPARENT)
 		text_sf = TTF_RenderUTF8_Shaded(priv->ttf_font, priv->content[type], fgclr, bgclr);
+#else
+		text_sf = TTF_RenderUTF8_Solid(priv->ttf_font, priv->content[type], fgclr);
+#endif
         if (text_sf) {
             rect.x = priv->position[type].x * priv->image_width / 1000;
             rect.y = priv->position[type].y * priv->image_height / 1000;
