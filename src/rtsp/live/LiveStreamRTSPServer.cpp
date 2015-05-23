@@ -19,6 +19,7 @@ along with this library; if not, write to the Free Software Foundation, Inc.,
 // Implementation
 
 #include <iostream>
+#include <algorithm>
 #include <liveMedia.hh>
 #include <string.h>
 #include "H264LiveStreamServerMediaSubsession.hh"
@@ -81,30 +82,31 @@ ServerMediaSession* LiveStreamRTSPServer
   H264LiveStreamInput *streamInput;
   char const* key;
 
+  std::string strName = streamName;
+  std::transform(strName.begin(), strName.end(), strName.begin(), ::toupper);
+
   iter = HashTable::Iterator::create(*fStreamInput);
   while ((streamInput = (H264LiveStreamInput*)(iter->next(key))) != NULL) {
     StreamDescriptor *desc = streamInput->streamDesc();
-    if (desc && desc->v_desc.path && desc->v_desc.resolution) {
-      char channel[16];
-      snprintf(channel, sizeof(channel), "%d", streamInput->channelNo());
-      std::string path = desc->v_desc.path;
-      fResolutionRE.GlobalReplace(desc->v_desc.resolution, &path);
-      fChannelRE.GlobalReplace(channel, &path);
-
-      if (path.compare(streamName) == 0) {
-        sms = RTSPServer::lookupServerMediaSession(streamName);
+    if (desc && desc->v_desc.path) {
+      if (strcasecmp(strName.c_str(), desc->v_desc.path) == 0) {
+        sms = RTSPServer::lookupServerMediaSession(strName.c_str());
         if (sms == NULL) {
           char const* descriptionString = "Session streamed by \"iRTSP\"";
           sms = ServerMediaSession::createNew(envir(),
-                                              streamName,
-                                              streamName,
+                                              strName.c_str(),
+                                              strName.c_str(),
                                               descriptionString);
-          sms->addSubsession(H264LiveStreamServerMediaSubsession::createNew(envir(), *streamInput));
-          addServerMediaSession(sms);
+          if (sms) {
+            sms->addSubsession(H264LiveStreamServerMediaSubsession::createNew(envir(), *streamInput));
+            addServerMediaSession(sms);
+		  }
         }
         break;
       }
     }
   }
+  delete iter;
+
   return sms;
 }
