@@ -1076,15 +1076,6 @@ void ipcam_imedia_got_video_param(IpcamIMedia *imedia, JsonNode *body, gboolean 
     }
 }
 
-static void ipcam_imedia_osd_int_to_string(IpcamIMedia *imedia,
-                                           gint val,
-                                           gchar **string,
-                                           gint len,
-                                           gchar *extra)
-{
-    memset(*string, 0, len);
-    sprintf(*string, "%d%s", val, extra);
-}
 static void ipcam_imedia_osd_lookup_video_run_info(IpcamIMedia *imedia,
                                                    gchar *buffer)
 {
@@ -1108,8 +1099,8 @@ static void ipcam_imedia_osd_lookup_video_run_info(IpcamIMedia *imedia,
             p = &buffer[pmatch[i].rm_so];
             if (sscanf(p, "%d%d%d", &id, &bit_rate_val, &frame_rate_val) == 3) {
                 if (id >= 0 && id < STREAM_CHN_LAST) {
-                    ipcam_imedia_osd_int_to_string(imedia, bit_rate_val, &priv->bit_rate[id], BIT_RATE_BUF_SIZE, "kbps");
-                    ipcam_imedia_osd_int_to_string(imedia, frame_rate_val, &priv->frame_rate[id], FRAME_RATE_BUF_SIZE, "fps");
+					snprintf(priv->bit_rate[id], BIT_RATE_BUF_SIZE, "BR=%dK", bit_rate_val);
+					snprintf(priv->frame_rate[id], FRAME_RATE_BUF_SIZE, "FR=%d", frame_rate_val);
                 }
             }
         }
