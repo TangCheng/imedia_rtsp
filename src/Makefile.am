@@ -53,7 +53,6 @@ imedia_rtsp_SOURCES += \
 	hi3518/video_encode.c \
 	hi3518/video_input.c \
 	hi3518/video_process_subsystem.c \
-	hi3518/bitmap.c \
 	hi3518/video_detect.c \
 	media-ircut.c \
 	media-ircut.h
@@ -68,7 +67,6 @@ imedia_rtsp_SOURCES += \
 	hi3518/video_encode.c \
 	hi3518/video_input.c \
 	hi3518/video_process_subsystem.c \
-	hi3518/bitmap.c \
 	hi3518/video_detect.c \
 	media-ircut.c \
 	media-ircut.h

@@ -6,9 +6,9 @@
 #include <string.h>
 #include <SDL2/SDL.h>
 #include <SDL2/SDL_ttf.h>
-#include "media_osd.h"
 #include "bitmap.h"
 #include "stream_descriptor.h"
+#include "media_osd.h"
 
 enum
 {
@@ -19,463 +19,590 @@ enum
     N_PROPERTIES
 };
 
-typedef struct _IpcamMediaOsdPrivate
+struct _IpcamOSDItem
 {
-	TTF_Font *ttf_font;
-	gchar *font_file;	
-    IpcamBitmap *bitmap;
-    VENC_GRP VencGrp;
-    RGN_HANDLE RgnHandle;
+	IpcamOSD*       osd;
+	IpcamOSDStream* stream;
+	char*           name;
+	RGN_HANDLE      rgn_handle;
+	HI_U32          layer;
+	gboolean        enabled;
+
+	/* Effect */
+	HI_BOOL         invert_color;
+	HI_U32          bg_alpha;
+	HI_U32          fg_alpha;
+
+	char*           text;
+	int	            font_size;
+	SDL_Color       fg_color;
+	SDL_Color       bg_color;
+	POINT_S         position;
+	SIZE_S          size;
+
+	BITMAP_S        bitmap;
+	SDL_Surface*    surface;
+};
+
+
+struct _IpcamOSDStream
+{
+	IpcamOSD*       osd;
+	VENC_GRP        venc_grp;
+	uint32_t        image_width;
+	uint32_t        image_height;
+	GHashTable*     osd_items;         /* [RGN_HANDLE] => [IpcamOSDItem*] */
+};
+
+struct _IpcamOSD
+{
+	TTF_Font*       ttf_font;
+	GQueue          rgn_handle_pool;   /* for allocating region handle */
+	GHashTable*     streams;           /* [VENC_GRP] => [IpcamOSDStream*] */
+};
+
+static gboolean ipcam_osd_alloc_region(IpcamOSD *osd, RGN_HANDLE *rgn_handle);
+static void     ipcam_osd_release_region(IpcamOSD *osd, RGN_HANDLE rgn_handle);
+
+static IpcamOSDItem*
+ipcam_osd_item_new(IpcamOSDStream *stream, char const *name, RGN_HANDLE handle)
+{
+	IpcamOSDItem *item;
+
+	item = calloc(1, sizeof(IpcamOSDItem));
+	if (item == NULL)
+		return NULL;
+
+	item->name = strdup(name);
+	item->rgn_handle = handle;
+	item->stream = stream;
+	item->osd = stream->osd;
+	item->size.u32Width = 16;
+	item->size.u32Height = 16;
+	item->invert_color = HI_TRUE;
+	item->bg_alpha = 0;
+	item->fg_alpha = 128;
+	item->bg_color.r = 0x80;
+	item->bg_color.g = 0x80;
+	item->bg_color.b = 0x80;
+	item->bg_color.a = 0x00;
+	item->surface = NULL;
+
+	return item;
+}
+
+static void
+ipcam_osd_item_destroy(IpcamOSDItem *item)
+{
+	if (item->enabled)
+		ipcam_osd_item_disable(item);
+	free((void*)item->name);
+	free((void*)item->text);
+	free(item);
+}
+
+static inline HI_S32
+ipcam_osd_item_round_position(IpcamOSDItem *item, HI_S32 value)
+{
+	return item->invert_color ? ((value + 8) & ~0x0F) : ((value + 2) & ~0x3);
+}
+
+static inline HI_U32
+ipcam_osd_item_round_size(IpcamOSDItem *item, HI_U32 value)
+{
+	return item->invert_color ? ((value + 15) & ~0x0F) : ((value + 1) & ~0x1);
+}
+
+void
+ipcam_osd_item_enable(IpcamOSDItem *item)
+{
+    HI_S32 s32Ret = HI_FAILURE;
+    MPP_CHN_S stChn;
     RGN_ATTR_S stRgnAttr;
     RGN_CHN_ATTR_S stChnAttr;
-    guint32 image_width;
-    guint32 image_height;
-    guint32 font_size[IPCAM_OSD_TYPE_LAST];
-    Color color[IPCAM_OSD_TYPE_LAST];
-    Point position[IPCAM_OSD_TYPE_LAST];
-    RECT_S rect[IPCAM_OSD_TYPE_LAST];
-    HI_BOOL bShow[IPCAM_OSD_TYPE_LAST];
-    gchar *content[IPCAM_OSD_TYPE_LAST];
-} IpcamMediaOsdPrivate;
+	VENC_GRP venc_grp = item->stream->venc_grp;
+	HI_U32 bg_color;
 
-static gint32 ipcam_media_osd_draw_content(IpcamMediaOsd *self, IPCAM_OSD_TYPE type);
+	/* Check if already enabled */
+	if (item->enabled)
+		return;
 
-G_DEFINE_TYPE(IpcamMediaOsd, ipcam_media_osd, G_TYPE_OBJECT);
+	/* Prepare ARGB1555 surface */
+	item->surface = SDL_CreateRGBSurface(SDL_SWSURFACE,
+										 item->size.u32Width,	/* width */
+										 item->size.u32Height,  /* height */
+										 16,					/* depth */
+										 0x1F << 10,			/* Rmask */
+										 0x1F << 5,				/* Gmask */
+										 0x1F << 0,				/* Bmask */
+										 0x01 << 15);			/* Amask */
+	item->bitmap.enPixelFormat = PIXEL_FORMAT_RGB_1555;
+	item->bitmap.u32Width = item->size.u32Width;
+	item->bitmap.u32Height = item->size.u32Height;
+	item->bitmap.pData = item->surface->pixels;
 
-static GParamSpec *obj_properties[N_PROPERTIES] = { NULL, };
+	/* Create region and attach to channel */
+	stRgnAttr.enType = OVERLAY_RGN;
+	stRgnAttr.unAttr.stOverlay.enPixelFmt = PIXEL_FORMAT_RGB_1555;
+	stRgnAttr.unAttr.stOverlay.stSize.u32Width  = item->size.u32Width;
+	stRgnAttr.unAttr.stOverlay.stSize.u32Height = item->size.u32Height;
+	bg_color = SDL_MapRGBA(item->surface->format,
+						   item->bg_color.r,
+						   item->bg_color.g,
+						   item->bg_color.b,
+						   item->bg_color.a);
+	stRgnAttr.unAttr.stOverlay.u32BgColor = bg_color;
 
-static void ipcam_media_osd_get_property(GObject    *object,
-                                         guint       property_id,
-                                         GValue     *value,
-                                         GParamSpec *pspec)
-{
-    IpcamMediaOsd *self = IPCAM_MEDIA_OSD(object);
-    IpcamMediaOsdPrivate *priv = IPCAM_MEDIA_OSD_GET_PRIVATE(self);
-    switch(property_id)
-    {
-        case PROP_RGN_HANDLE:
-            g_value_set_uint(value, priv->RgnHandle);
-            break;
-        case PROP_VENC_GROUP:
-            g_value_set_uint(value, priv->VencGrp);
-            break;
-		case PROP_FONT_FILE:
-			g_value_set_string(value, priv->font_file);
-			break;
-        default:
-            G_OBJECT_WARN_INVALID_PROPERTY_ID(object, property_id, pspec);
-            break;
-    }
-}
-
-static void ipcam_media_osd_set_property(GObject      *object,
-                                         guint         property_id,
-                                         const GValue *value,
-                                         GParamSpec   *pspec)
-{
-    IpcamMediaOsd *self = IPCAM_MEDIA_OSD(object);
-    IpcamMediaOsdPrivate *priv = IPCAM_MEDIA_OSD_GET_PRIVATE(self);
-    switch(property_id)
-    {
-        case PROP_RGN_HANDLE:
-            priv->RgnHandle = g_value_get_uint(value);
-            break;
-        case PROP_VENC_GROUP:
-            priv->VencGrp = g_value_get_uint(value);
-            break;
-		case PROP_FONT_FILE:
-			priv->font_file = g_strdup(g_value_get_string(value));
-			break;
-        default:
-            G_OBJECT_WARN_INVALID_PROPERTY_ID(object, property_id, pspec);
-            break;
-    }
-}
-
-static void ipcam_media_osd_finalize(GObject *object)
-{
-    HI_S32 s32Ret = HI_FAILURE;
-    MPP_CHN_S stChn;
-    IPCAM_OSD_TYPE type;
-    IpcamMediaOsdPrivate *priv = IPCAM_MEDIA_OSD_GET_PRIVATE(IPCAM_MEDIA_OSD(object));
-
-    stChn.enModId = HI_ID_GROUP;
-    stChn.s32DevId = priv->VencGrp;
-    stChn.s32ChnId = 0;
-
-    s32Ret = HI_MPI_RGN_DetachFrmChn(priv->RgnHandle, &stChn);
-    if(HI_SUCCESS != s32Ret)
-    {
-        g_critical("HI_MPI_RGN_DetachFrmChn failed with %#x!\n", s32Ret);
-    }
-    s32Ret = HI_MPI_RGN_Destroy(priv->RgnHandle);
-    if (HI_SUCCESS != s32Ret)
-    {
-        g_critical("HI_MPI_RGN_Destroy failed with %#x\n", s32Ret);
-    }
-    for (type = IPCAM_OSD_TYPE_DATETIME; type < IPCAM_OSD_TYPE_LAST; type++)
-    {
-        g_free(priv->content[type]);
-        priv->content[type] = NULL;
-    }
-
-	g_free(priv->font_file);
-
-	if (priv->ttf_font)
-		TTF_CloseFont(priv->ttf_font);
-	TTF_Quit();
-
-	g_clear_object(&priv->bitmap);
-    G_OBJECT_CLASS(ipcam_media_osd_parent_class)->finalize(object);
-}
-
-static GObject *ipcam_media_osd_constructor (GType gtype,
-                                             guint n_properties,
-                                             GObjectConstructParam *properties)
-{
-    GObjectClass *klass;
-    GObject *object;
-    IpcamMediaOsd *osd;
-    IpcamMediaOsdPrivate *priv;
-    HI_S32 s32Ret = HI_FAILURE;
-    MPP_CHN_S stChn;
-    IPCAM_OSD_TYPE type;
-
-    /* Always chain up to the parent constructor */
-    klass = G_OBJECT_CLASS(ipcam_media_osd_parent_class);
-    object = klass->constructor(gtype, n_properties, properties);
-    osd = IPCAM_MEDIA_OSD(object);
-    priv = IPCAM_MEDIA_OSD_GET_PRIVATE(osd);
-
-    for (type = IPCAM_OSD_TYPE_DATETIME; type < IPCAM_OSD_TYPE_LAST; type++)
-    {
-        priv->content[type] = NULL;
-        priv->bShow[type] = FALSE;
-
-        priv->rect[type].s32X = 0;
-        priv->rect[type].s32Y = 0;
-        priv->rect[type].u32Width = 0;
-        priv->rect[type].u32Height = 0;
-    }
-
-    priv->bitmap = g_object_new(IPCAM_BITMAP_TYPE, NULL);
-
-	if (TTF_Init() < 0) {
-		g_critical("Couldn't initialize TTF: %s\n", SDL_GetError());
+	s32Ret = HI_MPI_RGN_Create(item->rgn_handle, &stRgnAttr);
+	if (HI_SUCCESS != s32Ret)
+	{
+		fprintf(stderr, "Failed to create region: [%#x]\n", s32Ret);
+		return;
 	}
 
-	if (priv->font_file) {
-		g_print("loading font %s\n", priv->font_file);
-		priv->ttf_font = TTF_OpenFont(priv->font_file, 20);
+	stChn.enModId = HI_ID_GROUP;
+	stChn.s32DevId = venc_grp;
+	stChn.s32ChnId = 0;
+
+	memset(&stChnAttr, 0, sizeof(stChnAttr));
+	stChnAttr.bShow = HI_TRUE;
+	stChnAttr.enType = OVERLAY_RGN;
+	stChnAttr.unChnAttr.stOverlayChn.stPoint.s32X = item->position.s32X;
+	stChnAttr.unChnAttr.stOverlayChn.stPoint.s32Y = item->position.s32Y;
+	stChnAttr.unChnAttr.stOverlayChn.u32BgAlpha = item->bg_alpha;
+	stChnAttr.unChnAttr.stOverlayChn.u32FgAlpha = item->fg_alpha;
+	stChnAttr.unChnAttr.stOverlayChn.u32Layer = MIN(item->layer, 7);
+
+	stChnAttr.unChnAttr.stOverlayChn.stQpInfo.bAbsQp = HI_FALSE;
+	stChnAttr.unChnAttr.stOverlayChn.stQpInfo.s32Qp  = 0;
+
+	stChnAttr.unChnAttr.stOverlayChn.stInvertColor.stInvColArea.u32Width = 16;
+	stChnAttr.unChnAttr.stOverlayChn.stInvertColor.stInvColArea.u32Height = 16;
+	stChnAttr.unChnAttr.stOverlayChn.stInvertColor.u32LumThresh = 70;
+	stChnAttr.unChnAttr.stOverlayChn.stInvertColor.enChgMod = LESSTHAN_LUM_THRESH;
+	stChnAttr.unChnAttr.stOverlayChn.stInvertColor.bInvColEn = item->invert_color;
+
+	s32Ret = HI_MPI_RGN_AttachToChn(item->rgn_handle, &stChn, &stChnAttr);
+	if (HI_SUCCESS != s32Ret)
+	{
+		fprintf(stderr, "Failed to attach region%d to channel [%#x]\n", item->rgn_handle, s32Ret);
+		HI_MPI_RGN_Destroy(item->rgn_handle);
+
+		return;
+	}
+
+	item->enabled = TRUE;
+}
+
+void
+ipcam_osd_item_disable(IpcamOSDItem *item)
+{
+	HI_S32 s32Ret = HI_FAILURE;
+    MPP_CHN_S stChn;
+	VENC_GRP venc_grp = item->stream->venc_grp;
+
+    stChn.enModId = HI_ID_GROUP;
+    stChn.s32DevId = venc_grp;
+    stChn.s32ChnId = 0;
+
+	if (!item->enabled)
+		return;
+
+    s32Ret = HI_MPI_RGN_DetachFrmChn(item->rgn_handle, &stChn);
+    if(HI_SUCCESS != s32Ret)
+    {
+        fprintf(stderr, "Failed to detach region%d from channel%d [%#x]\n",
+				item->rgn_handle, venc_grp, s32Ret);
+    }
+    s32Ret = HI_MPI_RGN_Destroy(item->rgn_handle);
+    if (HI_SUCCESS != s32Ret)
+    {
+        fprintf(stderr, "Failed to destroy region%d [%#x]\n",
+				item->rgn_handle, s32Ret);
+    }
+
+	item->bitmap.pData = NULL;
+	SDL_FreeSurface(item->surface);
+	item->surface = NULL;
+
+	item->enabled = FALSE;
+}
+
+void
+ipcam_osd_item_draw_text(IpcamOSDItem *item)
+{
+	IpcamOSD *osd = item->osd;
+	HI_S32 s32Ret = HI_FAILURE;
+	SDL_Surface *text_surface;
+
+	/* Check if already disabled */
+	if (!item->enabled || !item->text)
+		return;
+
+	TTF_SetFontSize(osd->ttf_font, item->font_size);
+	text_surface = TTF_RenderUTF8_Solid(osd->ttf_font, item->text, item->fg_color);
+	if (text_surface) {
+		HI_BOOL grow_size = HI_FALSE;
+		HI_U32 bgcolor = SDL_MapRGBA(item->surface->format,
+									 item->bg_color.r,
+									 item->bg_color.g,
+									 item->bg_color.b,
+									 item->bg_color.a);
+
+		/*
+		 * If the text surface size is greater than item's size,
+		 * we need to grow the osd item's size.
+		 */
+		if (text_surface->w > item->size.u32Width) {
+			item->size.u32Width = ipcam_osd_item_round_size(item, text_surface->w);
+			grow_size = TRUE;
+		}
+		if (text_surface->h > item->size.u32Height) {
+			item->size.u32Height = ipcam_osd_item_round_size(item, text_surface->h);
+			grow_size = TRUE;
+		}
+		/* size grow needed, re-enable the item to take effect */
+		if (grow_size) {
+			ipcam_osd_item_disable(item);
+			ipcam_osd_item_enable(item);
+		}
+
+		SDL_Rect src_rect = {
+			.x = 0, .y = 0, .w = text_surface->w, .h = text_surface->h };
+		SDL_Rect dst_rect = {
+			.x = 0, .y = 0, .w = item->surface->w, .h = item->surface->h };
+
+		SDL_FillRect(item->surface, &dst_rect, bgcolor);
+		SDL_BlitSurface(text_surface, &src_rect,
+						item->surface, &dst_rect);
+
+		SDL_FreeSurface(text_surface);
+
+		s32Ret = HI_MPI_RGN_SetBitMap(item->rgn_handle, &item->bitmap);
+		if(s32Ret != HI_SUCCESS)
+		{
+			fprintf(stderr, "Failed to set bitmap for osd [%#x]\n", s32Ret);
+		}
+	}
+}
+
+void
+ipcam_osd_item_set_text(IpcamOSDItem *item, char const *text)
+{
+	if (item->text && strcmp(text, item->text) == 0)
+		return;
+
+	free(item->text);
+	item->text = strdup(text);
+
+	/* Re-draw item */
+	ipcam_osd_item_draw_text(item);
+}
+
+void
+ipcam_osd_item_set_layer(IpcamOSDItem *item, int layer)
+{
+	item->layer = layer;
+
+	/* Re-enable the item */
+	if (item->enabled) {
+		ipcam_osd_item_disable(item);
+		ipcam_osd_item_enable(item);
+		ipcam_osd_item_draw_text(item);
+	}
+}
+
+void
+ipcam_osd_item_set_effect(IpcamOSDItem *item, HI_BOOL invert_color,
+						  HI_U32 bg_alpha, HI_U32 fg_alpha)
+{
+	if ((item->invert_color == invert_color)
+		&& (item->bg_alpha == bg_alpha)
+		&& (item->fg_alpha == fg_alpha))
+		return;
+
+	item->invert_color = !!invert_color;
+	item->bg_alpha = bg_alpha;
+	item->fg_alpha = fg_alpha;
+
+	/* Re-enable the item to take effect */
+	if (item->enabled) {
+		ipcam_osd_item_disable(item);
+		ipcam_osd_item_enable(item);
+	}
+}
+
+void
+ipcam_osd_item_set_font_size(IpcamOSDItem *item, int font_size)
+{
+	if (font_size == item->font_size)
+		return;
+
+	item->font_size = font_size;
+
+	/* Re-draw item */
+	ipcam_osd_item_draw_text(item);
+}
+
+void
+ipcam_osd_item_set_fgcolor(IpcamOSDItem *item, SDL_Color *color)
+{
+	item->fg_color = *color;
+
+	if (item->enabled && item->text) {
+		ipcam_osd_item_draw_text(item);
+	}
+}
+
+void
+ipcam_osd_item_set_bgcolor(IpcamOSDItem *item, SDL_Color *color)
+{
+	item->bg_color = *color;
+
+	if (item->enabled) {
+		RGN_ATTR_S stRgnAttr;
+		HI_S32 s32Ret = HI_SUCCESS;
+
+		s32Ret = HI_MPI_RGN_GetAttr(item->rgn_handle, &stRgnAttr);
+		if (s32Ret == HI_SUCCESS) {
+			stRgnAttr.unAttr.stOverlay.u32BgColor;
+			s32Ret = HI_MPI_RGN_SetAttr(item->rgn_handle, &stRgnAttr);
+		}
+	}
+}
+
+void
+ipcam_osd_item_set_position(IpcamOSDItem *item, int x, int y)
+{
+	x = (x * item->stream->image_width) / 1000;
+	y = (y * item->stream->image_height) / 1000;
+
+	item->position.s32X = ipcam_osd_item_round_position(item, x);
+	item->position.s32Y = ipcam_osd_item_round_position(item, y);
+}
+
+
+/* IpcamOSDStream member functions */
+
+static void
+ipcam_osd_stream_free_items(gpointer data)
+{
+	IpcamOSDItem *item = data;
+
+	ipcam_osd_item_destroy(item);
+}
+
+IpcamOSDStream*
+ipcam_osd_stream_new(IpcamOSD *osd, VENC_GRP venc_grp)
+{
+	IpcamOSDStream *stream;
+
+	stream = calloc(1, sizeof(IpcamOSDStream));
+	if (stream == NULL)
+		return NULL;
+
+	stream->osd = osd;
+	stream->venc_grp = venc_grp;
+	stream->osd_items = g_hash_table_new_full(g_str_hash,
+											  g_str_equal,
+											  NULL,
+											  ipcam_osd_stream_free_items);
+
+	return stream;
+}
+
+void
+ipcam_osd_stream_destroy(IpcamOSDStream *stream)
+{
+	g_hash_table_unref(stream->osd_items);
+	free(stream);
+}
+
+IpcamOSDItem*
+ipcam_osd_stream_add_item(IpcamOSDStream *stream, char const *name)
+{
+	IpcamOSDItem *item = NULL;
+	RGN_HANDLE rgn_handle;
+	guint tb_size;
+
+	tb_size = g_hash_table_size(stream->osd_items);
+	item = g_hash_table_lookup(stream->osd_items, name);
+	if (item == NULL) {
+		if (ipcam_osd_alloc_region(stream->osd, &rgn_handle)) {
+			item = ipcam_osd_item_new(stream, name, rgn_handle);
+			if (item) {
+				ipcam_osd_item_set_layer(item, tb_size);
+				g_hash_table_replace(stream->osd_items, item->name, item);
+			}
+		}
+	}
+
+	return item;
+}
+
+void
+ipcam_osd_stream_delete_item(IpcamOSDStream *stream, IpcamOSDItem *item)
+{
+	RGN_HANDLE rgn_handle;
+
+	rgn_handle = item->rgn_handle;
+	g_hash_table_remove(stream->osd_items, item->name);
+	ipcam_osd_item_destroy(item);
+	ipcam_osd_release_region(stream->osd, rgn_handle);
+}
+
+void
+ipcam_osd_stream_set_image_size(IpcamOSDStream *stream, int width, int height)
+{
+	stream->image_width = width;
+	stream->image_height = height;
+}
+
+IpcamOSDItem*
+ipcam_osd_stream_lookup_item(IpcamOSDStream *stream, char const *name)
+{
+	return g_hash_table_lookup(stream->osd_items, name);
+}
+
+
+/* IpcamOSD member functions */
+
+static void free_video_stream_callback(gpointer data)
+{
+	IpcamOSDStream *stream = (IpcamOSDStream*)data;
+
+	g_hash_table_unref(stream->osd_items);
+	free(stream);
+}
+
+IpcamOSD *ipcam_osd_new(char const* font_file)
+{
+	IpcamOSD *osd;
+	int i;
+
+	osd = calloc(1, sizeof(IpcamOSD));
+	if (osd == NULL)
+		return NULL;
+
+	if (TTF_Init() < 0) {
+		fprintf(stderr, "Couldn't initialize TTF: %s\n", SDL_GetError());
+		free(osd);
+		return NULL;
+	}
+
+	if (font_file) {
+		fprintf(stderr, "loading font %s\n", font_file);
+		osd->ttf_font = TTF_OpenFont(font_file, 20);
 	}
 
 	/* Use fallback */
-	if (!priv->ttf_font)
-		priv->ttf_font = TTF_OpenFont("/usr/share/fonts/truetype/droid/DroidSansFallback.ttf", 20);
-
-	if (!priv->ttf_font) {
-		g_critical("Couldn't load %s pt font from %d: %s\n", "ptsize", 20, SDL_GetError());
+	if (!osd->ttf_font) {
+		font_file = "/usr/share/fonts/truetype/droid/DroidSansFallback.ttf";
+		osd->ttf_font = TTF_OpenFont(font_file, 20);
 	}
 
-	TTF_SetFontStyle(priv->ttf_font, TTF_STYLE_BOLD);
-	TTF_SetFontOutline(priv->ttf_font, 0);
-	TTF_SetFontKerning(priv->ttf_font, 0);
-	TTF_SetFontHinting(priv->ttf_font, TTF_HINTING_LIGHT);
-
-	do
-    {
-        priv->stRgnAttr.enType = OVERLAY_RGN;
-        priv->stRgnAttr.unAttr.stOverlay.enPixelFmt = PIXEL_FORMAT_RGB_1555;
-        priv->stRgnAttr.unAttr.stOverlay.stSize.u32Width  = (IMAGE_MAX_WIDTH / 16 + 1) * 16;
-        priv->stRgnAttr.unAttr.stOverlay.stSize.u32Height = (IMAGE_MAX_HEIGHT / 16 + 1) * 16;
-        priv->stRgnAttr.unAttr.stOverlay.u32BgColor = 0x7FFF;
-
-        s32Ret = HI_MPI_RGN_Create(priv->RgnHandle, &priv->stRgnAttr);
-        if (HI_SUCCESS != s32Ret)
-        {
-            g_critical("HI_MPI_RGN_Create failed with %#x!\n", s32Ret);
-            break;
-        }
-
-        stChn.enModId = HI_ID_GROUP;
-        stChn.s32DevId = priv->VencGrp;
-        stChn.s32ChnId = 0;
-
-        memset(&priv->stChnAttr, 0, sizeof(priv->stChnAttr));
-        priv->stChnAttr.bShow = HI_TRUE;
-        priv->stChnAttr.enType = OVERLAY_RGN;
-        priv->stChnAttr.unChnAttr.stOverlayChn.stPoint.s32X = 0;
-        priv->stChnAttr.unChnAttr.stOverlayChn.stPoint.s32Y = 0;
-        priv->stChnAttr.unChnAttr.stOverlayChn.u32BgAlpha = 0;
-#if defined(OSD_EFFECT_TRANSPARENT)
-        priv->stChnAttr.unChnAttr.stOverlayChn.u32FgAlpha = 112;
-#else
-		priv->stChnAttr.unChnAttr.stOverlayChn.u32FgAlpha = 128;
-#endif
-        priv->stChnAttr.unChnAttr.stOverlayChn.u32Layer = 0;
-
-        priv->stChnAttr.unChnAttr.stOverlayChn.stQpInfo.bAbsQp = HI_FALSE;
-        priv->stChnAttr.unChnAttr.stOverlayChn.stQpInfo.s32Qp  = 0;
-
-        priv->stChnAttr.unChnAttr.stOverlayChn.stInvertColor.stInvColArea.u32Width = 16;
-        priv->stChnAttr.unChnAttr.stOverlayChn.stInvertColor.stInvColArea.u32Height = 16;
-        priv->stChnAttr.unChnAttr.stOverlayChn.stInvertColor.u32LumThresh = 70;
-        priv->stChnAttr.unChnAttr.stOverlayChn.stInvertColor.enChgMod = LESSTHAN_LUM_THRESH;
-#if defined(OSD_EFFECT_TRANSPARENT)
-        priv->stChnAttr.unChnAttr.stOverlayChn.stInvertColor.bInvColEn = HI_FALSE;
-#else
-        priv->stChnAttr.unChnAttr.stOverlayChn.stInvertColor.bInvColEn = HI_TRUE;
-#endif
-
-		s32Ret = HI_MPI_RGN_AttachToChn(priv->RgnHandle, &stChn, &priv->stChnAttr);
-        if (HI_SUCCESS != s32Ret)
-        {
-            g_critical("HI_MPI_RGN_AttachToChn failed with %#x!\n", s32Ret);
-            break;
-        }
-    } while (FALSE);
-
-    return object;
-}
-
-static void ipcam_media_osd_class_init(IpcamMediaOsdClass *klass)
-{
-    GObjectClass *object_class = G_OBJECT_CLASS(klass);
-
-    object_class->get_property = ipcam_media_osd_get_property;
-    object_class->set_property = ipcam_media_osd_set_property;
-    object_class->constructor = ipcam_media_osd_constructor;
-    object_class->finalize = ipcam_media_osd_finalize;
-
-    g_type_class_add_private(klass, sizeof(IpcamMediaOsdPrivate));
-
-    obj_properties[PROP_RGN_HANDLE] = 
-        g_param_spec_uint ("RgnHandle",
-                           "Region Handle",
-                           "Region Handle",
-                           0, RGN_HANDLE_MAX - 1,
-                           0,
-                           G_PARAM_CONSTRUCT_ONLY | G_PARAM_READWRITE);
-    obj_properties[PROP_VENC_GROUP] = 
-        g_param_spec_uint ("VencGroup",
-                           "VENC Group Number",
-                           "VENC Group Number",
-                           0, VENC_MAX_GRP_NUM - 1,
-                           0,
-                           G_PARAM_CONSTRUCT_ONLY | G_PARAM_READWRITE);
-    obj_properties[PROP_FONT_FILE] = 
-        g_param_spec_string ("font",
-                           "Font file name",
-                           "Font file name",
-                           NULL,
-                           G_PARAM_CONSTRUCT_ONLY | G_PARAM_READWRITE);
-    g_object_class_install_properties (object_class,
-                                       N_PROPERTIES,
-                                       obj_properties);
-}
-
-static void ipcam_media_osd_init(IpcamMediaOsd *self)
-{
-    IpcamMediaOsdPrivate *priv = IPCAM_MEDIA_OSD_GET_PRIVATE(self);
-
-    priv->image_width = 1920;
-    priv->image_height = 1080;
-}
-
-#if 0
-static void ipcam_media_osd_bitmap_clear(IpcamBitmap *bitmap, RECT_S *rect)
-{
-	SDL_Surface *scrn_sf;
-	BITMAP_S *bmp;
-	SDL_Rect rc = { rect->s32X, rect->s32Y, rect->u32Width, rect->u32Height	};
-
-	g_return_if_fail(bitmap);
-
-	bmp = ipcam_bitmap_get_data(bitmap);
-	scrn_sf = SDL_CreateRGBSurfaceFrom(bmp->pData, 
-	                                   bmp->u32Width,
-	                                   bmp->u32Height,
-	                                   16,
-	                                   bmp->u32Width * 2,
-	                                   0x1F << 10,
-	                                   0x1F << 5,
-	                                   0x1F << 0,
-	                                   0x1 << 15);
-	if (scrn_sf) {
-		SDL_FillRect(scrn_sf, &rc, 0);
-		SDL_FreeSurface(scrn_sf);
+	if (!osd->ttf_font) {
+		fprintf(stderr, "Failed to load font %s [%s]\n", font_file, SDL_GetError());
+		free(osd);
+		return NULL;
 	}
-}
-#endif
 
-gint32 ipcam_media_osd_start(IpcamMediaOsd *self, IPCAM_OSD_TYPE type, IpcamOSDParameter *parameter)
-{
-    IpcamMediaOsdPrivate *priv = IPCAM_MEDIA_OSD_GET_PRIVATE(self);
+	/* Initialize region handle pool */
+	g_queue_init(&osd->rgn_handle_pool);
+	for (i = 0; i < RGN_HANDLE_MAX; i++) {
+		g_queue_push_tail(&osd->rgn_handle_pool, GINT_TO_POINTER(i + 1));
+	}
 
-    priv->bShow[type] = parameter->is_show;
-    priv->font_size[type] = parameter->font_size;
-    priv->color[type] = parameter->color;
-    priv->position[type].x = parameter->position.x;
-    priv->position[type].y = parameter->position.y;
-    
-    return ipcam_media_osd_draw_content(self, type);
-}
-static gint32 ipcam_media_osd_set_region_attr(IpcamMediaOsd *self, IPCAM_OSD_TYPE type)
-{
-    HI_S32 s32Ret = HI_FAILURE;
-    MPP_CHN_S stChn;
-    IpcamMediaOsdPrivate *priv = IPCAM_MEDIA_OSD_GET_PRIVATE(self);
-    stChn.enModId = HI_ID_GROUP;
-    stChn.s32DevId = priv->VencGrp;
-    stChn.s32ChnId = 0;
-    s32Ret = HI_MPI_RGN_SetDisplayAttr(priv->RgnHandle, &stChn, &priv->stChnAttr);
-    if (HI_SUCCESS != s32Ret)
-    {
-        g_critical("HI_MPI_RGN_SetDisplayAttr failed with %#x!\n", s32Ret);
-    }
-    return s32Ret;
+	/* Initialize the video stream descriptor */
+	osd->streams = g_hash_table_new_full(g_direct_hash,
+										 g_direct_equal,
+										 NULL,
+										 free_video_stream_callback);
+
+	return osd;
 }
 
-gint32 ipcam_media_osd_show(IpcamMediaOsd *self, IPCAM_OSD_TYPE type, const gboolean show)
+void
+ipcam_osd_destroy(IpcamOSD *osd)
 {
-    IpcamMediaOsdPrivate *priv = IPCAM_MEDIA_OSD_GET_PRIVATE(self);
-    priv->bShow[type] = show;
-    return ipcam_media_osd_set_content(self, type, priv->content[type]);
+	g_hash_table_unref(osd->streams);
+	g_queue_clear(&osd->rgn_handle_pool);
+	TTF_CloseFont(osd->ttf_font);
+	TTF_Quit();
 }
 
-gint32 ipcam_media_osd_set_pos(IpcamMediaOsd *self, IPCAM_OSD_TYPE type,  const Point pos)
+static gboolean
+ipcam_osd_alloc_region(IpcamOSD *osd, RGN_HANDLE *rgn_handle)
 {
-    IpcamMediaOsdPrivate *priv = IPCAM_MEDIA_OSD_GET_PRIVATE(self);
-    priv->position[type].x = pos.x;
-    priv->position[type].y = pos.y;
-    return ipcam_media_osd_set_region_attr(self, type);
+	gint value;
+
+	value = GPOINTER_TO_INT(g_queue_pop_head(&osd->rgn_handle_pool));
+	if (value > 0) {
+		*rgn_handle = value - 1;
+		return TRUE;
+	}
+	return FALSE;
 }
 
-gint32 ipcam_media_osd_set_fontsize(IpcamMediaOsd *self, IPCAM_OSD_TYPE type, const guint fsize)
+static void
+ipcam_osd_release_region(IpcamOSD *osd, RGN_HANDLE rgn_handle)
 {
-    IpcamMediaOsdPrivate *priv = IPCAM_MEDIA_OSD_GET_PRIVATE(self);
-    priv->font_size[type] = fsize;
-    return ipcam_media_osd_set_content(self, type, priv->content[type]);
+	g_queue_push_tail(&osd->rgn_handle_pool, GINT_TO_POINTER(rgn_handle));
 }
 
-gint32 ipcam_media_osd_set_color(IpcamMediaOsd *self, IPCAM_OSD_TYPE type, const Color color)
+IpcamOSDStream*
+ipcam_osd_add_stream(IpcamOSD *osd, VENC_GRP venc_grp)
 {
-    IpcamMediaOsdPrivate *priv = IPCAM_MEDIA_OSD_GET_PRIVATE(self);
-    priv->color[type] = color;
-    return ipcam_media_osd_set_content(self, type, priv->content[type]);
+	IpcamOSDStream *stream;
+
+	stream = g_hash_table_lookup(osd->streams, GINT_TO_POINTER(venc_grp));
+	if (stream == NULL) {
+		stream = ipcam_osd_stream_new(osd, venc_grp);
+		g_hash_table_insert(osd->streams, GINT_TO_POINTER(venc_grp), stream);
+	}
+
+	return stream;
 }
 
-static gint32 ipcam_media_osd_draw_content(IpcamMediaOsd *self, IPCAM_OSD_TYPE type)
+void
+ipcam_osd_delete_stream(IpcamOSD *osd, VENC_GRP venc_grp)
 {
-	SDL_Surface *text_sf, *scrn_sf;
-    HI_S32 s32Ret = HI_FAILURE;
-    IpcamMediaOsdPrivate *priv = IPCAM_MEDIA_OSD_GET_PRIVATE(self);
-
-    g_return_val_if_fail((type >= 0 && type < IPCAM_OSD_TYPE_LAST), s32Ret);
-    g_return_val_if_fail((NULL != priv->ttf_font), s32Ret);
-
-	SDL_Rect rect = {
-		priv->rect[type].s32X, priv->rect[type].s32Y,
-		priv->rect[type].u32Width, priv->rect[type].u32Height
-	};
-	BITMAP_S *bmp = ipcam_bitmap_get_data(priv->bitmap);
-	scrn_sf = SDL_CreateRGBSurfaceFrom(bmp->pData, 
-	                                   bmp->u32Width,
-	                                   bmp->u32Height,
-	                                   16,
-	                                   bmp->u32Width * 2,
-	                                   0x1F << 10,
-	                                   0x1F << 5,
-	                                   0x1F << 0,
-	                                   0x1 << 15);
-    SDL_FillRect(scrn_sf, &rect, 0);
-
-    if (priv->bShow[type] && priv->content[type])
-    {
-		SDL_Color fgclr= {
-			priv->color[type].red,
-			priv->color[type].green,
-			priv->color[type].blue,
-			priv->color[type].alpha
-		};
-        SDL_Color bgclr = {
-            128, 128, 128, 1
-        };
-
-        TTF_SetFontSize(priv->ttf_font, priv->font_size[type]);
-#if defined(OSD_EFFECT_TRANSPARENT)
-		text_sf = TTF_RenderUTF8_Shaded(priv->ttf_font, priv->content[type], fgclr, bgclr);
-#else
-		text_sf = TTF_RenderUTF8_Solid(priv->ttf_font, priv->content[type], fgclr);
-#endif
-        if (text_sf) {
-            rect.x = priv->position[type].x * priv->image_width / 1000;
-            rect.y = priv->position[type].y * priv->image_height / 1000;
-            rect.w = text_sf->w;
-            rect.h = text_sf->h;
-            if (rect.x + rect.w > priv->image_width)
-                rect.x = priv->image_width - rect.w;
-            if (rect.y + rect.h > priv->image_height)
-                rect.y = priv->image_height - rect.h;
-            SDL_BlitSurface(text_sf, NULL, scrn_sf, &rect);
-
-            priv->rect[type].s32X = rect.x;
-            priv->rect[type].s32Y = rect.y;
-            priv->rect[type].u32Width = rect.w;
-            priv->rect[type].u32Height = rect.h;
-
-            SDL_FreeSurface(text_sf);
-        }
-    }
-    else
-    {
-        s32Ret = HI_SUCCESS;
-    }
-
-	SDL_FreeSurface(scrn_sf);
-
-    return s32Ret;
+	g_hash_table_remove(osd->streams, GINT_TO_POINTER(venc_grp));
 }
 
-gint32 ipcam_media_osd_set_content(IpcamMediaOsd *self, IPCAM_OSD_TYPE type, const gchar *content)
+void
+ipcam_osd_set_font_file(IpcamOSD *osd, char const *font_file)
 {
-    IpcamMediaOsdPrivate *priv = IPCAM_MEDIA_OSD_GET_PRIVATE(self);
-
-    if (priv->content[type])
-        g_free(priv->content[type]);
-
-    priv->content[type] = g_strdup(content);
-    
-    return ipcam_media_osd_draw_content(self, type);
 }
 
-gint32 ipcam_media_osd_invalidate(IpcamMediaOsd *self)
+IpcamOSDStream*
+ipcam_osd_lookup_stream(IpcamOSD *osd, VENC_GRP venc_grp)
 {
-    HI_S32 s32Ret = HI_FAILURE;
-    IpcamMediaOsdPrivate *priv = IPCAM_MEDIA_OSD_GET_PRIVATE(self);
-    s32Ret = HI_MPI_RGN_SetBitMap(priv->RgnHandle, ipcam_bitmap_get_data(priv->bitmap));
-    if(s32Ret != HI_SUCCESS)
-    {
-        g_critical("HI_MPI_RGN_SetBitMap failed with %#x!\n", s32Ret);
-    }
-    return s32Ret;
+	return g_hash_table_lookup(osd->streams, GINT_TO_POINTER(venc_grp));
 }
 
-gint32 ipcam_media_osd_stop(IpcamMediaOsd *self)
+IpcamOSDItem*
+ipcam_osd_lookup_item(IpcamOSD *osd, VENC_GRP venc_grp, char const *name)
 {
-    HI_S32 s32Ret = HI_SUCCESS;
-    
-    return s32Ret;
+	IpcamOSDStream *stream;
+
+	stream = ipcam_osd_lookup_stream(osd, venc_grp);
+	if (stream)
+		return ipcam_osd_stream_lookup_item(stream, name);
+
+	return NULL;
 }
 
-void ipcam_media_osd_set_image_size(IpcamMediaOsd *self, guint32 width, guint32 height)
+void
+ipcam_osd_set_item_text(IpcamOSD *osd, VENC_GRP venc_grp, char const *name, char const *text)
 {
-    IpcamMediaOsdPrivate *priv = IPCAM_MEDIA_OSD_GET_PRIVATE(self);
-    int i;
+	IpcamOSDItem *item;
 
-    priv->image_width = width;
-    priv->image_height = height;
+	if (osd == NULL)
+		return;
 
-    for (i = 0; i < IPCAM_OSD_TYPE_LAST; i++)
-        ipcam_media_osd_draw_content(self, i);
+	item = ipcam_osd_lookup_item(osd, venc_grp, name);
+	if (item) {
+		ipcam_osd_item_set_text(item, text);
+	}
 }
