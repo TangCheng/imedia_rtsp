@@ -6,7 +6,6 @@
 #include <string.h>
 #include <SDL2/SDL.h>
 #include <SDL2/SDL_ttf.h>
-#include "bitmap.h"
 #include "stream_descriptor.h"
 #include "media_osd.h"
 
