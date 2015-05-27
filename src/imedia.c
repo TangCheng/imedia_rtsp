@@ -649,11 +649,9 @@ void ipcam_imedia_got_baseinfo_parameter(IpcamIMedia *imedia, JsonNode *body)
     res_object = json_object_get_object_member(json_node_get_object(body), "items");
 
     const gchar *device_name = NULL;
-    if (json_object_has_member(res_object, "device_name"))
-    {
+    if (json_object_has_member(res_object, "device_name")) {
         device_name = json_object_get_string_member(res_object, "device_name");
     }
-
 	for (i = MASTER_CHN; i < STREAM_CHN_LAST; i++) {
 		if (NULL != device_name && strlen(device_name) > 0) {
 			ipcam_osd_set_item_text(priv->osd, i, "device_name", device_name);
@@ -664,8 +662,9 @@ void ipcam_imedia_got_baseinfo_parameter(IpcamIMedia *imedia, JsonNode *body)
     }
 
     const gchar *comment = NULL;
-    comment = json_object_get_string_member(res_object, "comment");
-
+	if (json_object_has_member(res_object, "comment")) {
+		comment = json_object_get_string_member(res_object, "comment");
+	}
 	for (i = MASTER_CHN; i < STREAM_CHN_LAST; i++) {
 		if (NULL != comment && strlen(comment) > 0) {
 			ipcam_osd_set_item_text(priv->osd, i, "comment", comment);
@@ -676,7 +675,9 @@ void ipcam_imedia_got_baseinfo_parameter(IpcamIMedia *imedia, JsonNode *body)
     }
 
     const gchar *model = NULL;
-    model = json_object_get_string_member(res_object, "model");
+	if (json_object_has_member(res_object, "model")) {
+		model = json_object_get_string_member(res_object, "model");
+	}
     if (NULL != model && strlen(model) > 0)
     {
         g_free(priv->model);

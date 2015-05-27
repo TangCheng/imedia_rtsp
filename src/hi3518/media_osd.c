@@ -37,6 +37,7 @@ struct _IpcamOSDItem
 	SDL_Color       fg_color;
 	SDL_Color       bg_color;
 	POINT_S         position;
+	POINT_S         pos_coords;
 	SIZE_S          size;
 
 	BITMAP_S        bitmap;
@@ -166,8 +167,8 @@ ipcam_osd_item_enable(IpcamOSDItem *item)
 	memset(&stChnAttr, 0, sizeof(stChnAttr));
 	stChnAttr.bShow = HI_TRUE;
 	stChnAttr.enType = OVERLAY_RGN;
-	stChnAttr.unChnAttr.stOverlayChn.stPoint.s32X = item->position.s32X;
-	stChnAttr.unChnAttr.stOverlayChn.stPoint.s32Y = item->position.s32Y;
+	stChnAttr.unChnAttr.stOverlayChn.stPoint.s32X = item->pos_coords.s32X;
+	stChnAttr.unChnAttr.stOverlayChn.stPoint.s32Y = item->pos_coords.s32Y;
 	stChnAttr.unChnAttr.stOverlayChn.u32BgAlpha = item->bg_alpha;
 	stChnAttr.unChnAttr.stOverlayChn.u32FgAlpha = item->fg_alpha;
 	stChnAttr.unChnAttr.stOverlayChn.u32Layer = MIN(item->layer, 7);
@@ -177,7 +178,7 @@ ipcam_osd_item_enable(IpcamOSDItem *item)
 
 	stChnAttr.unChnAttr.stOverlayChn.stInvertColor.stInvColArea.u32Width = 16;
 	stChnAttr.unChnAttr.stOverlayChn.stInvertColor.stInvColArea.u32Height = 16;
-	stChnAttr.unChnAttr.stOverlayChn.stInvertColor.u32LumThresh = 70;
+	stChnAttr.unChnAttr.stOverlayChn.stInvertColor.u32LumThresh = 128;
 	stChnAttr.unChnAttr.stOverlayChn.stInvertColor.enChgMod = LESSTHAN_LUM_THRESH;
 	stChnAttr.unChnAttr.stOverlayChn.stInvertColor.bInvColEn = item->invert_color;
 
@@ -263,6 +264,7 @@ ipcam_osd_item_draw_text(IpcamOSDItem *item)
 		/* size grow needed, re-enable the item to take effect */
 		if (grow_size) {
 			ipcam_osd_item_disable(item);
+			ipcam_osd_item_set_position(item, item->position.s32X, item->position.s32Y);
 			ipcam_osd_item_enable(item);
 		}
 
@@ -364,7 +366,9 @@ ipcam_osd_item_set_bgcolor(IpcamOSDItem *item, SDL_Color *color)
 
 		s32Ret = HI_MPI_RGN_GetAttr(item->rgn_handle, &stRgnAttr);
 		if (s32Ret == HI_SUCCESS) {
-			stRgnAttr.unAttr.stOverlay.u32BgColor;
+			HI_U32 bgcolor = SDL_MapRGBA(item->surface->format,
+										 color->r, color->g, color->b, color->a);
+			stRgnAttr.unAttr.stOverlay.u32BgColor = bgcolor;
 			s32Ret = HI_MPI_RGN_SetAttr(item->rgn_handle, &stRgnAttr);
 		}
 	}
@@ -373,11 +377,45 @@ ipcam_osd_item_set_bgcolor(IpcamOSDItem *item, SDL_Color *color)
 void
 ipcam_osd_item_set_position(IpcamOSDItem *item, int x, int y)
 {
-	x = (x * item->stream->image_width) / 1000;
-	y = (y * item->stream->image_height) / 1000;
+	uint32_t image_width = item->stream->image_width;
+	uint32_t image_height = item->stream->image_height;
 
-	item->position.s32X = ipcam_osd_item_round_position(item, x);
-	item->position.s32Y = ipcam_osd_item_round_position(item, y);
+	item->position.s32X = x;
+	item->position.s32Y = y;
+
+	x = (x * image_width) / 1000;
+	y = (y * image_height) / 1000;
+
+	if (x + item->size.u32Width > image_width)
+		x = image_width - item->size.u32Width;
+	if (y + item->size.u32Height > image_height)
+		y = image_height - item->size.u32Height;
+
+	item->pos_coords.s32X = ipcam_osd_item_round_position(item, x);
+	item->pos_coords.s32Y = ipcam_osd_item_round_position(item, y);
+
+	if (item->enabled) {
+		HI_S32 s32Ret;
+		RGN_CHN_ATTR_S stChnAttr;
+		MPP_CHN_S stChn;
+
+		stChn.enModId = HI_ID_GROUP;
+		stChn.s32DevId = item->stream->venc_grp;
+		stChn.s32ChnId = 0;
+
+		s32Ret = HI_MPI_RGN_GetDisplayAttr(item->rgn_handle, &stChn, &stChnAttr);
+		if (s32Ret != HI_SUCCESS) {
+			fprintf(stderr, "HI_MPI_RGN_GetDisplayAttr() failed [%#x]\n", s32Ret);
+			return;
+		}
+		stChnAttr.unChnAttr.stOverlayChn.stPoint.s32X = item->pos_coords.s32X;
+		stChnAttr.unChnAttr.stOverlayChn.stPoint.s32Y = item->pos_coords.s32Y;
+		s32Ret = HI_MPI_RGN_SetDisplayAttr(item->rgn_handle, &stChn, &stChnAttr);
+		if (s32Ret != HI_SUCCESS) {
+			fprintf(stderr, "HI_MPI_RGN_SetDisplayAttr() failed [%#x]\n", s32Ret);
+			return;
+		}
+	}
 }
 
 
@@ -453,8 +491,18 @@ ipcam_osd_stream_delete_item(IpcamOSDStream *stream, IpcamOSDItem *item)
 void
 ipcam_osd_stream_set_image_size(IpcamOSDStream *stream, int width, int height)
 {
+	GHashTableIter iter;
+	IpcamOSDItem *item;
+
 	stream->image_width = width;
 	stream->image_height = height;
+
+	g_hash_table_iter_init(&iter, stream->osd_items);
+	while (g_hash_table_iter_next(&iter, NULL, (gpointer *)&item)) {
+		ipcam_osd_item_set_position(item,
+									item->position.s32X,
+									item->position.s32Y);
+	}
 }
 
 IpcamOSDItem*
