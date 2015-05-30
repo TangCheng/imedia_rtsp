@@ -51,6 +51,7 @@ static void ipcam_imedia_request_rtsp_port(IpcamIMedia *imedia);
 static void ipcam_imedia_query_rtsp_auth(IpcamIMedia *imedia);
 static void ipcam_imedia_query_od_param(IpcamIMedia *imedia);
 static void ipcam_imedia_query_video_param(IpcamIMedia *imedia);
+static void ipcam_imedia_query_image_param(IpcamIMedia *imedia);
 static void ipcam_imedia_set_users(IpcamIMedia *imedia, JsonNode *body);
 static void ipcam_imedia_set_rtsp_port(IpcamIMedia *imedia, JsonNode *body);
 static void ipcam_imedia_set_rtsp_auth(IpcamIMedia *imedia, JsonNode *body);
@@ -157,6 +158,7 @@ static void ipcam_imedia_before(IpcamBaseService *base_service)
     ipcam_imedia_query_od_param(imedia);
     ipcam_imedia_query_video_param(imedia);
     priv->rtsp = g_object_new(IPCAM_TYPE_RTSP, NULL);
+	ipcam_imedia_query_image_param(imedia);
     ipcam_imedia_query_szyc_parameter(imedia);
     ipcam_imedia_query_osd_parameter(imedia);
     ipcam_imedia_query_baseinfo_parameter(imedia);
@@ -279,6 +281,10 @@ static void message_handler(GObject *obj, IpcamMessage* msg, gboolean timeout)
         else if (g_str_equal("get_video", action))
         {
             ipcam_imedia_got_video_param(IPCAM_IMEDIA(obj), body, FALSE);
+        }
+        else if (g_str_equal("get_image", action))
+        {
+            ipcam_imedia_got_image_parameter(IPCAM_IMEDIA(obj), body);
         }
 		else if (g_str_equal("get_day_night_mode", action))
 		{
@@ -475,6 +481,29 @@ static void ipcam_imedia_query_video_param(IpcamIMedia *imedia)
     g_object_unref(builder);
 }
 
+static void ipcam_imedia_query_image_param(IpcamIMedia *imedia)
+{
+    IpcamRequestMessage *rq_msg = g_object_new(IPCAM_REQUEST_MESSAGE_TYPE,
+                                              "action", "get_image", NULL);
+    JsonBuilder *builder = json_builder_new();
+    json_builder_begin_object(builder);
+    json_builder_set_member_name(builder, "items");
+    json_builder_begin_array(builder);
+    json_builder_add_string_value(builder, "watermark");
+    json_builder_add_string_value(builder, "3ddnr");
+    json_builder_add_string_value(builder, "brightness");
+    json_builder_add_string_value(builder, "chrominance");
+    json_builder_add_string_value(builder, "contrast");
+    json_builder_add_string_value(builder, "saturation");
+    json_builder_add_string_value(builder, "scenario");
+    json_builder_end_array(builder);
+    json_builder_end_object(builder);
+
+    ipcam_imedia_query_param(imedia, rq_msg, builder);
+    g_object_unref(rq_msg);
+    g_object_unref(builder);
+}
+
 void ipcam_imedia_got_osd_parameter(IpcamIMedia *imedia, JsonNode *body)
 {
     IpcamIMediaPrivate *priv = ipcam_imedia_get_instance_private(imedia);
@@ -572,7 +601,6 @@ void ipcam_imedia_got_szyc_parameter(IpcamIMedia *imedia, JsonNode *body)
     const gchar *train_num = NULL;
     const gchar *carriage_num = NULL;
     const gchar *position_num = NULL;
-    int i;
 
     items_obj = json_object_get_object_member(json_node_get_object(body), "items");
 
@@ -636,6 +664,15 @@ void ipcam_imedia_got_image_parameter(IpcamIMedia *imedia, JsonNode *body)
     if (json_object_has_member(res_object, "watermark")) {
         imgattr->watermark = json_object_get_boolean_member(res_object, "watermark");
     }
+	if (json_object_has_member(res_object, "scenario")) {
+		gboolean enable = FALSE;
+		int freq = 0;
+		const gchar *str_freq = json_object_get_string_member(res_object, "scenario");
+
+		if (sscanf(str_freq, "%d", &freq) > 0)
+			enable = TRUE;
+		ipcam_media_video_set_antiflicker(priv->video, enable, freq);
+	}
 
     ipcam_media_video_set_image_parameter(priv->video, imgattr);
 }

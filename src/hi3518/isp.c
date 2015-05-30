@@ -189,10 +189,6 @@ static void physical_address_writel(unsigned long phy_addr, HI_U32 val)
 
 static void ipcam_isp_set_pixel_clock(IpcamIsp *self)
 {
-    IpcamIspPrivate *priv = ipcam_isp_get_instance_private(self);
-
-    g_return_if_fail(IPCAM_IS_ISP(self));
-
     /* Adjust the clock */
     if (sensor_image_height == 1200) {
         /* 54M */
@@ -210,7 +206,6 @@ static void ipcam_isp_set_pixel_clock(IpcamIsp *self)
 
 static gboolean ipcam_isp_check_video_resolution(IpcamIsp *self, StreamDescriptor desc[])
 {
-    IpcamIspPrivate *priv = ipcam_isp_get_instance_private(self);
     guint32 image_width;
     guint32 image_height;
     guint32 fps;
@@ -443,5 +438,21 @@ void ipcam_isp_param_change(IpcamIsp *self, StreamDescriptor desc[])
     {
         g_critical("%s: HI_MPI_ISP_SetInputTiming failed with %#x!\n", __FUNCTION__, s32Ret);
         return;
+    }
+}
+
+void ipcam_isp_set_antiflicker(IpcamIsp *isp, HI_BOOL enable, HI_U8 freq)
+{
+	HI_S32 s32Ret;
+	ISP_ANTIFLICKER_S stAntiFlicker;
+
+	stAntiFlicker.bEnable = enable;
+	stAntiFlicker.u8Frequency = freq;
+	stAntiFlicker.enMode = ISP_ANTIFLICKER_MODE_0;
+
+	s32Ret = HI_MPI_ISP_SetAntiFlickerAttr(&stAntiFlicker);
+    if (s32Ret != HI_SUCCESS) {
+        g_critical("%s: HI_MPI_ISP_SetAntiFlickerAttr failed with %#x!\n",
+				   __FUNCTION__, s32Ret);
     }
 }

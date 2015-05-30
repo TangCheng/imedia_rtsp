@@ -29,5 +29,6 @@ GType ipcam_isp_get_type(void);
 gint32 ipcam_isp_start(IpcamIsp *self, StreamDescriptor desc[]);
 void ipcam_isp_stop(IpcamIsp *self);
 void ipcam_isp_param_change(IpcamIsp *self, StreamDescriptor desc[]);
+void ipcam_isp_set_antiflicker(IpcamIsp *isp, HI_BOOL enable, HI_U8 freq);
 
 #endif /* __ISP_H__ */

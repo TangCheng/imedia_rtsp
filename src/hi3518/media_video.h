@@ -38,5 +38,6 @@ void ipcam_media_video_param_change(IpcamMediaVideo *self,
 
 void ipcam_media_video_set_image_parameter(IpcamMediaVideo *self, IpcamMediaImageAttr *attr);
 void ipcam_media_video_set_color2grey(IpcamMediaVideo *self, gboolean enabled);
+void ipcam_media_video_set_antiflicker(IpcamMediaVideo *self, gboolean enable, guint8 freq);
 
 #endif /* __MEDIA_VIDEO_H__ */

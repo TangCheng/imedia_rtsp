@@ -355,3 +355,10 @@ void ipcam_media_video_set_color2grey(IpcamMediaVideo *self, gboolean enabled)
 	else
 		ipcam_video_encode_disable_color2grey(priv->venc);
 }
+
+void ipcam_media_video_set_antiflicker(IpcamMediaVideo *self, gboolean enable, guint8 freq)
+{
+	IpcamMediaVideoPrivate *priv = IPCAM_MEDIA_VIDEO_GET_PRIVATE(self);
+
+	ipcam_isp_set_antiflicker(priv->isp, enable, freq);
+}
