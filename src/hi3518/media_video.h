@@ -1,6 +1,10 @@
 #ifndef __MEDIA_VIDEO_H__
 #define __MEDIA_VIDEO_H__
 
+#include <hi_defines.h>
+#include <hi_comm_vi.h>
+#include <mpi_vi.h>
+
 #include <glib.h>
 #include <glib-object.h>
 #include "video_detect.h"
@@ -32,6 +36,7 @@ gint32 ipcam_media_video_start_livestream(IpcamMediaVideo *self,
                                           StreamDescriptor desc[],
                                           OD_REGION_INFO od_reg_info[]);
 gint32 ipcam_media_video_stop_livestream(IpcamMediaVideo *self);
+gint32 ipcam_media_video_query_vi_stat(IpcamMediaVideo *self, VI_CHN_STAT_S *stat);
 void ipcam_media_video_param_change(IpcamMediaVideo *self,
                                     StreamDescriptor desc[],
                                     OD_REGION_INFO od_reg_info[]);

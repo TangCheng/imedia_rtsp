@@ -6,6 +6,9 @@
 #include <time.h>
 #include <mpi_vda.h>
 #include <messages.h>
+
+#include <sys/reboot.h>
+
 #include "imedia.h"
 #if defined(HI3518) || defined(HI3516)
 #include "hi3518/media_sys_ctrl.h"
@@ -18,6 +21,13 @@
 
 #define OSD_BUFFER_LENGTH 4096
 
+typedef struct VideoWDT
+{
+    time_t                  last_time;
+    uint32_t                last_int_cnt;
+    uint32_t                timeout_count;
+} VideoWDT;
+
 typedef struct _IpcamIMediaPrivate
 {
     IpcamMediaSysCtrl *sys_ctrl;
@@ -27,6 +37,7 @@ typedef struct _IpcamIMediaPrivate
     gchar *osd_buffer;
     IpcamRtsp *rtsp;
     time_t last_time;
+    VideoWDT  vwdt;
     regex_t reg;
     gchar *model;
     gchar *train_num;
@@ -80,6 +91,7 @@ static void ipcam_imedia_finalize(GObject *object)
     g_free(priv->osd_buffer);
 	if (priv->ircut)
 		media_ircut_free(priv->ircut);
+
     G_OBJECT_CLASS(ipcam_imedia_parent_class)->finalize(object);
 }
 
@@ -111,6 +123,11 @@ static void ipcam_imedia_init(IpcamIMedia *self)
     priv->stream_desc[SLAVE].type = VIDEO_STREAM;
     priv->stream_desc[SLAVE].v_desc.format = VIDEO_FORMAT_H264;
     time(&priv->last_time);
+
+    time(&priv->vwdt.last_time);
+    priv->vwdt.last_int_cnt = 0;
+    priv->vwdt.timeout_count = 0;
+
     ipcam_base_app_register_notice_handler(IPCAM_BASE_APP(self), "set_base_info", IPCAM_VIDEO_PARAM_CHANGE_HANDLER_TYPE);
     ipcam_base_app_register_notice_handler(IPCAM_BASE_APP(self), "set_misc", IPCAM_VIDEO_PARAM_CHANGE_HANDLER_TYPE);
     ipcam_base_app_register_notice_handler(IPCAM_BASE_APP(self), "add_users", IPCAM_VIDEO_PARAM_CHANGE_HANDLER_TYPE);
@@ -165,6 +182,39 @@ static void ipcam_imedia_before(IpcamBaseService *base_service)
 	ipcam_imedia_query_day_night_mode(imedia);
 }
 
+static void video_stat_poll_routine(IpcamIMedia *imedia)
+{
+    VI_CHN_STAT_S stat;
+    IpcamIMediaPrivate *priv = ipcam_imedia_get_instance_private(imedia);
+    time_t now;
+    VideoWDT *vwdt = &priv->vwdt;
+
+    time(&now);
+    if (now > vwdt->last_time) {
+        vwdt->timeout_count++;
+        vwdt->last_time = now;
+
+        if (ipcam_media_video_query_vi_stat(priv->video, &stat) == HI_SUCCESS) {
+            if (vwdt->last_int_cnt != stat.u32IntCnt) {
+                vwdt->last_int_cnt = stat.u32IntCnt;
+                vwdt->timeout_count = 0; // Reset counter
+            }
+        }
+
+        if (vwdt->timeout_count == 2) {
+            // Reset MPP only
+            printf("Reseting MPP...\n");
+            ipcam_media_video_param_change(priv->video, priv->stream_desc, priv->od_rgn_info);
+        }
+        if (vwdt->timeout_count >= 5) {
+            // Reset system
+            printf("Reseting System...\n");
+            sync();
+            reboot(RB_AUTOBOOT);
+        }
+    }
+}
+
 static void ipcam_imedia_in_loop(IpcamBaseService *base_service)
 {
     IpcamIMedia *imedia = IPCAM_IMEDIA(base_service);
@@ -174,8 +224,10 @@ static void ipcam_imedia_in_loop(IpcamBaseService *base_service)
 	gchar osdBuf[128] = {0};
     gchar timeBuf[64] = {0};
 
-	if (!priv->initialized)
+    if (!priv->initialized)
 		return;
+
+    video_stat_poll_routine(imedia);
 
 	if (priv->ircut) {
 		if (media_ircut_poll(priv->ircut)) {

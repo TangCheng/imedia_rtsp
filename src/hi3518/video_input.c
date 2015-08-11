@@ -300,6 +300,12 @@ gint32 ipcam_video_input_stop(IpcamVideoInput *self)
     return HI_SUCCESS;
 }
 
+gint32 ipcam_video_input_query(IpcamVideoInput *self, VI_CHN_STAT_S *stat)
+{
+    VI_CHN ViChn = 0;
+    return HI_MPI_VI_Query(ViChn, stat);
+}
+
 void ipcam_video_input_param_change(IpcamVideoInput *self, StreamDescriptor desc[])
 {
     g_return_if_fail(IPCAM_IS_VIDEO_INPUT(self));

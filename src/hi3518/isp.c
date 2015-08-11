@@ -251,7 +251,7 @@ static gboolean ipcam_isp_check_video_resolution(IpcamIsp *self, StreamDescripto
         return TRUE;
     }
 
-    return FALSE;
+    return TRUE;
 }
 
 static void ipcam_isp_set_image_mode(IpcamIsp *self)

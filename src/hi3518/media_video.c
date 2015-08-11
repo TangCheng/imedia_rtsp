@@ -316,6 +316,12 @@ gint32 ipcam_media_video_stop_livestream(IpcamMediaVideo *self)
     return HI_SUCCESS;
 }
 
+gint32 ipcam_media_video_query_vi_stat(IpcamMediaVideo *self, VI_CHN_STAT_S *stat)
+{
+    IpcamMediaVideoPrivate *priv = IPCAM_MEDIA_VIDEO_GET_PRIVATE(self);
+    return ipcam_video_input_query(priv->vi, stat);
+}
+
 void ipcam_media_video_param_change(IpcamMediaVideo *self,
                                     StreamDescriptor desc[],
                                     OD_REGION_INFO *od_reg_info)

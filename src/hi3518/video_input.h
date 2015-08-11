@@ -1,6 +1,10 @@
 #ifndef __VIDEO_INPUT_H__
 #define __VIDEO_INPUT_H__
 
+#include <hi_defines.h>
+#include <hi_comm_vi.h>
+#include <mpi_vi.h>
+
 #include <glib.h>
 #include <glib-object.h>
 #include "stream_descriptor.h"
@@ -28,6 +32,7 @@ struct _IpcamVideoInputClass
 GType ipcam_video_input_get_type(void);
 gint32 ipcam_video_input_start(IpcamVideoInput *self, StreamDescriptor desc[]);
 gint32 ipcam_video_input_stop(IpcamVideoInput *self);
+gint32 ipcam_video_input_query(IpcamVideoInput *self, VI_CHN_STAT_S *stat);
 void ipcam_video_input_param_change(IpcamVideoInput *self, StreamDescriptor desc[]);
 void ipcam_video_input_set_image_parameter(IpcamVideoInput *self, IpcamMediaImageAttr *attr);
 
