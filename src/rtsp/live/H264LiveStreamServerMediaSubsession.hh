@@ -33,8 +33,8 @@ public:
   createNew(UsageEnvironment& env, H264LiveStreamInput& h264LiveStreamInput);
 
   // Used to implement "getAuxSDPLine()":
-  void checkForAuxSDPLine1();
-  void afterPlayingDummy1();
+//  void checkForAuxSDPLine1();
+//  void afterPlayingDummy1();
 
 protected:
   H264LiveStreamInput &fH264LiveStreamInput;
@@ -42,11 +42,11 @@ protected:
       // called only by createNew();
   virtual ~H264LiveStreamServerMediaSubsession();
 
-  void setDoneFlag() { fDoneFlag = ~0; }
+//  void setDoneFlag() { fDoneFlag = ~0; }
 
 protected: // redefined virtual functions
-  virtual char const* getAuxSDPLine(RTPSink* rtpSink,
-				    FramedSource* inputSource);
+//  virtual char const* getAuxSDPLine(RTPSink* rtpSink,
+//				    FramedSource* inputSource);
 
   virtual FramedSource* createNewStreamSource(unsigned clientSessionId,
 					      unsigned& estBitrate);
@@ -56,8 +56,8 @@ protected: // redefined virtual functions
 
 private:
   char* fAuxSDPLine;
-  char fDoneFlag; // used when setting up "fAuxSDPLine"
-  RTPSink* fDummyRTPSink; // ditto
+//  char fDoneFlag; // used when setting up "fAuxSDPLine"
+//  RTPSink* fDummyRTPSink; // ditto
 };
 
 #endif

@@ -34,7 +34,7 @@ H264LiveStreamServerMediaSubsession::createNew(UsageEnvironment& env,
 H264LiveStreamServerMediaSubsession::H264LiveStreamServerMediaSubsession(UsageEnvironment& env,
 								       H264LiveStreamInput& h264LiveStreamInput)
     : OnDemandServerMediaSubsession(env, True /* always reuse the first source */),
-      fAuxSDPLine(NULL), fDoneFlag(0), fDummyRTPSink(NULL),
+      fAuxSDPLine(NULL), /*fDoneFlag(0), *//*fDummyRTPSink(NULL),*/
     fH264LiveStreamInput(h264LiveStreamInput) {
 }
 
@@ -42,6 +42,7 @@ H264LiveStreamServerMediaSubsession::~H264LiveStreamServerMediaSubsession() {
   delete[] fAuxSDPLine;
 }
 
+#if 0
 static void afterPlayingDummy(void* clientData) {
   H264LiveStreamServerMediaSubsession* subsess = (H264LiveStreamServerMediaSubsession*)clientData;
   subsess->afterPlayingDummy1();
@@ -99,6 +100,7 @@ char const* H264LiveStreamServerMediaSubsession::getAuxSDPLine(RTPSink* rtpSink,
 
   return fAuxSDPLine;
 }
+#endif
 
 FramedSource* H264LiveStreamServerMediaSubsession::createNewStreamSource(unsigned /*clientSessionId*/, unsigned& estBitrate) {
   estBitrate = 5000; // kbps, estimate
