@@ -302,6 +302,8 @@ static void message_handler(GObject *obj, IpcamMessage* msg, gboolean timeout)
         g_object_get(res_msg, "body", &body, NULL);
         g_return_if_fail((NULL != body));
 
+        g_print("%s: action=%s\n", __func__, action);
+
         if (g_str_equal(action, "get_szyc"))
         {
             ipcam_imedia_got_szyc_parameter(IPCAM_IMEDIA(obj), body);
@@ -355,7 +357,7 @@ static void ipcam_imedia_query_param(IpcamIMedia *imedia, IpcamRequestMessage *r
     JsonNode *body = json_builder_get_root(builder);
     g_object_set(G_OBJECT(rq_msg), "body", body, NULL);
     ipcam_base_app_send_message(IPCAM_BASE_APP(imedia), IPCAM_MESSAGE(rq_msg), "iconfig", token,
-                                message_handler, 20);
+                                message_handler, 60);
 }
 
 static void ipcam_imedia_query_szyc_parameter(IpcamIMedia *imedia)
@@ -1080,7 +1082,7 @@ void ipcam_imedia_got_video_param(IpcamIMedia *imedia, JsonNode *body, gboolean 
         stream_obj = json_object_get_object_member(res_obj, "sub_profile");
         ipcam_imedia_parse_stream(imedia, stream_obj, SLAVE);
     }
-    if (is_notice == FALSE)
+    if (!is_notice && !priv->initialized)
     {
         int i;
 

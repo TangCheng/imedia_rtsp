@@ -15,6 +15,7 @@
 #include <stdlib.h>
 #include <string.h>
 #include <dlfcn.h>
+#include <sys/prctl.h>
 #include "isp.h"
 
 guint32 sensor_image_width;
@@ -269,6 +270,13 @@ static void ipcam_isp_set_image_mode(IpcamIsp *self)
     }
 }
 
+void *isp_thread_routine(void *arg)
+{
+    prctl(PR_SET_NAME, (unsigned long)"ISP");
+
+    return (void*)HI_MPI_ISP_Run();
+}
+
 gint32 ipcam_isp_start(IpcamIsp *self, StreamDescriptor desc[])
 {
     HI_S32 s32Ret = HI_SUCCESS;
@@ -377,7 +385,7 @@ gint32 ipcam_isp_start(IpcamIsp *self, StreamDescriptor desc[])
     pthread_attr_setschedparam(&attr, &param);
     if (0 != pthread_create(&priv->IspPid, &attr, (void* (*)(void*))HI_MPI_ISP_Run, NULL))
 #endif
-    if (0 != pthread_create(&priv->IspPid, NULL, (void* (*)(void*))HI_MPI_ISP_Run, NULL))
+    if (0 != pthread_create(&priv->IspPid, NULL, (void* (*)(void*))isp_thread_routine, NULL))
     {
         g_critical("%s: create isp running thread failed!\n", __FUNCTION__);
         return HI_FAILURE;

@@ -43,6 +43,8 @@ static void ipcam_video_param_change_handler_run_impl(IpcamEventHandler *event_h
 	}
 #endif
 
+    g_print("%s: event=%s\n", __func__, event);
+
 	if (g_str_equal (event, "set_base_info")) {
 		ipcam_imedia_got_baseinfo_parameter(IPCAM_IMEDIA(service), body);
 	}
