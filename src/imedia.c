@@ -68,6 +68,23 @@ static void ipcam_imedia_set_rtsp_port(IpcamIMedia *imedia, JsonNode *body);
 static void ipcam_imedia_set_rtsp_auth(IpcamIMedia *imedia, JsonNode *body);
 static void ipcam_imedia_osd_display_video_data(GObject *obj);
 
+static time_t get_monotonic_time(time_t *tloc)
+{
+    struct timespec tsNow;
+    time_t t;
+
+    if (clock_gettime(CLOCK_MONOTONIC, &tsNow) == 0) {
+        t = tsNow.tv_sec;
+        if (tloc)
+            *tloc = t;
+    }
+    else {
+        t = time(tloc);
+    }
+
+    return t;
+}
+
 static void ipcam_imedia_finalize(GObject *object)
 {
     IpcamIMediaPrivate *priv = ipcam_imedia_get_instance_private(IPCAM_IMEDIA(object));
@@ -122,9 +139,10 @@ static void ipcam_imedia_init(IpcamIMedia *self)
     
     priv->stream_desc[SLAVE].type = VIDEO_STREAM;
     priv->stream_desc[SLAVE].v_desc.format = VIDEO_FORMAT_H264;
+
     time(&priv->last_time);
 
-    time(&priv->vwdt.last_time);
+    get_monotonic_time(&priv->vwdt.last_time);
     priv->vwdt.last_int_cnt = 0;
     priv->vwdt.timeout_count = 0;
 
@@ -189,7 +207,7 @@ static void video_stat_poll_routine(IpcamIMedia *imedia)
     time_t now;
     VideoWDT *vwdt = &priv->vwdt;
 
-    time(&now);
+    get_monotonic_time(&now);
     if (now > vwdt->last_time) {
         vwdt->timeout_count++;
         vwdt->last_time = now;
@@ -206,7 +224,7 @@ static void video_stat_poll_routine(IpcamIMedia *imedia)
             printf("Reseting MPP...\n");
             ipcam_media_video_param_change(priv->video, priv->stream_desc, priv->od_rgn_info);
         }
-        if (vwdt->timeout_count >= 5) {
+        if (vwdt->timeout_count >= 15) {
             // Reset system
             printf("Reseting System...\n");
             sync();
