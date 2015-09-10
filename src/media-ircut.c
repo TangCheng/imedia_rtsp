@@ -104,6 +104,7 @@ void media_ircut_free(MediaIrCut *ircut)
 
 static gboolean media_ircut_hw_detect(void)
 {
+#if 0
 	gboolean result;
 	volatile HI35XX_GPIO_REG *gpio1;
 
@@ -118,6 +119,12 @@ static gboolean media_ircut_hw_detect(void)
 	HI_MPI_SYS_Munmap((void*)gpio1, 0x1000);
 
 	return result;
+#endif
+    char *env_str = getenv("IRCUT");
+    if (env_str && (!strcmp(env_str, "true") || !strcmp(env_str, "TRUE")))
+        return TRUE;
+
+    return FALSE;
 }
 
 static void media_ircut_enable_color_filter(MediaIrCut *ircut)

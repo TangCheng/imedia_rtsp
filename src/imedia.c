@@ -168,8 +168,9 @@ static void ipcam_imedia_init(IpcamIMedia *self)
     }
     priv->osd_buffer = g_malloc(OSD_BUFFER_LENGTH);
 	priv->ircut = media_ircut_new(256, 15);
-	g_print("IrCut hardware %s\n", priv->ircut ? "found" : "not found");
+	g_print("IrCut %s\n", priv->ircut ? "enabled" : "disabled");
 }
+
 static void ipcam_imedia_class_init(IpcamIMediaClass *klass)
 {
     GObjectClass *object_class = G_OBJECT_CLASS(klass);
@@ -200,6 +201,33 @@ static void ipcam_imedia_before(IpcamBaseService *base_service)
 	ipcam_imedia_query_day_night_mode(imedia);
 }
 
+typedef struct HI35XX_GPIO_REG
+{
+	HI_U32 data[0x100];
+	HI_U32 dir;
+	HI_U32 is;
+	HI_U32 ibe;
+	HI_U32 iev;
+	HI_U32 ie;
+	HI_U32 ris;
+	HI_U32 mis;
+	HI_U32 ic;
+} HI35XX_GPIO_REG;
+
+static void reset_sensor(void)
+{
+    volatile HI35XX_GPIO_REG *gpio8;
+
+	gpio8 = HI_MPI_SYS_Mmap(0x201C0000, 0x1000);
+    gpio8->dir |= (1 << 4);
+
+	gpio8->data[1 << 4] = 0;
+    usleep(100000);
+    gpio8->data[1 << 4] = (1 << 4);
+
+	HI_MPI_SYS_Munmap((void*)gpio8, 0x1000);
+}
+
 static void video_stat_poll_routine(IpcamIMedia *imedia)
 {
     VI_CHN_STAT_S stat;
@@ -222,6 +250,8 @@ static void video_stat_poll_routine(IpcamIMedia *imedia)
         if (vwdt->timeout_count == 2) {
             // Reset MPP only
             printf("Reseting MPP...\n");
+            // Reset Sensor via GPIO8_4
+            reset_sensor();
             ipcam_media_video_param_change(priv->video, priv->stream_desc, priv->od_rgn_info);
         }
         if (vwdt->timeout_count >= 15) {
