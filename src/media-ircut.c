@@ -121,7 +121,7 @@ static gboolean media_ircut_hw_detect(void)
 	return result;
 #endif
     char *env_str = getenv("IRCUT");
-    if (env_str && (!strcmp(env_str, "true") || !strcmp(env_str, "TRUE")))
+    if (env_str && !strcasecmp(env_str, "TRUE"))
         return TRUE;
 
     return FALSE;
