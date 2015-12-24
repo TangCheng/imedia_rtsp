@@ -22,6 +22,7 @@ typedef struct _IpcamVideoDetectPrivate
     GThread *thread;
     gboolean terminated;
 
+	guint32  sensitivity;
 	gboolean occ_state;
 } IpcamVideoDetectPrivate;
 
@@ -118,6 +119,7 @@ gint32 ipcam_video_detect_start(IpcamVideoDetect *self, OD_REGION_INFO od_info[]
     g_return_val_if_fail(IPCAM_IS_VIDEO_DETECT(self), HI_FAILURE);
 
     priv->terminated = FALSE;
+	priv->sensitivity = od_info[0].sensitivity;
     priv->thread = g_thread_new("video_detect", ipcam_video_detect_thread_handler, self);
 
     return 0;
@@ -177,6 +179,26 @@ ipcam_video_detect_send_notify(IpcamVideoDetect *detect, guint region, gboolean 
     g_object_unref(builder);
 }
 
+static guint32 calc_variance_value(HI_U16 *values, int length)
+{
+	gint32 average = 0;
+	guint64 result = 0;
+	int i;
+
+	for (i = 0; i < length; i++) {
+		average += values[i];
+	}
+	average /= length;
+
+	for (i = 0; i < length; i++) {
+		gint64 t = (gint64)values[i] - average;
+		result += t * t;
+	}
+	result /= (length - 1);
+
+	return (guint32)sqrt((double)result);
+}
+
 static gpointer ipcam_video_detect_thread_handler(gpointer data)
 {
     IpcamVideoDetect *self = IPCAM_VIDEO_DETECT(data);
@@ -187,33 +209,35 @@ static gpointer ipcam_video_detect_thread_handler(gpointer data)
 
     g_object_get(self, "app", &imedia, NULL);
 
-	sleep(1);
+	sleep(2);
+
+	/* variance should be 10000 - 30000 */
+	guint32 threshold = 10000 + (100 - priv->sensitivity) * 200;
+	guint32 max_threshold = threshold * 11 / 10;
+	guint32 min_threshold = threshold * 9 / 10;
+
+	g_print("threshold=%d\n", threshold);
 
     while(!priv->terminated) {
 		ISP_EXP_STA_INFO_S stExpSta;
 		s32Ret = HI_MPI_ISP_GetExpStaInfo(&stExpSta);
 		if (s32Ret == HI_SUCCESS) {
-#if 0
-			int i;
-			printf("u16Exp_Hist5Value={");
-			for (i = 0; i < ARRAY_SIZE(stExpSta.u16Exp_Hist5Value); i++) {
-				printf("%s%d", i > 0 ? " " : "",
-				       stExpSta.u16Exp_Hist5Value[i]);
-			}
-			printf("}\n");
-#endif
-			if (stExpSta.u16Exp_Hist5Value[4] > 1400 && priv->occ_state) {
+			guint32 variance;
+			variance = calc_variance_value(stExpSta.u16Exp_Hist5Value,
+			                               ARRAY_SIZE(stExpSta.u16Exp_Hist5Value));
+			//g_print("variance=%lu\n", variance);
+			if (variance < max_threshold && priv->occ_state) {
 				count++;
-				if (count > 4) {
+				if (count > 8) {
 					priv->occ_state = FALSE;
 					count = 0;
 					ipcam_video_detect_send_notify(self, 0, priv->occ_state);
 					g_print("Occlusion removed\n");
 				}
 			}
-			else if (stExpSta.u16Exp_Hist5Value[4] < 1000 && !priv->occ_state) {
+			else if (variance > min_threshold && !priv->occ_state) {
 				count++;
-				if (count > 4) {
+				if (count > 8) {
 					priv->occ_state = TRUE;
 					count = 0;
 					ipcam_video_detect_send_notify(self, 0, priv->occ_state);
