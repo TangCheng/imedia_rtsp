@@ -254,7 +254,7 @@ static void video_stat_poll_routine(IpcamIMedia *imedia)
             reset_sensor();
             ipcam_media_video_param_change(priv->video, priv->stream_desc, priv->od_rgn_info);
         }
-        if (vwdt->timeout_count >= 15) {
+        if (vwdt->timeout_count >= 30) {
             // Reset system
             printf("Reseting System...\n");
             sync();
