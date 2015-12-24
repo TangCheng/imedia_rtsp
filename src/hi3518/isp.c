@@ -375,6 +375,13 @@ gint32 ipcam_isp_start(IpcamIsp *self, StreamDescriptor desc[])
         return s32Ret;
     }
 
+	ISP_AE_ATTR_S stAEAttr;
+	s32Ret = HI_MPI_ISP_GetAEAttr(&stAEAttr);
+	if (s32Ret == HI_SUCCESS) {
+		stAEAttr.u8ExpStep = 0x30;
+		s32Ret = HI_MPI_ISP_SetAEAttr(&stAEAttr);
+	}
+
 #if 0
     pthread_attr_t attr;
     struct sched_param param;
