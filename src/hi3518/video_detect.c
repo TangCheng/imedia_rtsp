@@ -225,19 +225,26 @@ static gpointer ipcam_video_detect_thread_handler(gpointer data)
 			guint32 variance;
 			variance = calc_variance_value(stExpSta.u16Exp_Hist5Value,
 			                               ARRAY_SIZE(stExpSta.u16Exp_Hist5Value));
-			//g_print("variance=%lu\n", variance);
-			if (variance < max_threshold && priv->occ_state) {
+			guint32 hist5v4 = stExpSta.u16Exp_Hist5Value[4];
+#if 0
+			g_print("variance=%lu\n", variance);
+			g_print("Hist5={%d,%d,%d,%d,%d}\n",
+			        stExpSta.u16Exp_Hist5Value[0], stExpSta.u16Exp_Hist5Value[1],
+			        stExpSta.u16Exp_Hist5Value[2], stExpSta.u16Exp_Hist5Value[3],
+			        stExpSta.u16Exp_Hist5Value[4]);
+#endif
+			if (variance < max_threshold && hist5v4 > 2000 && priv->occ_state) {
 				count++;
-				if (count > 8) {
+				if (count > 20) {
 					priv->occ_state = FALSE;
 					count = 0;
 					ipcam_video_detect_send_notify(self, 0, priv->occ_state);
 					g_print("Occlusion removed\n");
 				}
 			}
-			else if (variance > min_threshold && !priv->occ_state) {
+			else if (variance > min_threshold && hist5v4 < 1000 && !priv->occ_state) {
 				count++;
-				if (count > 8) {
+				if (count > 10) {
 					priv->occ_state = TRUE;
 					count = 0;
 					ipcam_video_detect_send_notify(self, 0, priv->occ_state);
