@@ -81,22 +81,22 @@ gint32 ipcam_media_audio_start(IpcamMediaAudio *audio, StreamDescriptor *desc)
         return HI_FAILURE;
     }
 
-    unsigned int gain_mic = 0x16;
+    unsigned int gain_mic = 0x1f;
     if (ioctl(fd, ACODEC_SET_GAIN_MICL, &gain_mic)) {
-        g_critical("set acodec micin volume failed\n");
+        g_warning("set acodec micin volume failed\n");
     }
     if (ioctl(fd, ACODEC_SET_GAIN_MICR, &gain_mic)) {
-        g_critical("set acodec micin volume failed\n");
+        g_warning("set acodec micin volume failed\n");
     }
 
     ACODEC_VOL_CTRL vol_ctrl;
     vol_ctrl.vol_ctrl_mute = 0;
     vol_ctrl.vol_ctrl = 0x10;
     if (ioctl(fd, ACODEC_SET_ADCL_VOL, &vol_ctrl)) {
-        g_critical("set acodec adc volume failed\n");
+        g_warning("set acodec adc volume failed\n");
     }
     if (ioctl(fd, ACODEC_SET_ADCR_VOL, &vol_ctrl)) {
-        g_critical("set acodec adc volume failed\n");
+        g_warning("set acodec adc volume failed\n");
     }
 
     close (fd);
