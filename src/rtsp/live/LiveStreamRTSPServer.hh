@@ -29,9 +29,9 @@ public:
                                          UserAuthenticationDatabase* authDatabase = NULL,
                                          unsigned reclamationTestSeconds = 65);
 
-  void addStreamInput(H264LiveStreamInput *streamInput);
+  void addStreamInput(LiveStreamInput *streamInput);
   void removeStreamInput(StreamChannel chn);
-  void removeStreamInput(H264LiveStreamInput *streamInput);
+  void removeStreamInput(LiveStreamInput *streamInput);
 
 protected:
   LiveStreamRTSPServer(UsageEnvironment& env,
@@ -46,7 +46,7 @@ protected: // redefined virtual functions
   lookupServerMediaSession(char const* streamName, Boolean isFirstLookupInSession);
 
 private:
-  HashTable* fStreamInput;
+  HashTable* fStreamInputHash;
   pcrecpp::RE fResolutionRE;
   pcrecpp::RE fChannelRE;
 };

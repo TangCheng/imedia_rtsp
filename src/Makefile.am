@@ -37,9 +37,9 @@ bin_PROGRAMS = imedia_rtsp
 imedia_rtsp_SOURCES = \
 	rtsp/rtsp.cpp \
 	rtsp/live/LiveStreamRTSPServer.cpp \
-	rtsp/live/H264LiveStreamSource.cpp \
-	rtsp/live/H264LiveStreamInput.cpp \
-	rtsp/live/H264LiveStreamServerMediaSubsession.cpp \
+	rtsp/live/LiveStreamSource.cpp \
+	rtsp/live/LiveStreamInput.cpp \
+	rtsp/live/LiveStreamServerMediaSubsession.cpp \
 	video_param_change_handler.c \
 	imedia.c \
 	main.c
@@ -54,6 +54,8 @@ imedia_rtsp_SOURCES += \
 	hi3518/video_input.c \
 	hi3518/video_process_subsystem.c \
 	hi3518/video_detect.c \
+	hi3518/media_audio.c \
+	hi3518/media_audio.h \
 	media-ircut.c \
 	media-ircut.h
 endif
@@ -68,6 +70,8 @@ imedia_rtsp_SOURCES += \
 	hi3518/video_input.c \
 	hi3518/video_process_subsystem.c \
 	hi3518/video_detect.c \
+	hi3518/media_audio.c \
+	hi3518/media_audio.h \
 	media-ircut.c \
 	media-ircut.h
 endif

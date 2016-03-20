@@ -21,8 +21,8 @@ along with this library; if not, write to the Free Software Foundation, Inc.,
 // (depending on the features of the particulardevice).
 // C++ header
 
-#ifndef _H264_LIVE_STREAME_SOURCE_HH
-#define _H264_LIVE_STREAME_SOURCE_HH
+#ifndef _LIVE_STREAME_SOURCE_HH
+#define _LIVE_STREAME_SOURCE_HH
 
 #include "stream_descriptor.h"
 
@@ -30,35 +30,48 @@ along with this library; if not, write to the Free Software Foundation, Inc.,
 #include <FramedSource.hh>
 #endif
 
-class H264LiveStreamSource: public FramedSource
+class LiveVideoStreamSource: public FramedSource
 {
 public:
-    static H264LiveStreamSource* createNew(UsageEnvironment& env, StreamChannel chn);
-    //static unsigned getRefCount();
-
-public:
-    EventTriggerId eventTriggerId; 
-    // Note that this is defined here to be a static class variable, because this code is intended to illustrate how to
-    // encapsulate a *single* device - not a set of devices.
-    // You can, however, redefine this to be a non-static member variable.
+    static LiveVideoStreamSource* createNew(UsageEnvironment& env, StreamChannel chn);
 
 protected:
-    H264LiveStreamSource(UsageEnvironment& env, StreamChannel chn);
+    LiveVideoStreamSource(UsageEnvironment& env, StreamChannel chn);
     // called only by createNew(), or by subclass constructors
-    virtual ~H264LiveStreamSource();
+    virtual ~LiveVideoStreamSource();
 
 private:
     // redefined virtual functions:
     virtual void doGetNextFrame();
     //virtual void doStopGettingFrames(); // optional
-    static void deliverFrame0(void* clientData);
+	static void deliverFrame0(void *clientData, int mask);
     void deliverFrame();
 
 private:
-    //static unsigned referenceCount; // used to count how many instances of this class currently exist
-    bool firstDeliverFrame;
     StreamChannel fChannelNo;
     int vencFd;
+};
+
+class LiveAudioStreamSource: public FramedSource
+{
+public:
+    static LiveAudioStreamSource* createNew(UsageEnvironment& env, StreamChannel chn);
+
+protected:
+    LiveAudioStreamSource(UsageEnvironment& env, StreamChannel chn);
+    // called only by createNew(), or by subclass constructors
+    virtual ~LiveAudioStreamSource();
+
+private:
+    // redefined virtual functions:
+    virtual void doGetNextFrame();
+    //virtual void doStopGettingFrames(); // optional
+    static void deliverFrame0(void* clientData, int mask);
+    void deliverFrame();
+
+private:
+	StreamChannel fChannelNo;
+	int aencFd;
 };
 
 #endif

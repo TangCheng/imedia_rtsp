@@ -36,7 +36,7 @@ void ipcam_media_sys_ctrl_init_media_system(IpcamMediaSysCtrl *self)
     stVbConf.astCommPool[0].u32BlkSize = (CEILING_2_POWER(IMAGE_MAX_WIDTH, SYS_ALIGN_WIDTH) * \
                                           CEILING_2_POWER(IMAGE_MAX_HEIGHT, SYS_ALIGN_WIDTH) * \
                                           2);
-    stVbConf.astCommPool[0].u32BlkCnt = 16;
+    stVbConf.astCommPool[0].u32BlkCnt = 12;
     memset(stVbConf.astCommPool[0].acMmzName, 0, sizeof(stVbConf.astCommPool[0].acMmzName));
 
     HI_MPI_SYS_Exit();

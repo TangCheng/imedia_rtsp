@@ -20,35 +20,35 @@ along with this library; if not, write to the Free Software Foundation, Inc.,
 // Implementation
 
 #include "stream_descriptor.h"
-#include "H264LiveStreamServerMediaSubsession.hh"
-#include "H264LiveStreamSource.hh"
+#include "LiveStreamServerMediaSubsession.hh"
+#include "LiveStreamSource.hh"
+#include <SimpleRTPSink.hh>
 #include <H264VideoRTPSink.hh>
 #include <H264VideoStreamDiscreteFramer.hh>
 
-H264LiveStreamServerMediaSubsession*
-H264LiveStreamServerMediaSubsession::createNew(UsageEnvironment& env,
-					      H264LiveStreamInput& h264LiveStreamInput) {
-  return new H264LiveStreamServerMediaSubsession(env, h264LiveStreamInput);
+LiveVideoStreamServerMediaSubsession*
+LiveVideoStreamServerMediaSubsession::createNew(UsageEnvironment& env,
+					      LiveStreamInput& streamInput) {
+  return new LiveVideoStreamServerMediaSubsession(env, streamInput);
 }
 
-H264LiveStreamServerMediaSubsession::H264LiveStreamServerMediaSubsession(UsageEnvironment& env,
-								       H264LiveStreamInput& h264LiveStreamInput)
+LiveVideoStreamServerMediaSubsession::LiveVideoStreamServerMediaSubsession(UsageEnvironment& env,
+								       LiveStreamInput& streamInput)
     : OnDemandServerMediaSubsession(env, True /* always reuse the first source */),
       fAuxSDPLine(NULL), /*fDoneFlag(0), *//*fDummyRTPSink(NULL),*/
-    fH264LiveStreamInput(h264LiveStreamInput) {
+    fLiveStreamInput(streamInput) {
 }
 
-H264LiveStreamServerMediaSubsession::~H264LiveStreamServerMediaSubsession() {
+LiveVideoStreamServerMediaSubsession::~LiveVideoStreamServerMediaSubsession() {
   delete[] fAuxSDPLine;
 }
 
-#if 0
 static void afterPlayingDummy(void* clientData) {
-  H264LiveStreamServerMediaSubsession* subsess = (H264LiveStreamServerMediaSubsession*)clientData;
+  LiveVideoStreamServerMediaSubsession* subsess = (LiveVideoStreamServerMediaSubsession*)clientData;
   subsess->afterPlayingDummy1();
 }
 
-void H264LiveStreamServerMediaSubsession::afterPlayingDummy1() {
+void LiveVideoStreamServerMediaSubsession::afterPlayingDummy1() {
   // Unschedule any pending 'checking' task:
   envir().taskScheduler().unscheduleDelayedTask(nextTask());
   // Signal the event loop that we're done:
@@ -56,11 +56,11 @@ void H264LiveStreamServerMediaSubsession::afterPlayingDummy1() {
 }
 
 static void checkForAuxSDPLine(void* clientData) {
-  H264LiveStreamServerMediaSubsession* subsess = (H264LiveStreamServerMediaSubsession*)clientData;
+  LiveVideoStreamServerMediaSubsession* subsess = (LiveVideoStreamServerMediaSubsession*)clientData;
   subsess->checkForAuxSDPLine1();
 }
 
-void H264LiveStreamServerMediaSubsession::checkForAuxSDPLine1() {
+void LiveVideoStreamServerMediaSubsession::checkForAuxSDPLine1() {
   char const* dasl;
 
   if (fAuxSDPLine != NULL) {
@@ -80,7 +80,7 @@ void H264LiveStreamServerMediaSubsession::checkForAuxSDPLine1() {
   }
 }
 
-char const* H264LiveStreamServerMediaSubsession::getAuxSDPLine(RTPSink* rtpSink, FramedSource* inputSource) {
+char const* LiveVideoStreamServerMediaSubsession::getAuxSDPLine(RTPSink* rtpSink, FramedSource* inputSource) {
   if (fAuxSDPLine != NULL) return fAuxSDPLine; // it's already been set up (for a previous client)
 
   if (fDummyRTPSink == NULL) { // we're not already setting it up for another, concurrent stream
@@ -100,19 +100,17 @@ char const* H264LiveStreamServerMediaSubsession::getAuxSDPLine(RTPSink* rtpSink,
 
   return fAuxSDPLine;
 }
-#endif
 
-FramedSource* H264LiveStreamServerMediaSubsession::createNewStreamSource(unsigned /*clientSessionId*/, unsigned& estBitrate) {
+FramedSource* LiveVideoStreamServerMediaSubsession::createNewStreamSource(unsigned /*clientSessionId*/, unsigned& estBitrate) {
   estBitrate = 5000; // kbps, estimate
 
   // Create the video source:
  
   // Create a framer for the Video Elementary Stream:
-  //return H264VideoStreamFramer::createNew(envir(), liveSource);
-  return H264VideoStreamDiscreteFramer::createNew(envir(), fH264LiveStreamInput.videoSource());
+  return H264VideoStreamDiscreteFramer::createNew(envir(), fLiveStreamInput.videoSource());
 }
 
-RTPSink* H264LiveStreamServerMediaSubsession
+RTPSink* LiveVideoStreamServerMediaSubsession
 ::createNewRTPSink(Groupsock* rtpGroupsock,
 		   unsigned char rtpPayloadTypeIfDynamic,
 		   FramedSource* /*inputSource*/) {
@@ -121,3 +119,72 @@ RTPSink* H264LiveStreamServerMediaSubsession
   return rtp_sink;
 }
 
+
+////////////////////////////////////////////////////////////////////////////////
+// Audio
+////////////////////////////////////////////////////////////////////////////////
+
+LiveAudioStreamServerMediaSubsession* LiveAudioStreamServerMediaSubsession
+::createNew(UsageEnvironment& env, LiveStreamInput& streamInput)
+{
+    return new LiveAudioStreamServerMediaSubsession(env, streamInput);
+}
+
+LiveAudioStreamServerMediaSubsession
+::LiveAudioStreamServerMediaSubsession(UsageEnvironment& env, LiveStreamInput& streamInput)
+    : OnDemandServerMediaSubsession(env, True /* always reuse the first source */),
+      fLiveStreamInput(streamInput)
+{
+}
+
+LiveAudioStreamServerMediaSubsession::~LiveAudioStreamServerMediaSubsession()
+{
+}
+
+FramedSource* LiveAudioStreamServerMediaSubsession
+::createNewStreamSource(unsigned clientSessionId, unsigned& estBitrate)
+{
+    estBitrate = 64; // kbps, estimate
+
+    // Create the audio source:
+	return fLiveStreamInput.audioSource();
+}
+
+RTPSink* LiveAudioStreamServerMediaSubsession
+::createNewRTPSink(Groupsock* rtpGroupsock,
+                   unsigned char rtpPayloadTypeIfDynamic,
+				   FramedSource* inputSource)
+{
+    uint32_t samplerate = 8000;//fAudioStream.getSampleRate();
+    uint32_t nr_chans = 1;
+    const char *mimeType = "PCMU";
+    unsigned char payloadFormatCode = rtpPayloadTypeIfDynamic;
+
+#if 0
+    IAudioEncoder::EncodingType encoding;
+    encoding = fAudioStream.getEncoding();
+    switch (encoding) {
+    case IAudioEncoder::ADPCM:
+        mimeType = "DVI4";
+        break;
+    case IAudioEncoder::LPCM:
+        mimeType = "L16";
+        break;
+    case IAudioEncoder::G711A:
+        mimeType = "PCMA";
+        break;
+    case IAudioEncoder::G711U:
+        mimeType = "PCMU";
+        break;
+    case IAudioEncoder::G726:
+        mimeType = "G726-40";
+        break;
+    }
+#endif
+
+	RTPSink *rtp_sink
+        = SimpleRTPSink::createNew(envir(), rtpGroupsock,
+                                   payloadFormatCode, samplerate,
+                                   "audio", mimeType, nr_chans);
+    return rtp_sink;
+}

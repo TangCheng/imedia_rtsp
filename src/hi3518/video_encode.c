@@ -274,7 +274,7 @@ gint32 ipcam_video_encode_start(IpcamVideoEncode *self, StreamDescriptor desc[])
             return HI_FAILURE;
         }
 
-        if ((s32Ret = HI_MPI_VENC_SetMaxStreamCnt(VeChn, 4)) != HI_SUCCESS) {
+        if ((s32Ret = HI_MPI_VENC_SetMaxStreamCnt(VeChn, 2)) != HI_SUCCESS) {
             g_critical("HI_MPI_VENC_SetMaxStreamCnt %d failed [%#x]\n",
                        VeChn, s32Ret);
         }

@@ -4,7 +4,7 @@
 #include <json-glib/json-glib.h>
 #include "messages.h"
 #include "imedia.h"
-#include "live/H264LiveStreamInput.hh"
+#include "live/LiveStreamInput.hh"
 #include "live/LiveStreamRTSPServer.hh"
 #include "rtsp.h"
 
@@ -42,26 +42,15 @@ live555_thread_proc(gpointer data)
 
     for (int i = 0; i < STREAM_CHN_LAST; i++)
     {
-        H264LiveStreamInput *streamInput;
+        LiveStreamInput *streamInput;
 
-        streamInput = H264LiveStreamInput::createNew(*priv->m_env, (StreamChannel)i, priv->stream_desc[i]);
+        streamInput = LiveStreamInput::createNew(*priv->m_env, (StreamChannel)i, priv->stream_desc[i]);
 
         priv->rtsp_server->addStreamInput(streamInput);
-#if 0
-        char const* streamName = priv->stream_desc[i]->v_desc.path;
-        char const* descriptionString = "Session streamed by \"iRTSP\"";
-        sms[i] = LiveStreamServerMediaSession::createNew(*priv->m_env,
-                                                         streamName,
-                                                         streamName,
-                                                         descriptionString);
-        sms[i]->addSubsession(H264LiveStreamServerMediaSubsession::createNew(*priv->m_env, (StreamChannel)i));
-        sms[i]->streamDescriptor() = priv->stream_desc[i];
-        priv->rtsp_server->addServerMediaSession(sms[i]);
-#endif
     }
 
     priv->m_env->taskScheduler().doEventLoop(&priv->watch_variable); // does not return
-    
+
     RTSPServer::close(priv->rtsp_server);
     priv->rtsp_server = NULL;
 

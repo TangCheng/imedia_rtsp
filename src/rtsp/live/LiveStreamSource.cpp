@@ -29,14 +29,15 @@
 #include <hi_comm_venc.h>
 #include <mpi_sys.h>
 #include <mpi_venc.h>
+#include <mpi_aenc.h>
 #include <mpi_sys.h>
-#include "H264LiveStreamSource.hh"
+#include "LiveStreamSource.hh"
 #include "stream_descriptor.h"
 
-H264LiveStreamSource*
-H264LiveStreamSource::createNew(UsageEnvironment& env, StreamChannel chn)
+LiveVideoStreamSource*
+LiveVideoStreamSource::createNew(UsageEnvironment& env, StreamChannel chn)
 {
-    return new H264LiveStreamSource(env, chn);
+    return new LiveVideoStreamSource(env, chn);
 }
 
 static void ClearVideoStreamBuffer(StreamChannel chn)
@@ -65,51 +66,27 @@ static void ClearVideoStreamBuffer(StreamChannel chn)
     }
 }
 
-static void StreamSourceDataAvailable(void *clientData, int mask)
-{
-    H264LiveStreamSource *stream_source = (H264LiveStreamSource *)clientData; 
-
-    stream_source->envir().taskScheduler().triggerEvent(stream_source->eventTriggerId, stream_source);
-}
-
-H264LiveStreamSource::H264LiveStreamSource(UsageEnvironment& env, StreamChannel chn)
-    : FramedSource(env), fChannelNo(chn), eventTriggerId(0), firstDeliverFrame(True)
+LiveVideoStreamSource::LiveVideoStreamSource(UsageEnvironment& env, StreamChannel chn)
+    : FramedSource(env), fChannelNo(chn)
 {
     TaskScheduler &scheduler = envir().taskScheduler();
 
-    // Any instance-specific initialization of the device would be done here:
     ClearVideoStreamBuffer(fChannelNo);
 
     HI_MPI_VENC_RequestIDRInst(fChannelNo);
 
-    vencFd = HI_MPI_VENC_GetFd(fChannelNo);
+	vencFd = HI_MPI_VENC_GetFd(fChannelNo);
 
     scheduler.setBackgroundHandling(vencFd, SOCKET_READABLE,
-                                    (TaskScheduler::BackgroundHandlerProc*)StreamSourceDataAvailable,
+                                    (TaskScheduler::BackgroundHandlerProc*)deliverFrame0,
                                     this);
-
-    // We arrange here for our "deliverFrame" member function to be called
-    // whenever the next frame of data becomes available from the device.
-    //
-    // If the device can be accessed as a readable socket, then one easy way to do this is using a call to
-    //     envir().taskScheduler().turnOnBackgroundReadHandling( ... )
-    // (See examples of this call in the "liveMedia" directory.)
-    //
-    // If, however, the device *cannot* be accessed as a readable socket, then instead we can implement it using 'event triggers':
-    // Create an 'event trigger' for this device (if it hasn't already been done):
-
-    eventTriggerId = envir().taskScheduler().createEventTrigger(deliverFrame0);
 }
 
-H264LiveStreamSource::~H264LiveStreamSource() {
-    // Any instance-specific 'destruction' (i.e., resetting) of the device would be done here:
+LiveVideoStreamSource::~LiveVideoStreamSource() {
     envir().taskScheduler().disableBackgroundHandling(vencFd);
-
-    // Reclaim our 'event trigger'
-    envir().taskScheduler().deleteEventTrigger(eventTriggerId);
 }
 
-void H264LiveStreamSource::doGetNextFrame() {
+void LiveVideoStreamSource::doGetNextFrame() {
     // This function is called (by our 'downstream' object) when it asks for new data.
 
     // Note: If, for some reason, the source device stops being readable (e.g., it gets closed), then you do the following:
@@ -127,12 +104,13 @@ void H264LiveStreamSource::doGetNextFrame() {
     // Instead, our event trigger must be called (e.g., from a separate thread) when new data becomes available.
 }
 
-void H264LiveStreamSource::deliverFrame0(void* clientData) {
+void LiveVideoStreamSource::deliverFrame0(void *clientData, int mask)
+{
      if (clientData)
-          ((H264LiveStreamSource*)clientData)->deliverFrame();
+          ((LiveVideoStreamSource*)clientData)->deliverFrame();
 }
 
-void H264LiveStreamSource::deliverFrame() {
+void LiveVideoStreamSource::deliverFrame() {
     // This function is called when new frame data is available from the device.
     // We deliver this data by copying it to the 'downstream' object, using the following parameters (class members):
     // 'in' parameters (these should *not* be modified by this function):
@@ -184,24 +162,6 @@ void H264LiveStreamSource::deliverFrame() {
         return;
     }
 
-    /* Drop the first Non-IDR frames */
-#if 0
-    if (firstDeliverFrame && stStream.stH264Info.enRefType != BASE_IDRSLICE) {
-        s32Ret = HI_MPI_VENC_ReleaseStream(fChannelNo, &stStream);
-        if (HI_SUCCESS != s32Ret)
-        {
-            g_critical("HI_MPI_VENC_ReleaseStream failed with %#x!\n", s32Ret);
-        }
-
-        HI_MPI_VENC_RequestIDRInst(fChannelNo);
-
-        nextTask() = envir().taskScheduler().scheduleDelayedTask(10000, (TaskFunc*)deliverFrame0, this);
-        return;
-    }
-
-    firstDeliverFrame = False;
-#endif
-
     fPresentationTime.tv_sec = stStream.pstPack[0].u64PTS / 1000000UL;
     fPresentationTime.tv_usec = stStream.pstPack[0].u64PTS % 1000000UL;
 
@@ -237,6 +197,112 @@ void H264LiveStreamSource::deliverFrame() {
     if (HI_SUCCESS != s32Ret)
     {
         g_critical("HI_MPI_VENC_ReleaseStream failed with %#x!\n", s32Ret);
+    }
+
+    // After delivering the data, inform the reader that it is now available:
+    FramedSource::afterGetting(this);
+}
+
+
+////////////////////////////////////////////////////////////////////////////////
+// Audio
+////////////////////////////////////////////////////////////////////////////////
+
+LiveAudioStreamSource*
+LiveAudioStreamSource::createNew(UsageEnvironment& env, StreamChannel chn)
+{
+    return new LiveAudioStreamSource(env, chn);
+}
+
+static void ClearAudioStreamBuffer(StreamChannel chn)
+{
+    AUDIO_STREAM_S stStream;
+    HI_S32 s32Ret;
+
+    while (TRUE) {
+		s32Ret = HI_MPI_AENC_GetStream(chn, &stStream, HI_FALSE);
+		if (s32Ret != HI_SUCCESS)
+			break;
+		s32Ret = HI_MPI_AENC_ReleaseStream(chn, &stStream);
+	}
+}
+
+LiveAudioStreamSource
+::LiveAudioStreamSource(UsageEnvironment& env, StreamChannel chn)
+    : FramedSource(env), fChannelNo(chn)
+{
+    TaskScheduler &scheduler = envir().taskScheduler();
+
+	aencFd = HI_MPI_AENC_GetFd(fChannelNo);
+
+	ClearAudioStreamBuffer(fChannelNo);
+
+	scheduler.setBackgroundHandling(aencFd, SOCKET_READABLE,
+                                    (TaskScheduler::BackgroundHandlerProc*)deliverFrame0,
+                                    this);
+}
+
+LiveAudioStreamSource::~LiveAudioStreamSource()
+{
+    envir().taskScheduler().disableBackgroundHandling(aencFd);
+}
+
+void LiveAudioStreamSource::doGetNextFrame() {
+    // This function is called (by our 'downstream' object) when it asks for new data.
+
+    // Note: If, for some reason, the source device stops being readable (e.g., it gets closed), then you do the following:
+    if (0 /* the source stops being readable */ /*%%% TO BE WRITTEN %%%*/) {
+        handleClosure(this);
+        return;
+    }
+
+    // If a new frame of data is immediately available to be delivered, then do this now:
+    if (0 /* a new frame of data is immediately available to be delivered*/ /*%%% TO BE WRITTEN %%%*/) {
+        deliverFrame();
+    }
+
+    // No new data is immediately available to be delivered.  We don't do anything more here.
+    // Instead, our event trigger must be called (e.g., from a separate thread) when new data becomes available.
+}
+
+void LiveAudioStreamSource::deliverFrame0(void* clientData, int mask)
+{
+    if (clientData)
+        ((LiveAudioStreamSource*)clientData)->deliverFrame();
+}
+
+void LiveAudioStreamSource::deliverFrame()
+{
+    if (!isCurrentlyAwaitingData()) return; // we're not ready for the data yet
+
+    AUDIO_STREAM_S stStream;
+    HI_S32 s32Ret;
+
+    s32Ret = HI_MPI_AENC_GetStream(fChannelNo, &stStream, HI_FALSE);
+    if (HI_SUCCESS != s32Ret)
+    {
+        g_critical("HI_MPI_AENC_GetStream failed with %#x!\n", s32Ret);
+        return;
+    }
+
+    fPresentationTime.tv_sec = stStream.u64TimeStamp / 1000000UL;
+    fPresentationTime.tv_usec = stStream.u64TimeStamp % 1000000UL;
+
+    fFrameSize = 0;
+	if (stStream.u32Len <= fMaxSize) {
+		fFrameSize = stStream.u32Len - 4;
+		fNumTruncatedBytes = 0;
+	}
+	else {
+		fFrameSize = fMaxSize;
+		fNumTruncatedBytes = stStream.u32Len - 4 - fMaxSize;
+	}
+	memmove(fTo, stStream.pStream + 4, fFrameSize);
+
+    s32Ret = HI_MPI_AENC_ReleaseStream(fChannelNo, &stStream);
+    if (HI_SUCCESS != s32Ret)
+    {
+        g_critical("HI_MPI_AENC_ReleaseStream failed with %#x!\n", s32Ret);
     }
 
     // After delivering the data, inform the reader that it is now available:

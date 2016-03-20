@@ -22,8 +22,8 @@ along with this library; if not, write to the Free Software Foundation, Inc.,
 #include <algorithm>
 #include <liveMedia.hh>
 #include <string.h>
-#include "H264LiveStreamServerMediaSubsession.hh"
-#include "H264LiveStreamInput.hh"
+#include "LiveStreamServerMediaSubsession.hh"
+#include "LiveStreamInput.hh"
 #include "LiveStreamRTSPServer.hh"
 
 LiveStreamRTSPServer*
@@ -41,52 +41,52 @@ LiveStreamRTSPServer::LiveStreamRTSPServer(UsageEnvironment& env,
                                            UserAuthenticationDatabase* authDatabase,
                                            unsigned reclamationTestSeconds)
   : RTSPServer(env, ourSocket, ourPort, authDatabase, reclamationTestSeconds),
-  fStreamInput(HashTable::create(ONE_WORD_HASH_KEYS)),
+  fStreamInputHash(HashTable::create(ONE_WORD_HASH_KEYS)),
   fResolutionRE("<resolution>"),
   fChannelRE("<channel>") {
 }
 
 LiveStreamRTSPServer::~LiveStreamRTSPServer() {
   // Delete all server media sessions
-  H264LiveStreamInput* streamInput;
-  while ((streamInput = (H264LiveStreamInput*)fStreamInput->getFirst()) != NULL) {
+  LiveStreamInput* streamInput;
+  while ((streamInput = (LiveStreamInput*)fStreamInputHash->getFirst()) != NULL) {
     //removeServerMediaSession(serverMediaSession); // will delete it, because it no longer has any 'client session' objects using it
   }
-  delete fStreamInput;
+  delete fStreamInputHash;
 }
 
-void LiveStreamRTSPServer::addStreamInput(H264LiveStreamInput *streamInput)
+void LiveStreamRTSPServer::addStreamInput(LiveStreamInput *streamInput)
 {
     StreamChannel chn = streamInput->channelNo();
-    removeStreamInput(chn); // in case an existing 'H264LiveStreamInput' with this channel already exists
-    fStreamInput->Add((char const*)chn, (void*)streamInput);
+    removeStreamInput(chn); // in case an existing 'LiveStreamInput' with this channel already exists
+    fStreamInputHash->Add((char const*)chn, (void*)streamInput);
 }
 
-void LiveStreamRTSPServer::removeStreamInput(H264LiveStreamInput *streamInput)
+void LiveStreamRTSPServer::removeStreamInput(LiveStreamInput *streamInput)
 {
     if (streamInput == NULL) return;
 
-    fStreamInput->Remove((char const*)streamInput->channelNo());
+    fStreamInputHash->Remove((char const*)streamInput->channelNo());
     Medium::close(streamInput);
 }
 
 void LiveStreamRTSPServer::removeStreamInput(StreamChannel chn)
 {
-    removeStreamInput((H264LiveStreamInput*)(fStreamInput->Lookup((char const*)chn)));
+    removeStreamInput((LiveStreamInput*)(fStreamInputHash->Lookup((char const*)chn)));
 }
 
 ServerMediaSession* LiveStreamRTSPServer
 ::lookupServerMediaSession(char const* streamName, Boolean isFirstLookupInSession) {
   ServerMediaSession *sms = NULL;
   HashTable::Iterator *iter;
-  H264LiveStreamInput *streamInput;
+  LiveStreamInput *streamInput;
   char const* key;
 
   std::string strName = streamName;
   std::transform(strName.begin(), strName.end(), strName.begin(), ::toupper);
 
-  iter = HashTable::Iterator::create(*fStreamInput);
-  while ((streamInput = (H264LiveStreamInput*)(iter->next(key))) != NULL) {
+  iter = HashTable::Iterator::create(*fStreamInputHash);
+  while ((streamInput = (LiveStreamInput*)(iter->next(key))) != NULL) {
     StreamDescriptor *desc = streamInput->streamDesc();
     if (desc && desc->v_desc.path) {
       if (strcasecmp(strName.c_str(), desc->v_desc.path) == 0) {
@@ -98,7 +98,8 @@ ServerMediaSession* LiveStreamRTSPServer
                                               strName.c_str(),
                                               descriptionString);
           if (sms) {
-            sms->addSubsession(H264LiveStreamServerMediaSubsession::createNew(envir(), *streamInput));
+            sms->addSubsession(LiveVideoStreamServerMediaSubsession::createNew(envir(), *streamInput));
+			sms->addSubsession(LiveAudioStreamServerMediaSubsession::createNew(envir(), *streamInput));
             addServerMediaSession(sms);
 		  }
         }

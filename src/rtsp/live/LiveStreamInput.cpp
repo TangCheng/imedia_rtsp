@@ -8,26 +8,33 @@
 //==============================================================================//
 
 #include "stream_descriptor.h"
-#include "H264LiveStreamInput.hh"
+#include "LiveStreamInput.hh"
 
-H264LiveStreamInput* H264LiveStreamInput::createNew(UsageEnvironment& env, StreamChannel chn, StreamDescriptor *desc) {
-	return new H264LiveStreamInput(env, chn, desc);
+LiveStreamInput* LiveStreamInput::createNew(UsageEnvironment& env, StreamChannel chn, StreamDescriptor *desc) {
+	return new LiveStreamInput(env, chn, desc);
 }
 
-FramedSource* H264LiveStreamInput::videoSource() {
+FramedSource* LiveStreamInput::audioSource() {
+    if (1/*fOurAudioSource == NULL*/) {
+        fOurAudioSource = LiveAudioStreamSource::createNew(envir(), fChannelNo);
+    }
+	return fOurAudioSource;
+}
+
+FramedSource* LiveStreamInput::videoSource() {
     if (1/*fOurVideoSource == NULL*/) {
-        fOurVideoSource = H264LiveStreamSource::createNew(envir(), fChannelNo);
+        fOurVideoSource = LiveVideoStreamSource::createNew(envir(), fChannelNo);
     }
 	return fOurVideoSource;
 }
 
-H264LiveStreamInput::H264LiveStreamInput(UsageEnvironment& env, StreamChannel chn, StreamDescriptor *desc)
+LiveStreamInput::LiveStreamInput(UsageEnvironment& env, StreamChannel chn, StreamDescriptor *desc)
     : Medium(env), fOurVideoSource(NULL), fChannelNo(chn), fStreamDesc(desc)
 {
 }
 
-H264LiveStreamInput::~H264LiveStreamInput() {
+LiveStreamInput::~LiveStreamInput() {
 	if (fOurVideoSource != NULL) {
-		H264LiveStreamSource::handleClosure(fOurVideoSource);
+		LiveVideoStreamSource::handleClosure(fOurVideoSource);
 	}
 }

@@ -14,6 +14,7 @@
 #include "hi3518/media_sys_ctrl.h"
 #include "hi3518/media_video.h"
 #include "hi3518/media_osd.h"
+#include "hi3518/media_audio.h"
 #endif
 #include "rtsp/rtsp.h"
 #include "video_param_change_handler.h"
@@ -32,6 +33,7 @@ typedef struct _IpcamIMediaPrivate
 {
     IpcamMediaSysCtrl *sys_ctrl;
     IpcamMediaVideo *video;
+	IpcamMediaAudio *audio;
     IpcamOSD *osd;
 	gboolean initialized;
     gchar *osd_buffer;
@@ -93,6 +95,9 @@ static void ipcam_imedia_finalize(GObject *object)
     g_clear_object(&priv->sys_ctrl);
     g_clear_object(&priv->video);
 
+	ipcam_media_audio_stop(priv->audio);
+	ipcam_media_audio_free(priv->audio);
+
 	ipcam_osd_destroy(priv->osd);
     g_free(priv->model);
     g_free(priv->train_num);
@@ -123,6 +128,8 @@ static void ipcam_imedia_init(IpcamIMedia *self)
     regcomp(&priv->reg, pattern, REG_EXTENDED | REG_NEWLINE);
     priv->sys_ctrl = g_object_new(IPCAM_MEDIA_SYS_CTRL_TYPE, NULL);
     priv->video = g_object_new(IPCAM_MEDIA_VIDEO_TYPE, "app", self, NULL);
+
+	priv->audio = ipcam_media_audio_new();
 
 	priv->model = NULL;
     priv->train_num = NULL;
@@ -1135,6 +1142,7 @@ void ipcam_imedia_got_video_param(IpcamIMedia *imedia, JsonNode *body, gboolean 
         int i;
 
         ipcam_media_video_start_livestream(priv->video, priv->stream_desc, priv->od_rgn_info);
+		ipcam_media_audio_start(priv->audio, priv->stream_desc);
 		priv->osd = ipcam_osd_new(font);
         for (i = MASTER_CHN; i < STREAM_CHN_LAST; i++)
         {
