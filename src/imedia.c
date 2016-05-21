@@ -264,8 +264,8 @@ static void video_stat_poll_routine(IpcamIMedia *imedia)
         if (vwdt->timeout_count >= 30) {
             // Reset system
             printf("Reseting System...\n");
-            sync();
-            reboot(RB_AUTOBOOT);
+            //sync();
+            //reboot(RB_AUTOBOOT);
         }
     }
 }

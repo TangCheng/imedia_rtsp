@@ -129,7 +129,7 @@ gint32 ipcam_video_process_subsystem_start(IpcamVideoProcessSubsystem *self, Str
 
     stGrpAttr.u32MaxW = priv->image_width;
     stGrpAttr.u32MaxH = priv->image_height;
-    stGrpAttr.bDrEn = HI_TRUE;
+    stGrpAttr.bDrEn = HI_FALSE;
     stGrpAttr.bDbEn = HI_FALSE;
     stGrpAttr.bIeEn = HI_FALSE;
     stGrpAttr.bNrEn = HI_TRUE;
@@ -166,7 +166,7 @@ gint32 ipcam_video_process_subsystem_start(IpcamVideoProcessSubsystem *self, Str
 
     /*** enable vpss chn, without frame ***/
     /* Set Vpss Chn attr */
-    stChnAttr.bSpEn = HI_FALSE;
+    stChnAttr.bSpEn = HI_TRUE;
     stChnAttr.bFrameEn = HI_FALSE;
     stChnAttr.stFrame.u32Color[VPSS_FRAME_WORK_LEFT] = 0;
     stChnAttr.stFrame.u32Color[VPSS_FRAME_WORK_RIGHT] = 0;
@@ -183,6 +183,18 @@ gint32 ipcam_video_process_subsystem_start(IpcamVideoProcessSubsystem *self, Str
         g_critical("HI_MPI_VPSS_SetChnAttr failed with %#x\n", s32Ret);
         return HI_FAILURE;
     }
+
+	VPSS_CHN_MODE_S chn_mode;
+	chn_mode.enChnMode = VPSS_CHN_MODE_USER;
+	chn_mode.u32Width = priv->image_width;
+	chn_mode.u32Height = priv->image_height;
+	chn_mode.bDouble = HI_FALSE;
+	chn_mode.enPixelFormat = PIXEL_FORMAT_YUV_SEMIPLANAR_420;
+	if ((s32Ret = HI_MPI_VPSS_SetChnMode(VpssGrp, VpssChn, &chn_mode)) != HI_SUCCESS) {
+		g_critical("HI_MPI_VPSS_SetChnMode %d-%d failed %#x\n",
+		           VpssGrp, VpssChn, s32Ret);
+		return HI_FAILURE;
+	}
     
     s32Ret = HI_MPI_VPSS_EnableChn(VpssGrp, VpssChn);
     if (s32Ret != HI_SUCCESS)
@@ -191,7 +203,7 @@ gint32 ipcam_video_process_subsystem_start(IpcamVideoProcessSubsystem *self, Str
         return HI_FAILURE;
     }
 
-
+#if 0
 	VpssChn = 1;
     /*** enable vpss chn, without frame ***/
     /* Set Vpss Chn attr */
@@ -219,6 +231,7 @@ gint32 ipcam_video_process_subsystem_start(IpcamVideoProcessSubsystem *self, Str
         g_critical("HI_MPI_VPSS_EnableChn failed with %#x\n", s32Ret);
         return HI_FAILURE;
     }
+#endif
 
     /*** start vpss group ***/
     s32Ret = HI_MPI_VPSS_StartGrp(VpssGrp);
@@ -247,12 +260,14 @@ gint32 ipcam_video_process_subsystem_stop(IpcamVideoProcessSubsystem *self)
     {
         g_critical("HI_MPI_VPSS_DisableChn failed with %#x!\n", s32Ret);
     }
+#if 0
     VpssChn = 1;
     s32Ret = HI_MPI_VPSS_DisableChn(VpssGrp, VpssChn);
     if (s32Ret != HI_SUCCESS)
     {
         g_critical("HI_MPI_VPSS_DisableChn failed with %#x!\n", s32Ret);
     }
+#endif
     
     s32Ret = HI_MPI_VPSS_DestroyGrp(VpssGrp);
     if (s32Ret != HI_SUCCESS)

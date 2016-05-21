@@ -228,7 +228,8 @@ static gint32 ipcam_media_video_venc_bind_vpss(IpcamMediaVideo *self)
     stSrcChn.enModId = HI_ID_VPSS;
     stSrcChn.s32DevId = 0;
     stSrcChn.s32ChnId = 0;
-    stDestChn.enModId = HI_ID_GROUP;
+
+	stDestChn.enModId = HI_ID_GROUP;
     stDestChn.s32DevId = 0;
     stDestChn.s32ChnId = 0;
     s32Ret = HI_MPI_SYS_Bind(&stSrcChn, &stDestChn);
@@ -238,12 +239,9 @@ static gint32 ipcam_media_video_venc_bind_vpss(IpcamMediaVideo *self)
     }
 
 	/* Slave channel */
-    stSrcChn.enModId = HI_ID_VPSS;
-    stSrcChn.s32DevId = 0;
-    stSrcChn.s32ChnId = 1;
     stDestChn.enModId = HI_ID_GROUP;
     stDestChn.s32DevId = 1;
-    stDestChn.s32ChnId = 1;
+    stDestChn.s32ChnId = 0;
     s32Ret = HI_MPI_SYS_Bind(&stSrcChn, &stDestChn);
     if (s32Ret != HI_SUCCESS)
     {
@@ -263,10 +261,20 @@ static gint32 ipcam_media_video_venc_unbind_vpss(IpcamMediaVideo *self)
     stSrcChn.s32DevId = 0;
     stSrcChn.s32ChnId = 0;
 
+	/* Master Channel */
     stDestChn.enModId = HI_ID_GROUP;
     stDestChn.s32DevId = 0;
     stDestChn.s32ChnId = 0;
+    s32Ret = HI_MPI_SYS_UnBind(&stSrcChn, &stDestChn);
+    if (s32Ret != HI_SUCCESS)
+    {
+        g_critical("%s: HI_MPI_SYS_UnBind failed with %#x!\n", __FUNCTION__, s32Ret);
+    }
 
+	/* Slave Channel */
+    stDestChn.enModId = HI_ID_GROUP;
+    stDestChn.s32DevId = 1;
+    stDestChn.s32ChnId = 0;
     s32Ret = HI_MPI_SYS_UnBind(&stSrcChn, &stDestChn);
     if (s32Ret != HI_SUCCESS)
     {

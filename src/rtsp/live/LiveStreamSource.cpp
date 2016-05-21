@@ -155,7 +155,7 @@ void LiveVideoStreamSource::deliverFrame() {
     stStream.u32PackCount = stStat.u32CurPacks;
     stStream.u32Seq = 0;
     memset(&stStream.stH264Info, 0, sizeof(VENC_STREAM_INFO_H264_S));
-    s32Ret = HI_MPI_VENC_GetStream(fChannelNo, &stStream, HI_TRUE);
+    s32Ret = HI_MPI_VENC_GetStream(fChannelNo, &stStream, HI_FALSE);
     if (HI_SUCCESS != s32Ret)
     {
         g_critical("HI_MPI_VENC_GetStream failed with %#x!\n", s32Ret);

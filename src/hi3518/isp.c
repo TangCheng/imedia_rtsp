@@ -175,6 +175,13 @@ static void ipcam_isp_init_input_timing(IpcamIsp *self, ISP_INPUT_TIMING_S *stIn
             stInputTiming->u16VerWndLength = 1080;
         }
     }
+	else if (g_str_equal(priv->sensor_type, "AR0331")) {
+		stInputTiming->enWndMode = ISP_WIND_ALL;
+		stInputTiming->u16HorWndStart = 0;
+		stInputTiming->u16HorWndLength = 1920;
+		stInputTiming->u16VerWndStart = 0;
+		stInputTiming->u16VerWndLength = 1080;
+	}
 }
 
 static void physical_address_writel(unsigned long phy_addr, HI_U32 val)

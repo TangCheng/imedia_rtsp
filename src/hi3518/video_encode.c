@@ -235,7 +235,7 @@ gint32 ipcam_video_encode_start(IpcamVideoEncode *self, StreamDescriptor desc[])
 
         if (desc[chn].v_desc.bit_rate_type == CONSTANT_BIT_RATE)
         {
-            stAttr.stRcAttr.enRcMode = VENC_RC_MODE_H264CBR;
+            stAttr.stRcAttr.enRcMode = VENC_RC_MODE_H264CBRv2;
             stAttr.stRcAttr.stAttrH264Cbr.u32BitRate = desc[chn].v_desc.bit_rate;
             stAttr.stRcAttr.stAttrH264Cbr.u32ViFrmRate = input_fps;
             stAttr.stRcAttr.stAttrH264Cbr.fr32TargetFrmRate = output_fps;
@@ -245,13 +245,13 @@ gint32 ipcam_video_encode_start(IpcamVideoEncode *self, StreamDescriptor desc[])
         }
         else if (desc[chn].v_desc.bit_rate_type == VARIABLE_BIT_RATE)
         {
-            stAttr.stRcAttr.enRcMode = VENC_RC_MODE_H264VBR;
+            stAttr.stRcAttr.enRcMode = VENC_RC_MODE_H264VBRv2;
             stAttr.stRcAttr.stAttrH264Vbr.u32MaxBitRate = desc[chn].v_desc.bit_rate;
             stAttr.stRcAttr.stAttrH264Vbr.u32ViFrmRate = input_fps;
             stAttr.stRcAttr.stAttrH264Vbr.fr32TargetFrmRate = output_fps;
             stAttr.stRcAttr.stAttrH264Vbr.u32Gop = output_fps;
-            stAttr.stRcAttr.stAttrH264Vbr.u32MinQp = 0;
-            stAttr.stRcAttr.stAttrH264Vbr.u32MaxQp = 51;
+            stAttr.stRcAttr.stAttrH264Vbr.u32MinQp = 24;
+            stAttr.stRcAttr.stAttrH264Vbr.u32MaxQp = 45;
             stAttr.stRcAttr.stAttrH264Vbr.u32StatTime = 1;
         }
         else
@@ -274,7 +274,7 @@ gint32 ipcam_video_encode_start(IpcamVideoEncode *self, StreamDescriptor desc[])
             return HI_FAILURE;
         }
 
-        if ((s32Ret = HI_MPI_VENC_SetMaxStreamCnt(VeChn, 2)) != HI_SUCCESS) {
+        if ((s32Ret = HI_MPI_VENC_SetMaxStreamCnt(VeChn, 4)) != HI_SUCCESS) {
             g_critical("HI_MPI_VENC_SetMaxStreamCnt %d failed [%#x]\n",
                        VeChn, s32Ret);
         }
@@ -301,27 +301,34 @@ gint32 ipcam_video_encode_start(IpcamVideoEncode *self, StreamDescriptor desc[])
             return HI_FAILURE;
         }
 
-        guint cropped_width, cropped_height;
+		GROUP_CROP_CFG_S stGrpCropCfg;
+		RECT_S *rect = &stGrpCropCfg.stRect;
         /* calculate the cropped image size */
         /* input_width / input_height > image_width / image_height */
         if (input_width * image_height > input_height * image_width) {
-            cropped_height = input_height;
-            cropped_width = cropped_height * image_width / image_height;
+			// crop width
+			stGrpCropCfg.bEnable = HI_TRUE;
+			rect->u32Height = input_height;
+			rect->u32Width = image_width * input_height / image_height;
+			rect->s32X = ((input_width - rect->u32Width) / 2) & 0xFFFFFFF0;
+			rect->s32Y = 0;
         }
-        else {
-            cropped_width = input_width;
-            cropped_height = cropped_width * image_height / image_width;
+        else if (input_width * image_height < input_height * image_width) {
+			// crop height
+			stGrpCropCfg.bEnable = HI_TRUE;
+			rect->u32Width = input_width;
+			rect->u32Height = image_height * input_width / image_width;
+			rect->s32X = 0;
+			rect->s32Y = (input_height - rect->u32Height) / 2;
         }
-
-        GROUP_CROP_CFG_S stGrpCropCfg = {
-            .bEnable = (input_width * image_height != input_height * image_width) ? HI_TRUE : HI_FALSE,
-            .stRect = {
-                .s32X = ((input_width - cropped_width) / 2) & (0xFFFFFFF0),
-                .s32Y = (input_height - cropped_height) / 2,
-                .u32Width = cropped_width & 0xFFFFFFF0,
-                .u32Height = cropped_height & 0xFFFFFFF0
-            }
-        };
+		else {
+			// crop is not necessary
+			stGrpCropCfg.bEnable = HI_FALSE;
+			rect->u32Width = 0;
+			rect->u32Height = 0;
+			rect->s32X = 0;
+			rect->s32Y = 0;
+		}
 
         s32Ret = HI_MPI_VENC_SetGrpCrop(VeGroup, &stGrpCropCfg);
         if (HI_SUCCESS != s32Ret) {
