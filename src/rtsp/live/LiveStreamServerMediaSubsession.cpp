@@ -35,8 +35,8 @@ LiveVideoStreamServerMediaSubsession::createNew(UsageEnvironment& env,
 LiveVideoStreamServerMediaSubsession::LiveVideoStreamServerMediaSubsession(UsageEnvironment& env,
 								       LiveStreamInput& streamInput)
     : OnDemandServerMediaSubsession(env, True /* always reuse the first source */),
-      fAuxSDPLine(NULL), /*fDoneFlag(0), *//*fDummyRTPSink(NULL),*/
-    fLiveStreamInput(streamInput) {
+      fStreamSource(NULL), fAuxSDPLine(NULL), fDoneFlag(0), fDummyRTPSink(NULL),
+      fLiveStreamInput(streamInput) {
 }
 
 LiveVideoStreamServerMediaSubsession::~LiveVideoStreamServerMediaSubsession() {
@@ -104,10 +104,34 @@ char const* LiveVideoStreamServerMediaSubsession::getAuxSDPLine(RTPSink* rtpSink
 FramedSource* LiveVideoStreamServerMediaSubsession::createNewStreamSource(unsigned /*clientSessionId*/, unsigned& estBitrate) {
   estBitrate = 5000; // kbps, estimate
 
-  // Create the video source:
+  // StreamSource has already been created
+  if (fStreamSource) {
+    LiveVideoStreamSource *liveSource =
+		  dynamic_cast<LiveVideoStreamSource*>(fStreamSource->inputSource());
+    liveSource->referenceCount()++;
+    return fStreamSource;
+  }
  
   // Create a framer for the Video Elementary Stream:
-  return H264VideoStreamDiscreteFramer::createNew(envir(), fLiveStreamInput.videoSource());
+  fStreamSource = H264VideoStreamDiscreteFramer::createNew(envir(), fLiveStreamInput.videoSource());
+  return fStreamSource;
+}
+
+void LiveVideoStreamServerMediaSubsession::
+closeStreamSource(FramedSource *inputSource)
+{
+  // Sanity check, should not happend
+  if (fStreamSource != inputSource) {
+    Medium::close(inputSource);
+    return;
+  }
+
+  LiveVideoStreamSource *liveSource = 
+      dynamic_cast<LiveVideoStreamSource*>(fStreamSource->inputSource());
+  if (--liveSource->referenceCount() == 0) {
+    Medium::close(fStreamSource);
+    fStreamSource = NULL;
+  }
 }
 
 RTPSink* LiveVideoStreamServerMediaSubsession

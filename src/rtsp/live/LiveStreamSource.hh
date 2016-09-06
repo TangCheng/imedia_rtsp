@@ -35,6 +35,7 @@ class LiveVideoStreamSource: public FramedSource
 public:
     static LiveVideoStreamSource* createNew(UsageEnvironment& env, StreamChannel chn);
 
+    int &referenceCount() { return fReferenceCount; }
 protected:
     LiveVideoStreamSource(UsageEnvironment& env, StreamChannel chn);
     // called only by createNew(), or by subclass constructors
@@ -43,13 +44,14 @@ protected:
 private:
     // redefined virtual functions:
     virtual void doGetNextFrame();
-    //virtual void doStopGettingFrames(); // optional
+    virtual void doStopGettingFrames();
 	static void deliverFrame0(void *clientData, int mask);
     void deliverFrame();
 
 private:
     StreamChannel fChannelNo;
     int vencFd;
+	int fReferenceCount;
 };
 
 class LiveAudioStreamSource: public FramedSource

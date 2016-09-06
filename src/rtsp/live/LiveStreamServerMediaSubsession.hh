@@ -22,9 +22,8 @@ along with this library; if not, write to the Free Software Foundation, Inc.,
 #ifndef _LIVE_STREAM_SERVER_MEDIA_SUBSESSION_HH
 #define _LIVE_STREAM_SERVER_MEDIA_SUBSESSION_HH
 
-#ifndef _ON_DEMAND_SERVER_MEDIA_SUBSESSION_HH
+#include <H264VideoRTPSink.hh>
 #include <OnDemandServerMediaSubsession.hh>
-#endif
 #include "LiveStreamInput.hh"
 
 class LiveVideoStreamServerMediaSubsession: public OnDemandServerMediaSubsession {
@@ -50,11 +49,13 @@ protected: // redefined virtual functions
 
   virtual FramedSource* createNewStreamSource(unsigned clientSessionId,
 					      unsigned& estBitrate);
+  virtual void closeStreamSource(FramedSource *inputSource);
   virtual RTPSink* createNewRTPSink(Groupsock* rtpGroupsock,
                                     unsigned char rtpPayloadTypeIfDynamic,
 				    FramedSource* inputSource);
 
 private:
+  FramedFilter *fStreamSource;
   char* fAuxSDPLine;
   char fDoneFlag; // used when setting up "fAuxSDPLine"
   RTPSink* fDummyRTPSink; // ditto

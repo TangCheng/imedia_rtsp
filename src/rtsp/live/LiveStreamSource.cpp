@@ -67,7 +67,7 @@ static void ClearVideoStreamBuffer(StreamChannel chn)
 }
 
 LiveVideoStreamSource::LiveVideoStreamSource(UsageEnvironment& env, StreamChannel chn)
-    : FramedSource(env), fChannelNo(chn)
+    : FramedSource(env), fChannelNo(chn), fReferenceCount(1)
 {
     TaskScheduler &scheduler = envir().taskScheduler();
 
@@ -76,32 +76,24 @@ LiveVideoStreamSource::LiveVideoStreamSource(UsageEnvironment& env, StreamChanne
     HI_MPI_VENC_RequestIDRInst(fChannelNo);
 
 	vencFd = HI_MPI_VENC_GetFd(fChannelNo);
-
-    scheduler.setBackgroundHandling(vencFd, SOCKET_READABLE,
-                                    (TaskScheduler::BackgroundHandlerProc*)deliverFrame0,
-                                    this);
 }
 
 LiveVideoStreamSource::~LiveVideoStreamSource() {
-    envir().taskScheduler().disableBackgroundHandling(vencFd);
 }
 
 void LiveVideoStreamSource::doGetNextFrame() {
     // This function is called (by our 'downstream' object) when it asks for new data.
 
-    // Note: If, for some reason, the source device stops being readable (e.g., it gets closed), then you do the following:
-    if (0 /* the source stops being readable */ /*%%% TO BE WRITTEN %%%*/) {
-        handleClosure(this);
-        return;
-    }
+	TaskScheduler &scheduler = envir().taskScheduler();
+    scheduler.setBackgroundHandling(vencFd, SOCKET_READABLE,
+                                    (TaskScheduler::BackgroundHandlerProc*)deliverFrame0,
+                                    this);
+}
 
-    // If a new frame of data is immediately available to be delivered, then do this now:
-    if (0 /* a new frame of data is immediately available to be delivered*/ /*%%% TO BE WRITTEN %%%*/) {
-        deliverFrame();
-    }
-
-    // No new data is immediately available to be delivered.  We don't do anything more here.
-    // Instead, our event trigger must be called (e.g., from a separate thread) when new data becomes available.
+void LiveVideoStreamSource::doStopGettingFrames()
+{
+	TaskScheduler &scheduler = envir().taskScheduler();
+    scheduler.disableBackgroundHandling(vencFd);
 }
 
 void LiveVideoStreamSource::deliverFrame0(void *clientData, int mask)
@@ -134,8 +126,10 @@ void LiveVideoStreamSource::deliverFrame() {
     // Note the code below.
 
     // we're not ready for the data yet
-    if (!isCurrentlyAwaitingData())
+    if (!isCurrentlyAwaitingData()) {
+		printf("Frame LOSS!!!!!!!!\n");
         return;
+	}
 
     VENC_CHN_STAT_S stStat;
     VENC_STREAM_S stStream;
@@ -198,6 +192,8 @@ void LiveVideoStreamSource::deliverFrame() {
     {
         g_critical("HI_MPI_VENC_ReleaseStream failed with %#x!\n", s32Ret);
     }
+
+	doStopGettingFrames();
 
     // After delivering the data, inform the reader that it is now available:
     FramedSource::afterGetting(this);
