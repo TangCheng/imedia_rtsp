@@ -113,6 +113,12 @@ ipcam_osd_item_round_size(IpcamOSDItem *item, HI_U32 value)
 	return item->invert_color ? ((value + 15) & ~0x0F) : ((value + 1) & ~0x1);
 }
 
+gboolean
+ipcam_osd_item_is_enabled(IpcamOSDItem *item)
+{
+	return item->enabled;
+}
+
 void
 ipcam_osd_item_enable(IpcamOSDItem *item)
 {
@@ -341,8 +347,10 @@ ipcam_osd_item_set_font_size(IpcamOSDItem *item, int font_size)
 
 	item->font_size = font_size;
 
-	/* Re-draw item */
-	ipcam_osd_item_draw_text(item);
+	if (item->enabled && item->text) {
+		/* Re-draw item */
+		ipcam_osd_item_draw_text(item);
+	}
 }
 
 void

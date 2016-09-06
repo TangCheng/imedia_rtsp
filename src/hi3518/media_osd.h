@@ -14,6 +14,7 @@ struct _IpcamOSD;
 typedef struct _IpcamOSD IpcamOSD;
 
 /* IpcamOSDItem member functions */
+gboolean        ipcam_osd_item_is_enabled(IpcamOSDItem *item);
 void            ipcam_osd_item_enable(IpcamOSDItem *item);
 void            ipcam_osd_item_disable(IpcamOSDItem *item);
 void            ipcam_osd_item_set_text(IpcamOSDItem *item, char const *text);

@@ -624,6 +624,8 @@ void ipcam_imedia_got_osd_parameter(IpcamIMedia *imedia, JsonNode *body)
     const char *key[] = {"master", "slave"};
     gint i = 0;
 
+	g_return_if_fail(priv->initialized);
+
     res_object = json_object_get_object_member(json_node_get_object(body), "items");
 
     for (i = 0; i < ARRAY_SIZE(key); i++)
@@ -667,10 +669,17 @@ void ipcam_imedia_got_osd_parameter(IpcamIMedia *imedia, JsonNode *body)
 					ipcam_osd_item_set_fgcolor(item, &color);
                 }
 
-				ipcam_osd_item_disable(item);
-				if (enabled) {
+				if (json_object_has_member(osd_object, "text")) {
+					const gchar *text = json_object_get_string_member(osd_object, "text");
+					ipcam_osd_item_set_text(item, text);
+				}
+
+				if (enabled && !ipcam_osd_item_is_enabled(item)) {
 					ipcam_osd_item_enable(item);
 					ipcam_osd_item_draw_text(item);
+				}
+				else if (!enabled && ipcam_osd_item_is_enabled(item)) {
+					ipcam_osd_item_disable(item);
 				}
             }
             g_list_free(members);
@@ -1164,7 +1173,7 @@ void ipcam_imedia_got_video_param(IpcamIMedia *imedia, JsonNode *body, gboolean 
 
 		priv->initialized = TRUE;
     }
-    else
+    else if (priv->initialized)
     {
         int i;
 
